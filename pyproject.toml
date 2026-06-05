@@ -1,0 +1,166 @@
+[project]
+name = "aigw-rest-service"
+version = "1.4.0"
+description = "Python AIGateWay шаблон для разработки GenAI Ready REST API микросервисов"
+authors = [
+    { name = "Michael S2pac", email = "MVStupak@sberbank.ru" }
+]
+maintainers = [
+    { name = "Vyacheslav Dulnev", email = "VVaDulnev@sberbank.ru" },
+    { name = "Nickolay Evsin", email = "NOEvsin@sberbank.ru" },
+    { name = "Grigory Elkin", email = "GVElkin@sberbank.ru" },
+    { name = "AI GateWay", email = "OnlineML360@sberbank.ru" },
+]
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "fastapi>=0.115.6",
+    "asyncio>=3.4.3",
+    "loguru>=0.7.3",
+    "pydantic>=2.10.5",
+    "uvicorn>=0.34.0",
+    "pydantic-settings>=2.7.0",
+    "python-dotenv>=1.0.0",
+    "pytz>=2025.1",
+    "aiofiles>=24.1.0",
+    "ujson>=5.10.0",
+    "gigachat>=0.1.39.post1",
+    "langchain-gigachat>=0.3.12",
+    "python-multipart (>=0.0.22,<0.0.23)",
+    "pandas (>=3.0.0,<4.0.0)",
+    "openpyxl (>=3.1.5,<4.0.0)",
+    "tavily (>=1.1.0,<2.0.0)",
+    "matplotlib (>=3.10.8,<4.0.0)",
+    "xlwings (>=0.33.20,<0.34.0)",
+    "nltk (>=3.9.2,<4.0.0)",
+    "scipy (>=1.17.1,<2.0.0)",
+    "langgraph (>=1.2.4,<2.0.0)",
+    "langchain (>=1.3.4,<2.0.0)",
+    "langchain-ollama (>=1.1.0,<2.0.0)",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.2",
+    "pylint>=3.3.1",
+    "pytest>=8.4.0",
+    "pytest-env>=1.1.5",
+    "pytest-asyncio>=0.24.0",
+    "pytest-mock>=3.14.1",
+    "ruff>=0.13.1",
+    "isort>=6.0.1",
+    "black>=25.1.0",
+    "coverage==7.10.6",
+    "pytest-cov==4.1.0",
+]
+
+[project.urls]
+repository = "https://stash.delta.sbrf.ru/projects/AIGATEWAY/repos/rest_template"
+
+[project.scripts]
+aigw-rest-service-sh = "aigw_service.__main__:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [{ include = "aigw_service", from = "src" }]
+
+# [[tool.poetry.source]]
+# name = "sberosc"
+# url = "https://sberosc.sigma.sbrf.ru/repo/pypi/simple"
+# priority = "primary"
+
+
+# [[tool.poetry.source]]
+# name = "nexus-release"
+# url = "https://nexus-ci.delta.sbrf.ru/repository/pypi-release/simple/"
+# priority = "supplemental"
+
+
+
+[tool.ruff]
+line-length = 119
+indent-width = 4
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+extend-select = [
+    "A",
+    "B",
+    "C4",
+    "C90",
+    "I",
+    "Q",
+    "PERF",
+    "PT",
+    "RUF100",
+    "UP",
+    "W",
+]
+ignore = [
+    "UP007",
+    "UP015",
+    "UP045",
+    "B008",
+    "B028",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.isort]
+profile = "black"
+skip = [".venv", "venv"]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 120
+
+[tool.black]
+line-length = 119
+
+[tool.pylint.'MESSAGES CONTROL']
+max-line-length = 120
+disable = """
+    too-many-locals,
+    too-many-arguments,
+    too-many-positional-arguments,
+    not-callable,
+    missing-class-docstring,
+    missing-module-docstring,
+    too-few-public-methods,
+    broad-except,
+    import-outside-toplevel,
+    missing-function-docstring
+"""
+
+[tool.pytest.ini_options]
+pythonpath = [".", "src"]
+# Пути к тестам
+testpaths = ["tests"]
+# Автоматически определяет как запускать asyncio тесты
+asyncio_mode = "auto"
+# Параметры запуска тестов
+addopts = [
+    "-v", # подробный вывод тестов
+    "-s", # показывает вывод (print, logging) в консоль
+    "-W", "ignore::DeprecationWarning", # игнорировать DeprecationWarning
+    "--maxfail=1", # остановка после первой ошибки (лучше чем -x)
+    "--tb=short", # короткий traceback для CI
+    "--cov=src", # измерение покрытия
+    "--cov-report=xml:coverage.xml", # отчет для SonarQube
+    "--cov-report=term-missing", # вывод непокрытых строк
+    "--junitxml=test-results.xml", # отчет для Jenkins
+]
+# Переменные окружения
+env = [
+    "GIGACHAT_HOST=gigachat-ift.sberdevices.delta.sbrf.ru",
+    "GIGACHAT_PORT=443",
+]

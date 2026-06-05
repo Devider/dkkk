@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: Copilot Agent API
+  version: 1.0.0
+  description: API для агента-копилота анализа CashFlow моделей
+
+paths:
+  /copilot_agent:
+    post:
+      operationId: invoke_copilot
+      summary: "Агент-копилот, который может провести анализ excel файла с CashFlow моделью."
+      description: "Эндпоинт, вызывающий копилота КИ. Копилот может выполнять аналитические операции с файлами пользователя, ранее загруженными на сервер, а именно: тестировать сценарии в заданных диапазонах."
+      tags:
+        - copilot
+      parameters:
+        - name: x-trace-id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+            pattern: "^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$"
+          description: "Уникальный идентификатор экземпляра процесса (основной операции). Сквозной ID всей цепочки вызовов."
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: x-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}\d{8}$"
+            maxLength: 10
+          description: "КЭ системы отправляющей запрос."
+          example: "CI00163870"
+        - name: x-session-id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+            pattern: "^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$"
+          description: "ID пользовательской сессии. Можно использовать для сессий внутри AIGW (например, для БД)."
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: x-request-time
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+            pattern: "^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(?:\.\d+)?(?:([Zz])|([+-](?:[01][0-9]|2[0-3]):[0-5][0-9]))$"
+            maxLength: 32
+          description: "Время отправки запроса в формате RFC-3339 (ISO 8601)."
+          example: "2025-04-08T11:31:45.748539+03:00"
+        - name: x-user-id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+            pattern: "^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$"
+          description: "ID пользователя."
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopilotAgentRequest'
+            examples:
+              basic_analysis:
+                summary: Пример запроса анализа файла
+                value:
+                  message: "Привет! Проанализируй Methanex_Finmodel.xlsx со значением метанола 2025 (450,500) и шагом 5. Покажи мне значения debt/ebitda 2025 для этих значений."
+              scenario_testing:
+                summary: Пример тестирования сценариев
+                value:
+                  message: "Протестируй сценарии с разными значениями цены на метанол от 400 до 600 с шагом 25. Покажи NPV и IRR для каждого сценария."
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CopilotAgentResponse'
+              examples:
+                success_analysis:
+                  summary: Успешный анализ
+                  value:
+                    content: "Привет! Я проанализировал Methanex_Finmodel.xlsx со значениями метанола от 450 до 500 с шагом 5. Вот результаты debt/ebitda за 2025 год: 450 - 2.1x, 455 - 2.0x, 460 - 1.9x, 465 - 1.8x, 470 - 1.7x, 475 - 1.6x, 480 - 1.5x, 485 - 1.4x, 490 - 1.3x, 495 - 1.2x, 500 - 1.1x. Наилучший показатель при значении 500."
+                success_scenario:
+                  summary: Успешное тестирование сценариев
+                  value:
+                    content: "Протестировал сценарии с ценой на метанол от 400 до 600. Результаты: при 400 - NPV $1.2M, IRR 12%; при 450 - NPV $1.8M, IRR 15%; при 500 - NPV $2.5M, IRR 18%; при 550 - NPV $3.1M, IRR 21%; при 600 - NPV $3.8M, IRR 24%. Оптимальный сценарий при цене 600."
+        '424':
+          description: Failed Dependency Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailedDependencyResponse'
+              examples:
+                dependency_error:
+                  summary: Ошибка зависимостей
+                  value:
+                    error: "Service dependency failed"
+                    code: "DEPENDENCY_ERROR"
+                    details: "External service unavailable"
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        loc:
+                          type: array
+                          items:
+                            type: string
+                        msg:
+                          type: string
+                        type:
+                          type: string
+              examples:
+                validation_error:
+                  summary: Ошибка валидации
+                  value:
+                    detail:
+                      - loc: ["body", "message"]
+                        msg: "ensure this value has at least 4 characters"
+                        type: "value_error.any_str.min_length"
+      x-AI-ready: true
+
+components:
+  schemas:
+    CopilotAgentRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: "Запрос пользователя"
+          minLength: 4
+          maxLength: 2000
+          example: "Привет! Проанализируй Methanex_Finmodel.xlsx со значением метанола 2025 (450,500) и шагом 5. Покажи мне значения debt/ebitda 2025 для этих значений."
+      additionalProperties: false
+
+    CopilotAgentResponse:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: "Ответ от Copilot Agent"
+          maxLength: 10000
+          example: "Привет! Я проанализировал Methanex_Finmodel.xlsx со следующими параметрами: <Параметры> и получил следующие результаты: <результаты>"
+      additionalProperties: false
+
+    FailedDependencyResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: "Описание ошибки"
+          example: "External service unavailable"
+        code:
+          type: string
+          description: "Код ошибки"
+          example: "SERVICE_UNAVAILABLE"
+        details:
+          type: string
+          description: "Детали ошибки"
+          example: "Database connection timeout"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
