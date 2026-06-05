@@ -12,7 +12,7 @@ python3 src/aigw_service/__main__.py
 # lint / format — MUST run `ruff check --fix src` then `ruff format src`
 ruff check src           # check only
 ruff check --fix src     # auto-fix
-ruff format src          # format (also: isort src && black src)
+ruff format src          # format
 pylint src               # must score >7
 
 # test
@@ -35,6 +35,7 @@ poetry update            # after pyproject.toml changes
 - **Model backend**: `MODEL_TO_USE=OLLAMA` or `GIGACHAT` (env var). `LOCAL` flag controls cert injection.
 - **Store backend**: `STORE_TO_USE=MEMORY` or `PANGOLIN` (env var). Default is `MEMORY`.
 - **Agent**: LangGraph state machine in `api/v1/services.py` — init → analyze → execute_tool → analyze (loop) → END. Tools in `api/v1/tools.py`.
+- **Excel backend**: `api/v1/excel_handler.py` — cross-platform Excel handler using **openpyxl** (I/O) + **LibreOffice** (formula recalculation). Replaces xlwings (Windows-only).
 - **Private dep stub**: `sber-aigw` replaced with local stubs in `src/aigw_modules/`. Only 3 imports used from it (all in `context.py`). No auth needed.
 - **All deps from public PyPI** — both private repos (`sberosc`, `nexus-release`) were removed.
 
@@ -48,3 +49,12 @@ poetry update            # after pyproject.toml changes
 - Duplicated `giga_test.py` at root of `aigw_service` — standalone script, not part of app.
 - Coverage report: `--cov=src`, output to `coverage.xml` + `term-missing`. Run `pytest tests` to generate.
 - Cert path validators in `config/gigachat/config.py` and `config/pangolin/config.py` skip empty strings — no cert files needed when using Ollama or MEMORY store.
+
+## Linux Excel setup (required for formula recalculation)
+
+Excel tools work without real Microsoft Excel. Formula recalculation uses **LibreOffice**:
+```bash
+sudo apt-get install libreoffice-calc graphviz
+```
+`graphviz` is optional — dependency graph tool falls back to saving `.dot` files if the `dot` command is missing.
+No configuration needed — `ExcelWorkbook.calculate()` calls `libreoffice --headless --convert-to` automatically.

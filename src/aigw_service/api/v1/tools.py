@@ -11,13 +11,13 @@ from typing import Any, Optional
 import numpy as np
 import openpyxl
 import pandas as pd
-import xlwings as xw
 from langchain.tools import tool
 from nltk.stem.snowball import RussianStemmer
 from openpyxl.formula.tokenizer import Tokenizer
 from pandas import ExcelWriter
 from pydantic import BaseModel, Field  # type: ignore
 
+from aigw_service.api.v1.excel_handler import ExcelWorkbook, copy_to_temp
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
@@ -170,100 +170,83 @@ def analyze_model_inputs_for_target(
             return ModelInputAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
         start_time = time.perf_counter()
-        with xw.App(visible=False) as app:
-            wb = app.books.open(file_path)
+        with ExcelWorkbook(file_path) as xl:
+            input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
+            output_mapping = create_output_mapping(xl.get_all_data("Outputs"))
+
+            # Find and validate output cell
             try:
-                # Configure Excel for better performance
-                app.screen_updating = False
-                app.calculation = "manual"
-
-                # Get sheets and create mappings
-                inputs_sheet = wb.sheets["Inputs"]
-                outputs_sheet = wb.sheets["Outputs"]
-                input_mapping = create_input_mapping(inputs_sheet)
-                output_mapping = create_output_mapping(outputs_sheet)
-
-                # Find and validate output cell
-                try:
-                    output_info = find_matching_outputs(output_name, output_mapping)
-                    if not output_info:
-                        return ModelInputAnalysisToolResult(
-                            status="ERROR", result=f'Выходной параметр "{output_name}" не найден', content={}
-                        )
-                    target_year = extract_year_from_query(output_name)
-                    if not target_year:
-                        return ModelInputAnalysisToolResult(
-                            status="ERROR",
-                            result=f'Не удалось определить год из параметра "{output_name}"',
-                            content={},
-                        )
-                    actual_output_name = list(output_info.keys())[0]
-                    output_cell = get_output_cell(outputs_sheet, output_mapping, actual_output_name, target_year)
-
-                    # Add logging for output cell matching
-                    logger.info(
-                        f"OUTPUT MATCHING: Output '{output_name}' → Found: '{actual_output_name}' at {output_cell.address} = {output_cell.value}"
-                    )
-
-                except Exception as e:
+                output_info = find_matching_outputs(output_name, output_mapping)
+                if not output_info:
                     return ModelInputAnalysisToolResult(
-                        status="ERROR", result=f"Ошибка при поиске выходного параметра: {str(e)}", content={}
+                        status="ERROR", result=f'Выходной параметр "{output_name}" не найден', content={}
+                    )
+                target_year = extract_year_from_query(output_name)
+                if not target_year:
+                    return ModelInputAnalysisToolResult(
+                        status="ERROR",
+                        result=f'Не удалось определить год из параметра "{output_name}"',
+                        content={},
+                    )
+                actual_output_name = list(output_info.keys())[0]
+                output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, target_year)
+                output_cell_value = xl.get_cell("Outputs", output_cell_ref)
+
+                logger.info(
+                    f"OUTPUT MATCHING: Output '{output_name}' → Found: '{actual_output_name}' at {output_cell_ref} = {output_cell_value}"
+                )
+
+            except Exception as e:
+                return ModelInputAnalysisToolResult(
+                    status="ERROR", result=f"Ошибка при поиске выходного параметра: {str(e)}", content={}
+                )
+
+            # Find and validate input cells (use output year as default if not found)
+            input_cells = {}
+            current_values = {}
+            for name in input_names:
+                try:
+                    cell_address, original_name = find_matching_cell(name, input_mapping, default_year=target_year)
+                    cur_val = xl.get_cell("Inputs", cell_address)
+                    input_cells[name] = {
+                        "cell_ref": cell_address,
+                        "original_name": original_name,
+                        "current_value": float(cur_val) if cur_val is not None else None,
+                    }
+                    if cur_val is not None:
+                        current_values[name] = float(cur_val)
+
+                    logger.info(
+                        f"INPUT MATCHING: Input '{name}' → Found: '{original_name}' at {cell_address} = {cur_val}"
                     )
 
-                # Find and validate input cells (use output year as default if not found)
-                input_cells = {}
-                current_values = {}
-                for name in input_names:
-                    try:
-                        cell_address, original_name = find_matching_cell(name, input_mapping, default_year=target_year)
-                        cell = inputs_sheet.range(cell_address)
-                        input_cells[name] = {
-                            "cell": cell,
-                            "original_name": original_name,
-                            "current_value": float(cell.value) if cell.value is not None else None,
-                        }
-                        if cell.value is not None:
-                            current_values[name] = float(cell.value)
+                except ValueError as e:
+                    return ModelInputAnalysisToolResult(
+                        status="ERROR",
+                        result=f'Не удалось найти ячейку для параметра "{name}": {str(e)}',
+                        content={},
+                    )
 
-                        # Add logging for cell matching
-                        logger.info(
-                            f"INPUT MATCHING: Input '{name}' → Found: '{original_name}' at {cell_address} = {cell.value}"
-                        )
+            # Generate scenarios
+            scenarios = generate_scenarios(
+                input_cells=input_cells, current_values=current_values, max_scenarios=max_scenarios
+            )
 
-                    except ValueError as e:
-                        return ModelInputAnalysisToolResult(
-                            status="ERROR",
-                            result=f'Не удалось найти ячейку для параметра "{name}": {str(e)}',
-                            content={},
-                        )
+            # Test scenarios
+            results = test_scenarios(
+                xl=xl,
+                scenarios=scenarios,
+                input_cells=input_cells,
+                output_cell_ref=output_cell_ref,
+                target_value=target_value,
+                tolerance=tolerance,
+            )
 
-                # Generate scenarios
-                scenarios = generate_scenarios(
-                    input_cells=input_cells, current_values=current_values, max_scenarios=max_scenarios
-                )
+            # Optimize using regression (currently disabled — was commented out as unreliable)
+            optimized = None
 
-                # Test scenarios
-                results = test_scenarios(
-                    wb=wb,
-                    scenarios=scenarios,
-                    input_cells=input_cells,
-                    output_cell=output_cell,
-                    target_value=target_value,
-                    tolerance=tolerance,
-                )
-
-                # Optimize using regression
-                optimized = optimize_with_regression(
-                    wb=wb,
-                    scenarios=results["all_scenarios"],
-                    input_cells=input_cells,
-                    output_cell=output_cell,
-                    target_value=target_value,
-                    input_names=input_names,
-                )
-
-                # After optimize_with_regression(...)
-                if optimized and optimized.get("deviation_percent", 1e9) <= tolerance:
+            # After optimize_with_regression(...)
+            if optimized and optimized.get("deviation_percent", 1e9) <= tolerance:
                     # Check if this scenario is already in matching_scenarios (by input values)
                     already_in = any(
                         all(
@@ -283,58 +266,55 @@ def analyze_model_inputs_for_target(
                             }
                         )
 
-                # Save results to Excel
-                excel_file = save_analysis_results(
-                    scenarios=results["all_scenarios"],
-                    optimized_scenario=optimized,
-                    input_names=input_names,
-                    output_name=output_name,
-                    target_value=target_value,
-                    tolerance=tolerance,
-                    search_config=results["search_config"],
-                )
+            # Save results to Excel
+            excel_file = save_analysis_results(
+                scenarios=results["all_scenarios"],
+                optimized_scenario=optimized,
+                input_names=input_names,
+                output_name=output_name,
+                target_value=target_value,
+                tolerance=tolerance,
+                search_config=results["search_config"],
+            )
 
-                # Prepare final results
-                final_results = {
-                    "target_output": output_name,
-                    "actual_output_name": actual_output_name,
-                    "target_value": target_value,
-                    "tolerance_percent": tolerance,
-                    "scenarios_found": len(results["matching_scenarios"]),
-                    "total_scenarios_tested": len(scenarios),
-                    "processing_time_seconds": round(time.perf_counter() - start_time, 2),
-                    "search_configuration": results["search_config"],
-                    "matching_scenarios": results["matching_scenarios"][:10],
-                    "all_scenarios": results["all_scenarios"][:50],
-                    "input_names": input_names,
-                    "current_input_values": current_values,
-                    "optimized_scenario": optimized,
-                    "results_file": excel_file,
-                }
+            # Prepare final results
+            final_results = {
+                "target_output": output_name,
+                "actual_output_name": actual_output_name,
+                "target_value": target_value,
+                "tolerance_percent": tolerance,
+                "scenarios_found": len(results["matching_scenarios"]),
+                "total_scenarios_tested": len(scenarios),
+                "processing_time_seconds": round(time.perf_counter() - start_time, 2),
+                "search_configuration": results["search_config"],
+                "matching_scenarios": results["matching_scenarios"][:10],
+                "all_scenarios": results["all_scenarios"][:50],
+                "input_names": input_names,
+                "current_input_values": current_values,
+                "optimized_scenario": optimized,
+                "results_file": excel_file,
+            }
 
-                # After scenario testing and before result generation
-                logger.info(f"Number of matching scenarios: {len(results['matching_scenarios'])}")
-                if results["matching_scenarios"]:
-                    logger.info(f"First matching scenario: {results['matching_scenarios'][0]}")
-                else:
-                    logger.info("No matching scenarios found.")
+            # After scenario testing and before result generation
+            logger.info(f"Number of matching scenarios: {len(results['matching_scenarios'])}")
+            if results["matching_scenarios"]:
+                logger.info(f"First matching scenario: {results['matching_scenarios'][0]}")
+            else:
+                logger.info("No matching scenarios found.")
 
-                # Generate result message
-                message = generate_result_message(
-                    matching_scenarios=results["matching_scenarios"],
-                    scenarios_tested=len(scenarios),
-                    target_value=target_value,
-                    tolerance=tolerance,
-                    search_config=results["search_config"],
-                    processing_time=results["processing_time"],
-                )
+            # Generate result message
+            message = generate_result_message(
+                matching_scenarios=results["matching_scenarios"],
+                scenarios_tested=len(scenarios),
+                target_value=target_value,
+                tolerance=tolerance,
+                search_config=results["search_config"],
+                processing_time=results["processing_time"],
+            )
 
-                return ModelInputAnalysisToolResult(
-                    status="OK" if results["matching_scenarios"] else "WARNING", result=message, content=final_results
-                )
-
-            finally:
-                wb.close()
+            return ModelInputAnalysisToolResult(
+                status="OK" if results["matching_scenarios"] else "WARNING", result=message, content=final_results
+            )
 
     except Exception as e:
         logger.error(f"Ошибка при анализе: {str(e)}", exc_info=True)
@@ -373,7 +353,7 @@ def generate_scenarios(input_cells: dict, current_values: dict, max_scenarios: i
     return scenarios
 
 
-def test_scenarios(wb, scenarios: list, input_cells: dict, output_cell, target_value: float, tolerance: float) -> dict:
+def test_scenarios(xl: ExcelWorkbook, scenarios: list, input_cells: dict, output_cell_ref: str, target_value: float, tolerance: float) -> dict:
     """Test scenarios and collect results."""
     matching_scenarios = []
     all_scenarios = []
@@ -383,13 +363,13 @@ def test_scenarios(wb, scenarios: list, input_cells: dict, output_cell, target_v
         # Set input values
         scenario_inputs = {}
         for (name, info), value in zip(input_cells.items(), values):
-            info["cell"].value = value
+            xl.set_cell("Inputs", info["cell_ref"], value)
             scenario_inputs[name] = value
 
         # Calculate and get output
-        wb.app.calculate()
+        xl.calculate()
         try:
-            output = float(output_cell.value)
+            output = float(xl.get_cell("Outputs", output_cell_ref))
             deviation = abs(output - target_value)
             deviation_percent = (deviation / target_value) * 100
 
@@ -473,8 +453,8 @@ def test_scenarios(wb, scenarios: list, input_cells: dict, output_cell, target_v
 #         return None
 
 
-def get_output_cell(sheet, mapping: dict, output_name: str, year: int) -> xw.Range:
-    """Get output cell from Excel sheet."""
+def get_output_cell_ref(mapping: dict, output_name: str, year: int) -> str:
+    """Return cell reference (e.g. ``"B12"``) for an output cell."""
     year_col_idx = None
     for col_idx, y in mapping["year_columns"].items():
         if y == year:
@@ -484,13 +464,11 @@ def get_output_cell(sheet, mapping: dict, output_name: str, year: int) -> xw.Ran
     if year_col_idx is None:
         raise ValueError(f"Year {year} not found")
 
-    # Convert to Excel column
-    col_letter = ""
-    while year_col_idx >= 0:
-        col_letter = chr(ord("A") + (year_col_idx % 26)) + col_letter
-        year_col_idx = year_col_idx // 26 - 1
+    # 0‑based → 1‑based for openpyxl's get_column_letter
+    from openpyxl.utils import get_column_letter
 
-    # Find row
+    col_letter = get_column_letter(year_col_idx + 1)
+
     row = None
     for _, info in mapping["output_mapping"].items():
         if info["original"] == output_name:
@@ -500,7 +478,7 @@ def get_output_cell(sheet, mapping: dict, output_name: str, year: int) -> xw.Ran
     if row is None:
         raise ValueError(f"Output '{output_name}' not found")
 
-    return sheet.range(f"{col_letter}{row}")
+    return f"{col_letter}{row}"
 
 
 def generate_result_message(
@@ -555,173 +533,162 @@ def analyze_excel_model(
             return ExcelAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
         start_time = time.perf_counter()
-        with xw.App(visible=False) as app:
-            wb = app.books.open(file_path)
-            try:
-                # Configure Excel for better performance
-                app.screen_updating = False
-                app.calculation = "manual"
+        with ExcelWorkbook(file_path) as xl:
+            input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
+            output_mapping = create_output_mapping(xl.get_all_data("Outputs"))
 
-                # Get sheets and create mappings
-                inputs_sheet = wb.sheets["Inputs"]
-                outputs_sheet = wb.sheets["Outputs"]
-                input_mapping = create_input_mapping(inputs_sheet)
-                output_mapping = create_output_mapping(outputs_sheet)
+            # Find and validate output cells
+            output_cells = {}
+            output_years_dict = {}
+            for i, name in enumerate(output_names):
+                try:
+                    output_info = find_matching_outputs(name, output_mapping)
+                    if not output_info:
+                        return ExcelAnalysisToolResult(
+                            status="ERROR", result=f'Выходной параметр "{name}" не найден', content={}
+                        )
 
-                # Find and validate output cells
-                output_cells = {}
-                output_years_dict = {}
-                for i, name in enumerate(output_names):
-                    try:
-                        output_info = find_matching_outputs(name, output_mapping)
-                        if not output_info:
+                    # Use the year from output_years parameter instead of extracting from name
+                    if i < len(output_years):
+                        target_year = output_years[i]
+                    else:
+                        # Fallback: extract year from query if output_years is not provided
+                        target_year = extract_year_from_query(name)
+                        if not target_year:
                             return ExcelAnalysisToolResult(
-                                status="ERROR", result=f'Выходной параметр "{name}" не найден', content={}
+                                status="ERROR",
+                                result=f'Не удалось определить год из параметра "{name}"',
+                                content={},
                             )
 
-                        # Use the year from output_years parameter instead of extracting from name
-                        if i < len(output_years):
-                            target_year = output_years[i]
-                        else:
-                            # Fallback: extract year from query if output_years is not provided
-                            target_year = extract_year_from_query(name)
-                            if not target_year:
-                                return ExcelAnalysisToolResult(
-                                    status="ERROR",
-                                    result=f'Не удалось определить год из параметра "{name}"',
-                                    content={},
-                                )
-
-                        actual_output_name = list(output_info.keys())[0]
-                        output_cells[name] = {
-                            "cell": get_output_cell(outputs_sheet, output_mapping, actual_output_name, target_year),
-                            "original_name": actual_output_name,
-                            "year": target_year,
-                        }
-                        output_years_dict[name] = target_year
-                        logger.info(
-                            f"Found output cell for {name}: {actual_output_name} {target_year} = {output_cells[name]['cell'].value}"
-                        )
-                    except Exception as e:
-                        return ExcelAnalysisToolResult(
-                            status="ERROR",
-                            result=f'Ошибка при поиске выходного параметра "{name}": {str(e)}',
-                            content={},
-                        )
-
-                # Find and validate input cells (use first output year as default if not found)
-                input_cells = {}
-                for i, name in enumerate(input_names):
-                    try:
-                        # Use the year of the first output as default if input year is missing
-                        default_year = list(output_years_dict.values())[0] if output_years_dict else None
-                        cell_address, original_name = find_matching_cell(
-                            name, input_mapping, default_year=default_year
-                        )
-                        cell = inputs_sheet.range(cell_address)
-                        input_cells[name] = {
-                            "cell": cell,
-                            "original_name": original_name,
-                            "range": ranges[i],
-                            "step": steps[i] if i < len(steps) else steps[-1],
-                        }
-                        logger.info(f"Found input cell for {name}: {cell_address} = {cell.value}")
-                    except ValueError as e:
-                        return ExcelAnalysisToolResult(
-                            status="ERROR",
-                            result=f'Не удалось найти ячейку для параметра "{name}": {str(e)}',
-                            content={},
-                        )
-
-                # Generate value sets for each input
-                value_sets = []
-                for name in input_names:
-                    info = input_cells[name]
-                    start, end = info["range"]
-                    step = info["step"]
-                    values = np.arange(start, end + 1e-10, step)
-                    value_sets.append(values.tolist())
-
-                # Generate all combinations
-                combinations = list(product(*value_sets))
-                logger.info(f"Генерируем {len(combinations)} сценариев для анализа")
-
-                # Test scenarios
-                results = {"inputs": [], "outputs": []}
-                for values in combinations:
-                    # Set input values
-                    current_inputs = {}
-                    for name, value in zip(input_names, values):
-                        input_cells[name]["cell"].value = value
-                        current_inputs[input_cells[name]["original_name"]] = value
-
-                    # Calculate model
-                    wb.app.calculate()
-
-                    # Get output values for all years
-                    current_outputs = {}
-                    for name, info in output_cells.items():
-                        try:
-                            value = info["cell"].value
-                            if value is not None:
-                                # Include year in the output key for clarity
-                                output_key = f"{name}_{info['year']}"
-                                current_outputs[output_key] = round(float(value), 3)
-                        except (ValueError, TypeError):
-                            output_key = f"{name}_{info['year']}"
-                            current_outputs[output_key] = None
-
-                    # Store results
-                    results["inputs"].append(current_inputs)
-                    results["outputs"].append(current_outputs)
-
-                processing_time = time.perf_counter() - start_time
-
-                # Convert results to DataFrame for easier handling
-                df_outputs = pd.DataFrame(results["outputs"])
-                df_inputs = pd.DataFrame(results["inputs"])
-
-                # --- Save all scenario results to Excel ---
-                output_dir = "excel_analysis"
-                os.makedirs(output_dir, exist_ok=True)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                scenario_file = f"{output_dir}/scenarios_{timestamp}.xlsx"
-                result_df = pd.concat([df_inputs, df_outputs], axis=1)
-                result_df.to_excel(scenario_file, index=False)
-
-                # --- Save scenario matrix and min/max matrix if possible ---
-                scenario_matrix_file = None
-                minmax_matrix_file = None
-                if len(input_names) == 2:
-                    try:
-                        scenario_matrix_file = create_scenario_matrix(df_inputs, df_outputs)
-                        logger.info(f"Сохранена матрица сценариев: {scenario_matrix_file}")
-                    except Exception as e:
-                        logger.info(f"Не получилось сохранить матрицу сценариев: {e}")
-                else:
-                    logger.info("Число входных inputs больше двух, не сохраняю матрицу сценариев")
-                try:
-                    minmax_matrix_file = generate_min_max_scenarios(df_inputs, df_outputs)
-                    logger.info(f"Сохранена матрица min/max сценариев: {minmax_matrix_file}")
+                    actual_output_name = list(output_info.keys())[0]
+                    output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, target_year)
+                    output_cells[name] = {
+                        "cell_ref": output_cell_ref,
+                        "original_name": actual_output_name,
+                        "year": target_year,
+                    }
+                    output_years_dict[name] = target_year
+                    out_val = xl.get_cell("Outputs", output_cell_ref)
+                    logger.info(
+                        f"Found output cell for {name}: {actual_output_name} {target_year} = {out_val}"
+                    )
                 except Exception as e:
-                    logger.info(f"Не получилось сохранить матрицу min/max сценариев: {e}")
+                    return ExcelAnalysisToolResult(
+                        status="ERROR",
+                        result=f'Ошибка при поиске выходного параметра "{name}": {str(e)}',
+                        content={},
+                    )
 
-                # Add file paths to results_dict
-                results_dict = {
-                    "scenario_file": scenario_file,
-                    "scenario_matrix_file": scenario_matrix_file,
-                    "minmax_matrix_file": minmax_matrix_file,
-                    "result_df": result_df,
-                }
+            # Find and validate input cells (use first output year as default if not found)
+            input_cells = {}
+            for i, name in enumerate(input_names):
+                try:
+                    # Use the year of the first output as default if input year is missing
+                    default_year = list(output_years_dict.values())[0] if output_years_dict else None
+                    cell_address, original_name = find_matching_cell(
+                        name, input_mapping, default_year=default_year
+                    )
+                    input_cells[name] = {
+                        "cell_ref": cell_address,
+                        "original_name": original_name,
+                        "range": ranges[i],
+                        "step": steps[i] if i < len(steps) else steps[-1],
+                    }
+                    inval = xl.get_cell("Inputs", cell_address)
+                    logger.info(f"Found input cell for {name}: {cell_address} = {inval}")
+                except ValueError as e:
+                    return ExcelAnalysisToolResult(
+                        status="ERROR",
+                        result=f'Не удалось найти ячейку для параметра "{name}": {str(e)}',
+                        content={},
+                    )
 
-                return ExcelAnalysisToolResult(
-                    status="OK",
-                    result=f"Анализ успешно завершен за {round(processing_time, 2)} сек. Проанализировано {len(combinations)} сценариев.",
-                    content=results_dict,
-                )
+            # Generate value sets for each input
+            value_sets = []
+            for name in input_names:
+                info = input_cells[name]
+                start, end = info["range"]
+                step = info["step"]
+                values = np.arange(start, end + 1e-10, step)
+                value_sets.append(values.tolist())
 
-            finally:
-                wb.close()
+            # Generate all combinations
+            combinations = list(product(*value_sets))
+            logger.info(f"Генерируем {len(combinations)} сценариев для анализа")
+
+            # Test scenarios
+            results = {"inputs": [], "outputs": []}
+            for values in combinations:
+                # Set input values
+                current_inputs = {}
+                for name, value in zip(input_names, values):
+                    xl.set_cell("Inputs", input_cells[name]["cell_ref"], value)
+                    current_inputs[input_cells[name]["original_name"]] = value
+
+                # Calculate model
+                xl.calculate()
+
+                # Get output values for all years
+                current_outputs = {}
+                for name, info in output_cells.items():
+                    try:
+                        value = xl.get_cell("Outputs", info["cell_ref"])
+                        if value is not None:
+                            output_key = f"{name}_{info['year']}"
+                            current_outputs[output_key] = round(float(value), 3)
+                    except (ValueError, TypeError):
+                        output_key = f"{name}_{info['year']}"
+                        current_outputs[output_key] = None
+
+                # Store results
+                results["inputs"].append(current_inputs)
+                results["outputs"].append(current_outputs)
+
+            processing_time = time.perf_counter() - start_time
+
+            # Convert results to DataFrame for easier handling
+            df_outputs = pd.DataFrame(results["outputs"])
+            df_inputs = pd.DataFrame(results["inputs"])
+
+            # --- Save all scenario results to Excel ---
+            output_dir = "excel_analysis"
+            os.makedirs(output_dir, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            scenario_file = f"{output_dir}/scenarios_{timestamp}.xlsx"
+            result_df = pd.concat([df_inputs, df_outputs], axis=1)
+            result_df.to_excel(scenario_file, index=False)
+
+            # --- Save scenario matrix and min/max matrix if possible ---
+            scenario_matrix_file = None
+            minmax_matrix_file = None
+            if len(input_names) == 2:
+                try:
+                    scenario_matrix_file = create_scenario_matrix(df_inputs, df_outputs)
+                    logger.info(f"Сохранена матрица сценариев: {scenario_matrix_file}")
+                except Exception as e:
+                    logger.info(f"Не получилось сохранить матрицу сценариев: {e}")
+            else:
+                logger.info("Число входных inputs больше двух, не сохраняю матрицу сценариев")
+            try:
+                minmax_matrix_file = generate_min_max_scenarios(df_inputs, df_outputs)
+                logger.info(f"Сохранена матрица min/max сценариев: {minmax_matrix_file}")
+            except Exception as e:
+                logger.info(f"Не получилось сохранить матрицу min/max сценариев: {e}")
+
+            # Add file paths to results_dict
+            results_dict = {
+                "scenario_file": scenario_file,
+                "scenario_matrix_file": scenario_matrix_file,
+                "minmax_matrix_file": minmax_matrix_file,
+                "result_df": result_df,
+            }
+
+            return ExcelAnalysisToolResult(
+                status="OK",
+                result=f"Анализ успешно завершен за {round(processing_time, 2)} сек. Проанализировано {len(combinations)} сценариев.",
+                content=results_dict,
+            )
 
     except Exception as e:
         logger.error(f"Ошибка при анализе Excel модели: {str(e)}", exc_info=True)
@@ -878,25 +845,14 @@ def normalize_text(text: str) -> str:
     return text
 
 
-def create_input_mapping(inputs_sheet) -> dict:
-    """Create a structured mapping of input descriptions to their cells."""
+def create_input_mapping(data: list[list]) -> dict:
+    """Create a structured mapping of input descriptions to their cells.
+
+    *data* is a 2‑D list returned by :meth:`ExcelWorkbook.get_all_data`.
+    """
     try:
-        # Get the used range from the sheet
-        used_range = inputs_sheet.used_range
-        # logger.info(f"Input sheet used range: {used_range.address}")  # Commented out
-
-        # Get all data from the used range
-        data = used_range.value
-        # logger.info(f"Raw data type: {type(data)}")  # Commented out
-
         if not data:
             raise ValueError("No data found in inputs sheet")
-
-        # Convert data to list of lists if it's not already
-        if not isinstance(data, list):
-            data = [[data]]
-        elif data and not isinstance(data[0], list):
-            data = [data]
 
         # First row contains headers
         headers = data[0]
@@ -1038,26 +994,14 @@ def find_matching_cell(query: str, input_mapping: dict, default_year: int = None
     return cell_reference, best_match["original"]
 
 
-def create_output_mapping(outputs_sheet) -> dict:
-    """Create a structured mapping of output descriptions to their cells."""
+def create_output_mapping(data: list[list]) -> dict:
+    """Create a structured mapping of output descriptions to their cells.
+
+    *data* is a 2‑D list returned by :meth:`ExcelWorkbook.get_all_data`.
+    """
     try:
-        # Get the used range from the sheet
-        last_row = outputs_sheet.used_range.last_cell.row
-        used_range = outputs_sheet.range(f"A1:AP{last_row}")
-        logger.info(f"Output sheet used range: {used_range.address}")
-
-        # Get all data from the used range
-        data = used_range.value
-        logger.info(f"Raw data type: {type(data)}")
-
         if not data:
             raise ValueError("No data found in outputs sheet")
-
-        # Convert data to list of lists if it's not already
-        if not isinstance(data, list):
-            data = [[data]]
-        elif data and not isinstance(data[0], list):
-            data = [data]
 
         logger.info(f"Output data structure: {len(data)} rows")
         if data:
@@ -1310,8 +1254,6 @@ def modify_excel_input_value(
     2. Применяет к ним заданные математические выражения (expression) к каждому году независимо.
     3. Пересчитывает значения всех указанных выходных переменных (output_names) и возвращает их пользователю.
     """
-    import shutil
-    from datetime import datetime
 
     import numpy as np
 
@@ -1333,22 +1275,13 @@ def modify_excel_input_value(
                 content="Количество входных переменных должно совпадать с количеством выражений",
             )
 
-        # Создаём новый файл для изменений
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        modified_file = os.path.abspath(
-            os.path.join("/tmp", f"{file_name.replace('.xlsx', '')}_modified_{timestamp}.xlsx")
-        )
-        shutil.copy2(file_path, modified_file)
+        # Создаём новый файл для изменений (копию оригинала)
+        modified_file = copy_to_temp(file_path, suffix="modified")
         logger.info(f"Created modified file: {modified_file}")
 
-        # Open Excel (работаем с новым файлом)
-        app = xw.App(visible=False)
-        try:
-            wb = app.books.open(modified_file)
-            inputs_sheet = wb.sheets["Inputs"]
-            outputs_sheet = wb.sheets["Outputs"]
-            input_mapping = create_input_mapping(inputs_sheet)
-            output_mapping = create_output_mapping(outputs_sheet)
+        with ExcelWorkbook(modified_file) as xl:
+            input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
+            output_mapping = create_output_mapping(xl.get_all_data("Outputs"))
 
             # --- Модификация входных переменных ---
             changes_made = []
@@ -1367,15 +1300,15 @@ def modify_excel_input_value(
                         cell_ref, orig_name = find_matching_cell(
                             f"{input_name} {year}", input_mapping, default_year=year
                         )
-                        cell = inputs_sheet.range(cell_ref)
-                        cells_by_year[year] = cell
+                        cur_val = xl.get_cell("Inputs", cell_ref)
+                        cells_by_year[year] = cell_ref
 
                         # Добавляем информацию о найденной ячейке для отладки
                         cell_matching_info.append(
-                            f"Input '{input_name}' {year} Found: '{orig_name}' at {cell_ref} = {cell.value}"
+                            f"Input '{input_name}' {year} Found: '{orig_name}' at {cell_ref} = {cur_val}"
                         )
                         logger.info(
-                            f"MATCHING: Input '{input_name}' {year} Found: '{orig_name}' at {cell_ref} = {cell.value}"
+                            f"MATCHING: Input '{input_name}' {year} Found: '{orig_name}' at {cell_ref} = {cur_val}"
                         )
                     except Exception as e:
                         logger.error(f"Не удалось найти ячейку для {input_name} {year}: {e}")
@@ -1387,7 +1320,7 @@ def modify_excel_input_value(
 
                 # Применяем выражение к каждому году независимо
                 for year in year_range:
-                    current_value = cells_by_year[year].value
+                    current_value = xl.get_cell("Inputs", cells_by_year[year])
                     if current_value is None:
                         logger.warning(f"Значение для {input_name} {year} равно None, используем 0")
                         current_value = 0
@@ -1406,16 +1339,16 @@ def modify_excel_input_value(
                         )
 
                     # Записываем новое значение
-                    old_value = cells_by_year[year].value
-                    cells_by_year[year].value = new_value
+                    old_value = xl.get_cell("Inputs", cells_by_year[year])
+                    xl.set_cell("Inputs", cells_by_year[year], new_value)
                     changes_made.append(f"{input_name} {year}: {old_value} {new_value}")
 
             # Сохраняем изменения
-            wb.save()
+            xl.save()
             logger.info(f"Saved changes to {modified_file}")
 
             # Пересчитываем модель
-            wb.app.calculate()
+            xl.calculate()
 
             # --- Получение новых значений выходных переменных ---
             output_results = {}
@@ -1439,13 +1372,13 @@ def modify_excel_input_value(
                     for year in year_range:
                         try:
                             # Находим ячейку для конкретного года
-                            output_cell = get_output_cell(outputs_sheet, output_mapping, actual_output_name, year)
-                            value = output_cell.value
+                            output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, year)
+                            value = xl.get_cell("Outputs", output_cell_ref)
                             if value is not None:
                                 output_values[year] = float(value)
                             else:
                                 output_values[year] = None
-                            logger.info(f"OUTPUT VALUE: {output_name} {year}: {value} (cell: {output_cell.address})")
+                            logger.info(f"OUTPUT VALUE: {output_name} {year}: {value} (cell: {output_cell_ref})")
                         except Exception as e:
                             logger.warning(f"Не удалось получить значение для {output_name} {year}: {e}")
                             output_values[year] = None
@@ -1488,11 +1421,6 @@ def modify_excel_input_value(
             return ExcelInputModificationToolResult(
                 status="success", result="Модификация и пересчет output завершены", content=result_message
             )
-
-        finally:
-            if "wb" in locals():
-                wb.close()
-            app.quit()
 
     except Exception as e:
         logger.error(f"Error in modify_excel_input_value: {str(e)}", exc_info=True)
@@ -1550,7 +1478,6 @@ def build_dependency_graph(file_name: str, output_description: str) -> BuildDepe
         # Извлекаем информацию о найденной ячейке
         sheet_name = matching_output["sheet_name"]
         cell_address = matching_output["cell_address"]
-        cell_value = matching_output["value"]
 
         # Загружаем Excel файл с openpyxl для анализа зависимостей
         workbook = openpyxl.load_workbook(os.path.join("/tmp", file_name), data_only=False)
@@ -1570,7 +1497,7 @@ def build_dependency_graph(file_name: str, output_description: str) -> BuildDepe
         filepath = os.path.join(output_dir, filename)
 
         # Визуализируем граф
-        dot = visualize_dependency_graph(graph, filepath)
+        visualize_dependency_graph(graph, filepath)
 
         # Получаем путь к PNG файлу
         png_filepath = f"{filepath}.png"
@@ -1673,56 +1600,36 @@ def build_dependency_graph_from_cell(workbook, start_sheet, start_cell):
     return graph
 
 
-# def visualize_dependency_graph(graph, output_filename='dependencies'):
-#     """Визуализирует граф зависимостей с помощью Graphviz
-#     На сервере/Windows не пытается открывать внешнюю программу просмотра.
-#     """
-#     dot = Digraph(
-#         format='png',
-#         graph_attr={
-#             'rankdir': 'BT',  # Направление графа (BT = bottom-top)
-#             'dpi': '150',
-#             'fontname': 'Arial',
-#             'fontsize': '10'
-#         },
-#         node_attr={
-#             'shape': 'box',
-#             'style': 'filled,rounded',
-#             'fontname': 'Arial',
-#             'fontsize': '9'
-#         },
-#         edge_attr={
-#             'arrowsize': '0.7',
-#             'color': '#666666'
-#         }
-#     )
+def visualize_dependency_graph(graph, output_filename="dependencies"):
+    """Визуализирует граф зависимостей с помощью Graphviz."""
+    try:
+        from graphviz import Digraph
+    except ImportError:
+        logger.warning("graphviz not installed — skipping visualization")
+        return None
 
-#     # Добавляем узлы
-#     for node_id, attrs in graph['nodes'].items():
-#         dot.node(
-#             name=node_id,
-#             label=attrs['label'],
-#             fillcolor=attrs['color']
-#         )
+    dot = Digraph(
+        format="png",
+        graph_attr={"rankdir": "BT", "dpi": "150", "fontname": "Arial", "fontsize": "10"},
+        node_attr={"shape": "box", "style": "filled,rounded", "fontname": "Arial", "fontsize": "9"},
+        edge_attr={"arrowsize": "0.7", "color": "#666666"},
+    )
 
-#     # Добавляем ребра
-#     for source, target in graph['edges']:
-#         dot.edge(source, target)
+    for node_id, attrs in graph["nodes"].items():
+        dot.node(name=node_id, label=attrs["label"], fillcolor=attrs["color"])
 
-#     # Сохраняем PNG без попытки открыть viewer (важно для серверов/Windows-сервисов)
-#     try:
-#         print("rendering png")
-#         dot.render(output_filename, view=False)
-#     except Exception as e:
-#         # Если backend Graphviz не установлен в системе, сохраняем только .dot
-#         try:
-#             print("rendering dot")
-#             print(str(e))
-#             with open(f"{output_filename}.dot", "w", encoding="utf-8") as f:
-#                 f.write(dot.source)
-#         except Exception:
-#             pass
-#     return dot
+    for source, target in graph["edges"]:
+        dot.edge(source, target)
+
+    try:
+        dot.render(output_filename, view=False)
+    except Exception:
+        try:
+            with open(f"{output_filename}.dot", "w", encoding="utf-8") as f:
+                f.write(dot.source)
+        except Exception:
+            pass
+    return dot
 
 
 def find_output_cell_by_description(file_name: str, description: str, year: int = None) -> dict:
@@ -1732,29 +1639,25 @@ def find_output_cell_by_description(file_name: str, description: str, year: int 
     Возвращает {'sheet_name': str, 'cell_address': str, 'value': any, 'row': int, 'col': int}
     """
     try:
-        import xlwings as xw
+        from openpyxl.utils import get_column_letter
 
-        app = xw.App(visible=False)
-        wb = app.books.open(file_name)
+        wb = openpyxl.load_workbook(file_name, data_only=True)
 
-        if "Outputs" not in [s.name for s in wb.sheets]:
+        if "Outputs" not in wb.sheetnames:
             wb.close()
-            app.quit()
             return None
 
-        ws = wb.sheets["Outputs"]
+        ws = wb["Outputs"]
 
-        # Получаем данные из листа
-        data = ws.used_range.value
-        if not data:
+        # Читаем данные как 2D список
+        rows_data: list[list] = [list(row) for row in ws.iter_rows(values_only=True)]
+        if not rows_data:
             wb.close()
-            app.quit()
             return None
 
-        # Первая строка содержит заголовки (годы)
-        headers = data[0]
+        headers = rows_data[0]
 
-        # Находим колонку с названиями (обычно это колонка F или 6-я колонка)
+        # Находим колонку с названиями
         name_col_idx = None
         for i, header in enumerate(headers):
             if header == "Наименование":
@@ -1763,12 +1666,11 @@ def find_output_cell_by_description(file_name: str, description: str, year: int 
 
         if name_col_idx is None:
             wb.close()
-            app.quit()
             return None
 
-        # Собираем все названия из таблицы
+        # Собираем все названия из таблицы (row_idx = row number in Excel, 1-based)
         available_names = []
-        for row_idx, row in enumerate(data[1:], start=2):  # Начинаем со 2-й строки
+        for row_idx, row in enumerate(rows_data[1:], start=2):
             if len(row) > name_col_idx and row[name_col_idx]:
                 name = str(row[name_col_idx]).strip()
                 if name:
@@ -1776,7 +1678,6 @@ def find_output_cell_by_description(file_name: str, description: str, year: int 
 
         if not available_names:
             wb.close()
-            app.quit()
             return None
 
         # Находим наиболее похожее название с помощью jaccard_similarity
@@ -1790,10 +1691,8 @@ def find_output_cell_by_description(file_name: str, description: str, year: int 
                 best_similarity = similarity
                 best_match = (name, row_idx)
 
-        # Если сходство слишком низкое, возвращаем None
-        if best_similarity < 0.1:  # Порог сходства
+        if best_similarity < 0.1:
             wb.close()
-            app.quit()
             return None
 
         target_row = best_match[1]
@@ -1801,7 +1700,6 @@ def find_output_cell_by_description(file_name: str, description: str, year: int 
 
         # Если год не указан, берем первый доступный год
         if year is None:
-            # Ищем первую колонку с числовым значением года
             for col_idx, header in enumerate(headers):
                 try:
                     header_year = int(header)
@@ -1813,10 +1711,9 @@ def find_output_cell_by_description(file_name: str, description: str, year: int 
 
         if year is None:
             wb.close()
-            app.quit()
             return None
 
-        # Находим колонку с нужным годом
+        # Находим колонку с нужным годом (0-based in Python, +1 for Excel col)
         target_col = None
         for col_idx, header in enumerate(headers):
             try:
@@ -1829,21 +1726,21 @@ def find_output_cell_by_description(file_name: str, description: str, year: int 
 
         if target_col is None:
             wb.close()
-            app.quit()
             return None
 
         # Получаем значение ячейки
+        data_row_index = target_row - 1  # rows_data[0] is header, so data starts at rows_data[1] which is Excel row 2
         cell_value = (
-            data[target_row - 1][target_col]
-            if target_row <= len(data) and target_col < len(data[target_row - 1])
+            rows_data[data_row_index][target_col]
+            if 0 <= data_row_index < len(rows_data) and 0 <= target_col < len(rows_data[data_row_index])
             else None
         )
 
-        # Получаем адрес ячейки
-        cell_address = ws.range((target_row, target_col + 1)).address  # xlwings использует 1-based индексы
+        # Конвертируем в Excel адрес (1-based)
+        col_letter = get_column_letter(target_col + 1)
+        cell_address = f"{col_letter}{target_row}"
 
         wb.close()
-        app.quit()
 
         return {
             "sheet_name": "Outputs",
@@ -2247,10 +2144,10 @@ def describe_outputs_sheet(
 
 
 TOOLS = [
-    # analyze_аexcel_model,
-    # analyze_model_inputs_for_target,
-    # modify_excel_input_value,
-    # build_dependency_graph,
+    analyze_excel_model,
+    analyze_model_inputs_for_target,
+    modify_excel_input_value,
+    build_dependency_graph,
     greeting_user,
     get_output_info,
     describe_outputs_sheet,
