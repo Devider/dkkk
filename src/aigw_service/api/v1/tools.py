@@ -77,6 +77,8 @@ class ExcelAnalysisToolArgs(BaseModel):
         default=[0.5],
         description="Список шагов для генерации значений входных переменных. Если шагов меньше чем input_names, последний шаг будет использован для оставшихся переменных.",
     )
+    user_id: Optional[str] = Field(default=None, description="ID пользователя")
+    thread_id: Optional[str] = Field(default=None, description="ID потока")
 
 
 class ModelInputAnalysisToolArgs(BaseModel):
@@ -513,10 +515,20 @@ def generate_result_message(
 
 @tool(args_schema=ExcelAnalysisToolArgs)
 def analyze_excel_model(
-    file_name: str, input_names: list, output_names: list, output_years: list, ranges: list, steps: list = [0.5]
+    file_name: str,
+    input_names: list,
+    output_names: list,
+    output_years: list,
+    ranges: list,
+    steps: list = [0.5],
+    user_id: Optional[str] = None,
+    thread_id: Optional[str] = None,
 ) -> ExcelAnalysisToolResult:
     """
-    Генерирует сценарии для Excel модели по заданным входным параметрам и возвращает значения выходных параметров для каждого сценария.
+    ГЛАВНЫЙ инструмент для сценарного анализа «что-если».
+    Изменяет входные параметры (Inputs), пересчитывает модель (LibreOffice),
+    возвращает значения выходных показателей (Outputs) для каждого сценария.
+    Пример: "Проанализируй модель при цене метанола от 450 до 500 с шагом 5, покажи debt/ebitda"
 
     Args:
         file_name (str): Название Excel файла для анализа
@@ -527,8 +539,12 @@ def analyze_excel_model(
         steps (list): Шаги для генерации значений (по умолчанию [0.5])
     """
     try:
-        # Setup Excel
+        # Setup Excel — try file_name from LLM first, then fall back to store
         file_path = os.path.abspath(os.path.join("/tmp", file_name))
+        if not os.path.exists(file_path) and user_id:
+            stored_name = get_store_file(user_id)
+            if stored_name:
+                file_path = os.path.abspath(os.path.join("/tmp", stored_name))
         if not os.path.exists(file_path):
             return ExcelAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
@@ -634,9 +650,11 @@ def analyze_excel_model(
                 for name, info in output_cells.items():
                     try:
                         value = xl.get_cell("Outputs", info["cell_ref"])
+                        output_key = f"{name}_{info['year']}"
                         if value is not None:
-                            output_key = f"{name}_{info['year']}"
                             current_outputs[output_key] = round(float(value), 3)
+                        else:
+                            current_outputs[output_key] = None
                     except (ValueError, TypeError):
                         output_key = f"{name}_{info['year']}"
                         current_outputs[output_key] = None
@@ -684,9 +702,38 @@ def analyze_excel_model(
                 "result_df": result_df,
             }
 
+            # Format results as readable text table for the LLM
+            if len(combinations) <= 50:
+                table_lines = []
+                table_lines.append("Результаты анализа по сценариям:")
+                table_lines.append("")
+                # Build header
+                headers = list(results["inputs"][0].keys()) + list(results["outputs"][0].keys())
+                table_lines.append(" | ".join(headers))
+                table_lines.append("-" * (sum(len(h) for h in headers) + 3 * (len(headers) - 1)))
+                for inp, out in zip(results["inputs"], results["outputs"], strict=True):
+                    row = [str(v) for v in inp.values()]
+                    row += [str(round(v, 3) if isinstance(v, float) else v) for v in out.values()]
+                    table_lines.append(" | ".join(row))
+                result_text = "\n".join(table_lines)
+            else:
+                # Too many scenarios — show a sample
+                sample_lines = []
+                sample_lines.append(f"Всего проанализировано {len(combinations)} сценариев. Показаны первые 5:")
+                sample_lines.append("")
+                headers = list(results["inputs"][0].keys()) + list(results["outputs"][0].keys())
+                sample_lines.append(" | ".join(headers))
+                sample_lines.append("-" * (sum(len(h) for h in headers) + 3 * (len(headers) - 1)))
+                for inp, out in zip(results["inputs"][:5], results["outputs"][:5], strict=True):
+                    row = [str(v) for v in inp.values()]
+                    row += [str(round(v, 3) if isinstance(v, float) else v) for v in out.values()]
+                    sample_lines.append(" | ".join(row))
+                sample_lines.append("...")
+                result_text = "\n".join(sample_lines)
+
             return ExcelAnalysisToolResult(
                 status="OK",
-                result=f"Анализ успешно завершен за {round(processing_time, 2)} сек. Проанализировано {len(combinations)} сценариев.",
+                result=result_text,
                 content=results_dict,
             )
 
@@ -1797,8 +1844,9 @@ def get_output_info(
     user_id: Optional[str] = None,
 ) -> GetOutputInfoToolResult:
     """
-    Используйте эту функцию, если нужно получить информацию о значениях output по описанию и году.
-    Примеры запросов: "Покажи значения debt/ebitda в 2025-2027 годах в модели", "Какое значение у debt/ebitda в 2030 году внутри модели".
+    ТОЛЬКО для чтения значений на листе Outputs (без изменения данных).
+    НЕ используй для поиска входных параметров — они находятся на листе Inputs.
+    Пример: "Покажи значения debt/ebitda в 2025-2027 годах"
     """
     logger.info(f"=== Запуск get_output_info для user_id={user_id}, thread_id={thread_id} ===")
 

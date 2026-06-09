@@ -36,6 +36,8 @@ poetry update            # after pyproject.toml changes
 - **Store backend**: `STORE_TO_USE=MEMORY` or `PANGOLIN` (env var). Default is `MEMORY`.
 - **Agent**: LangGraph state machine in `api/v1/services.py` — init → analyze → execute_tool → analyze (loop) → END. Tools in `api/v1/tools.py`.
 - **Excel backend**: `api/v1/excel_handler.py` — cross-platform Excel handler using **openpyxl** (I/O) + **LibreOffice** (formula recalculation). Replaces xlwings (Windows-only).
+  - **Two-workbook pattern**: `self._wb` (data_only=False, formulas) for edits + saves; `self._wbv` (data_only=True, values) for reads. This is **critical** — openpyxl `save()` on a `data_only=True` workbook strips formulas from XML, breaking subsequent recalculations.
+  - **`calculate()` force-recalc**: save formulas-workbook → close → `_clear_cached_formula_values()` (zip-patch: `fullCalcOnLoad=1`, clear `<v>` on formula cells) → LO round-trip (XLSX→ODS→XLSX) → reopen both.
 - **Private dep stub**: `sber-aigw` replaced with local stubs in `src/aigw_modules/`. Only 3 imports used from it (all in `context.py`). No auth needed.
 - **All deps from public PyPI** — both private repos (`sberosc`, `nexus-release`) were removed.
 

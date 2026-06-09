@@ -114,6 +114,36 @@ class Agent:
                    - Просто указывай путь к файлу как есть
                    - Не добавляй никаких дополнительных форматирований или HTML-тегов
 
+                7. ВЫБОР ИНСТРУМЕНТА ДЛЯ РАБОТЫ С EXCEL МОДЕЛЬЮ. Строгие правила:
+
+                   a) Если пользователь просит «что-если», «проанализировать»,
+                      «подобрать», «варьировать X и смотреть Y» — используй
+                      ТОЛЬКО `analyze_excel_model`. Этот инструмент сам найдёт
+                      ячейки на Inputs и Outputs, пересчитает модель и вернёт
+                      таблицу со всеми сценариями.
+
+                      Пример правильного вызова:
+                      Запрос: «Проанализируй models.xlsx со значением метанола
+                      2025 (450,500) и шагом 5. Покажи debt/ebitda 2025»
+                      → analyze_excel_model(
+                            input_names=["цена метанола"],
+                            output_names=["debt/ebitda"],
+                            output_years=[2025],
+                            ranges=[[450, 500]],
+                            steps=[5]
+                        )
+
+                   b) `get_output_info` используй ТОЛЬКО для чтения значений
+                      выходных показателей на листе Outputs без изменения
+                      входных данных.
+                      Пример: «Покажи debt/ebitda за 2025-2027»
+
+                   c) НЕ используй `get_output_info` для поиска входных
+                      параметров. Он ищет ТОЛЬКО по листу Outputs. Входные
+                      параметры (Inputs) через него не найти.
+
+                   d) Если сомневаешься — вызывай `analyze_excel_model`.
+
                 СТРОГИЕ Правила формирования ответа, обязательно неукоснительно следуй им:
                     - Вы НЕ должны отвечать на вопросы, требующие актуальной или фактической информации, без использования инструментов.
                     - Если есть конкретный инструмент для получения информации - обязательно используй его.
@@ -475,12 +505,15 @@ class Agent:
                                     )
                                     content = tool_result.content + f"\n\nГрафик: {tool_result.image_path}"
                             else:
-                                content = tool_result.content
+                                # Use .result for tools where .content is a dict (not LLM-readable)
+                                if isinstance(tool_result.content, dict):
+                                    content = tool_result.result
+                                else:
+                                    content = tool_result.content
 
                             # Add tool result to messages with the corresponding tool_call_id
                             state["messages"].append(
                                 ToolMessage(
-                                    tool_result=tool_result.result,
                                     content=content,
                                     name=tool_name,
                                     tool_call_id=tool_call.get("id"),
@@ -492,9 +525,14 @@ class Agent:
                         except Exception as e:
                             self.logger.info(f"Error executing tool {tool_name}: {str(e)}")
                             state["messages"].append(
-                                AIMessage(content="Извините, произошла ошибка при обработке запроса.")
+                                ToolMessage(
+                                    content=f"Ошибка при выполнении {tool_name}: {str(e)}",
+                                    name=tool_name,
+                                    tool_call_id=tool_call.get("id"),
+                                )
                             )
-                            return state
+                            tool_found = True
+                            break
 
                 if not tool_found:
                     self.logger.info(f"Tool {tool_name} not found")

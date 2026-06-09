@@ -1,0 +1,29 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    env_file: docker.env
+    environment:
+      - MODEL_TO_USE=OLLAMA
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - app_tmp:/tmp
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      retries: 5
+
+volumes:
+  ollama_data:
+  app_tmp:
