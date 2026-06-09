@@ -539,12 +539,14 @@ def analyze_excel_model(
         steps (list): Шаги для генерации значений (по умолчанию [0.5])
     """
     try:
-        # Setup Excel — try file_name from LLM first, then fall back to store
-        file_path = os.path.abspath(os.path.join("/tmp", file_name))
-        if not os.path.exists(file_path) and user_id:
+        # Setup Excel — try user's uploaded file first, fall back to file_name from LLM
+        file_path = None
+        if user_id:
             stored_name = get_store_file(user_id)
             if stored_name:
                 file_path = os.path.abspath(os.path.join("/tmp", stored_name))
+        if not file_path or not os.path.exists(file_path):
+            file_path = os.path.abspath(os.path.join("/tmp", file_name))
         if not os.path.exists(file_path):
             return ExcelAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
