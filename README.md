@@ -16,7 +16,7 @@ curl http://localhost:8888/health
 
 ```bash
 # 1. Загрузить модель
-curl -X POST http://localhost:8888/api/v1/upload \
+curl -X POST http://localhost:8080/api/v1/upload \
   -F "file=@model.xlsx" \
   -H "x-trace-id: test1" \
   -H "x-client-id: test" \
@@ -24,7 +24,7 @@ curl -X POST http://localhost:8888/api/v1/upload \
   -H "x-request-time: 2026-06-08T12:00:00Z"
 
 # 2. Запустить анализ
-curl -X POST http://localhost:8888/api/v1/invoke-agent \
+curl -X POST http://localhost:8080/api/v1/invoke-agent \
   -H "Content-type: application/json" \
   -H "x-trace-id: 550e8400-e29b-41d4-a716-446655440000" \
   -H "x-client-id: CI12345678" \
