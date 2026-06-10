@@ -4,6 +4,7 @@ import re
 import time
 from ast import literal_eval
 from collections import deque
+from collections.abc import Callable
 from datetime import datetime
 from itertools import product
 from typing import Any, Optional
@@ -146,7 +147,7 @@ def analyze_model_inputs_for_target(
     max_scenarios: int = 1000,
 ) -> ModelInputAnalysisToolResult:
     """
-    Анализирует Excel файл с моделью для подбора входных параметров, которые приводят к целевому значению выходного параметра.
+    Подбирает параметры модели, которые приводят к требуемому значению целевого параметра.
 
     Args:
         file_name (str): Имя Excel файла для анализа
@@ -234,12 +235,17 @@ def analyze_model_inputs_for_target(
                 input_cells=input_cells, current_values=current_values, max_scenarios=max_scenarios
             )
 
-            # Test scenarios
+            # Compile a formulas function for fast repeated evaluation
+            fname = os.path.basename(file_path)
+            input_refs = [f"'[{fname}]INPUTS'!{input_cells[n]['cell_ref']}" for n in input_names]
+            output_ref = f"'[{fname}]OUTPUTS'!{output_cell_ref}"
+            func = xl.get_compiled_func(input_refs, [output_ref])
+
+            # Test scenarios (in-memory, no LibreOffice)
             results = test_scenarios(
-                xl=xl,
+                func=func,
                 scenarios=scenarios,
                 input_cells=input_cells,
-                output_cell_ref=output_cell_ref,
                 target_value=target_value,
                 tolerance=tolerance,
             )
@@ -355,23 +361,31 @@ def generate_scenarios(input_cells: dict, current_values: dict, max_scenarios: i
     return scenarios
 
 
-def test_scenarios(xl: ExcelWorkbook, scenarios: list, input_cells: dict, output_cell_ref: str, target_value: float, tolerance: float) -> dict:
-    """Test scenarios and collect results."""
+def _formula_scalar(val) -> float:
+    """Extract a scalar float from a ``formulas`` return value."""
+    if hasattr(val, "value"):
+        return float(val.value[0, 0])
+    return float(val)
+
+
+def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_value: float, tolerance: float) -> dict:
+    """Test scenarios using a pre-compiled formulas function and collect results."""
     matching_scenarios = []
     all_scenarios = []
     start_time = time.perf_counter()
+    input_names = list(input_cells)
 
     for i, values in enumerate(scenarios):
-        # Set input values
-        scenario_inputs = {}
-        for (name, info), value in zip(input_cells.items(), values):
-            xl.set_cell("Inputs", info["cell_ref"], value)
-            scenario_inputs[name] = value
+        scenario_inputs = dict(zip(input_names, values))
 
-        # Calculate and get output
-        xl.calculate()
         try:
-            output = float(xl.get_cell("Outputs", output_cell_ref))
+            result = func(*values)
+            # func returns a single Ranges for one output, tuple for multiple
+            if hasattr(result, "value"):
+                output = _formula_scalar(result)
+            else:
+                output = _formula_scalar(result[0])
+
             deviation = abs(output - target_value)
             deviation_percent = (deviation / target_value) * 100
 
@@ -404,7 +418,7 @@ def test_scenarios(xl: ExcelWorkbook, scenarios: list, input_cells: dict, output
                     "min": min(s["input_values"][name] for s in all_scenarios),
                     "max": max(s["input_values"][name] for s in all_scenarios),
                 }
-                for name in input_cells
+                for name in input_names
             }
         },
     }
@@ -644,10 +658,7 @@ def analyze_excel_model(
                     xl.set_cell("Inputs", input_cells[name]["cell_ref"], value)
                     current_inputs[input_cells[name]["original_name"]] = value
 
-                # Calculate model
-                xl.calculate()
-
-                # Get output values for all years
+                # Get output values for all years (formulas evaluates on demand)
                 current_outputs = {}
                 for name, info in output_cells.items():
                     try:
@@ -1396,10 +1407,7 @@ def modify_excel_input_value(
             xl.save()
             logger.info(f"Saved changes to {modified_file}")
 
-            # Пересчитываем модель
-            xl.calculate()
-
-            # --- Получение новых значений выходных переменных ---
+            # --- Получение новых значений выходных переменных (formulas evaluates on demand) ---
             output_results = {}
             output_matching_info = []  # Для отладки - показываем какие выходные ячейки нашли
 
