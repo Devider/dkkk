@@ -14,6 +14,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency for tests
     GigaChat = None
 import json
+import pprint
 from datetime import datetime
 
 # from langchain.schema import HumanMessage, SystemMessage, AIMessage
@@ -299,15 +300,28 @@ class Agent:
         state["thread_id"] = thread_id
         state["user_id"] = user_id
 
-        self.logger.info(f"""state is the following: {state}""")
+        self.logger.info(f"state:\n{pprint.pformat(self._summarize_state(state), width=100)}")
         return state
+
+    @staticmethod
+    def _summarize_state(state: AgentState) -> dict:
+        msgs = state.get("messages", [])
+        return {
+            "messages": [
+                {
+                    "type": type(m).__name__,
+                    "content": str(m.content)[:200] if m.content else "",
+                    "n_tool_calls": len(getattr(m, "tool_calls", [])),
+                }
+                for m in msgs
+            ]
+        }
 
     def analyze_step(self, state: AgentState, config: Optional[RunnableConfig] = None) -> AgentState:
         """Analyze the current state and determine next action."""
         self.logger.info(
-            f"inside analyze step agent state is the following: {state}, config is the following : {config}"
+            f"inside analyze step:\n{pprint.pformat(self._summarize_state(state), width=100)}"
         )
-        # self.logger.info(f"inside analyze step config is the following: {config}")
 
         thread_id = None
         if config and "configurable" in config:

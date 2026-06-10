@@ -208,7 +208,7 @@ class LoggerConfigurator(metaclass=Singleton):
             handler_name="log-console-handler",
             sink=sys.stdout,
             level=self.log_lvl,
-            format=loguru_patcher.format_stdout_record,
+            format="{extra[serialized]}\n",
             filter=lambda record: record["extra"].get("target") == "log",
         )
 
