@@ -90,7 +90,7 @@ class ModelInputAnalysisToolArgs(BaseModel):
     target_value: float = Field(..., description="Целевое значение, которое нужно достичь")
     tolerance: float = Field(default=0.1, description="Допустимое отклонение от целевого значения")
     max_scenarios: int = Field(default=1000, description="Максимальное количество сценариев для анализа")
-    input_names: list = Field(
+    input_names: list[str] = Field(
         default=None, description="Список описательных запросов для идентификации ячеек на листе 'inputs' без года."
     )
     thread_id: str = Field(default="", description="ID потока")
