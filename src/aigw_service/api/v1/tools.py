@@ -93,6 +93,8 @@ class ModelInputAnalysisToolArgs(BaseModel):
     input_names: list = Field(
         default=None, description="Список описательных запросов для идентификации ячеек на листе 'inputs' без года."
     )
+    thread_id: str = Field(default="", description="ID потока")
+    user_id: str = Field(default="", description="ID пользователя")
 
 
 class BuildDependencyGraphArgs(BaseModel):
@@ -145,6 +147,8 @@ def analyze_model_inputs_for_target(
     input_names: list,
     tolerance: float = 0.1,
     max_scenarios: int = 1000,
+    thread_id: str = "",
+    user_id: str = "",
 ) -> ModelInputAnalysisToolResult:
     """
     Подбирает параметры модели, которые приводят к требуемому значению целевого параметра.
@@ -167,8 +171,14 @@ def analyze_model_inputs_for_target(
                 status="ERROR", result="Не указаны входные параметры для анализа", content={}
             )
 
-        # Setup Excel
-        file_path = os.path.abspath(os.path.join("/tmp", file_name))
+        # Setup Excel — try user's uploaded file first, fall back to file_name from LLM
+        file_path = None
+        if user_id:
+            stored_name = get_store_file(user_id)
+            if stored_name:
+                file_path = os.path.abspath(os.path.join("/tmp", stored_name))
+        if not file_path or not os.path.exists(file_path):
+            file_path = os.path.abspath(os.path.join("/tmp", file_name))
         if not os.path.exists(file_path):
             return ModelInputAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
@@ -250,29 +260,30 @@ def analyze_model_inputs_for_target(
                 tolerance=tolerance,
             )
 
-            # Optimize using regression (currently disabled — was commented out as unreliable)
-            optimized = None
+            # Optimize using regression to refine beyond the grid resolution
+            optimized = optimize_with_regression(
+                func=func,
+                scenarios=results["all_scenarios"],
+                input_names=input_names,
+                target_value=target_value,
+            )
+            if optimized:
+                logger.info(f"Optimized scenario found: {optimized}")
 
-            # After optimize_with_regression(...)
-            if optimized and optimized.get("deviation_percent", 1e9) <= tolerance:
-                    # Check if this scenario is already in matching_scenarios (by input values)
-                    already_in = any(
-                        all(
-                            abs(optimized["input_values"][k] - s["input_values"].get(k, 1e9)) < 1e-6
-                            for k in optimized["input_values"]
-                        )
-                        for s in results["matching_scenarios"]
-                    )
-                    if not already_in:
-                        # Add in the same format as other scenarios
-                        results["matching_scenarios"].append(
-                            {
-                                "input_values": optimized["input_values"],
-                                "output_value": optimized["actual_output"],
-                                "deviation": optimized["deviation"],
-                                "deviation_percent": optimized["deviation_percent"],
-                            }
-                        )
+            # Fallback: if no matching scenarios and optimization succeeded, accept it
+            if (
+                not results["matching_scenarios"]
+                and optimized
+                and optimized.get("deviation_percent", 1e9) <= tolerance
+            ):
+                results["matching_scenarios"].append(
+                    {
+                        "input_values": optimized["input_values"],
+                        "output_value": optimized["actual_output"],
+                        "deviation": optimized["deviation"],
+                        "deviation_percent": optimized["deviation_percent"],
+                    }
+                )
 
             # Save results to Excel
             excel_file = save_analysis_results(
@@ -424,49 +435,52 @@ def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_va
     }
 
 
-# def optimize_with_regression(wb, scenarios: list, input_cells: dict, output_cell, target_value: float,
-#                              input_names: list) -> dict:
-#     """Optimize inputs using regression model."""
-#     try:
-#         # Prepare data for regression
-#         X = np.array([[s['input_values'][name] for name in input_names] for s in scenarios])
-#         y = np.array([s['output_value'] for s in scenarios])
+def optimize_with_regression(
+    func: Callable,
+    scenarios: list,
+    input_names: list,
+    target_value: float,
+) -> dict:
+    """Optimize inputs using scipy minimize with the compiled formulas function."""
+    try:
+        from scipy.optimize import minimize
 
-#         # Fit regression model
-#         reg = LinearRegression().fit(X, y)
+        # Prepare data — sort scenarios by deviation ascending, take best
+        sorted_scenarios = sorted(scenarios, key=lambda s: s["deviation"])
+        best = sorted_scenarios[0]
 
-#         # Define optimization objective
-#         def objective(inputs):
-#             pred = reg.predict([inputs])[0]
-#             return abs(pred - target_value)
+        # Bounds from the scenario ranges
+        bounds = [
+            (min(s["input_values"][name] for s in scenarios), max(s["input_values"][name] for s in scenarios))
+            for name in input_names
+        ]
 
-#         # Set bounds from scenarios
-#         bounds = [(min(s['input_values'][name] for s in scenarios),
-#                    max(s['input_values'][name] for s in scenarios))
-#                   for name in input_names]
+        # Objective: minimise |actual_output - target|
+        def objective(x):
+            out = func(*x)
+            return abs(_formula_scalar(out) - target_value)
 
-#         # Optimize
-#         x0 = X[0]  # Start from best scenario
-#         res = minimize(objective, x0, bounds=bounds, method='L-BFGS-B')
+        # Start from the best grid scenario
+        x0 = np.array([best["input_values"][name] for name in input_names])
+        res = minimize(objective, x0, bounds=bounds, method="L-BFGS-B")
 
-#         # Test optimized solution
-#         for name, value in zip(input_names, res.x):
-#             input_cells[name]['cell'].value = value
+        # Evaluate the optimised point with the real model
+        actual = _formula_scalar(func(*res.x))
 
-#         wb.app.calculate()
-#         actual_output = float(output_cell.value)
+        input_values = {name: round(float(v), 3) for name, v in zip(input_names, res.x, strict=True)}
+        deviation = abs(actual - target_value)
+        deviation_percent = deviation / target_value * 100
 
-#         return {
-#             'input_values': {name: round(value, 3) for name, value in zip(input_names, res.x)},
-#             'predicted_output': round(reg.predict([res.x])[0], 3),
-#             'actual_output': round(actual_output, 3),
-#             'deviation': round(abs(actual_output - target_value), 3),
-#             'deviation_percent': round(abs(actual_output - target_value) / target_value * 100, 2),
-#             'optimized': True
-#         }
-#     except Exception as e:
-#         logger.warning(f"Optimization failed: {str(e)}")
-#         return None
+        return {
+            "input_values": input_values,
+            "actual_output": round(float(actual), 3),
+            "deviation": round(float(deviation), 3),
+            "deviation_percent": round(float(deviation_percent), 2),
+            "optimized": True,
+        }
+    except Exception as e:
+        logger.warning(f"Optimization failed: {str(e)}")
+        return None
 
 
 def get_output_cell_ref(mapping: dict, output_name: str, year: int) -> str:
@@ -583,6 +597,9 @@ def analyze_excel_model(
                     # Use the year from output_years parameter instead of extracting from name
                     if i < len(output_years):
                         target_year = output_years[i]
+                    elif output_years:
+                        # Pad with last known year if fewer years than outputs
+                        target_year = output_years[-1]
                     else:
                         # Fallback: extract year from query if output_years is not provided
                         target_year = extract_year_from_query(name)
@@ -602,9 +619,7 @@ def analyze_excel_model(
                     }
                     output_years_dict[name] = target_year
                     out_val = xl.get_cell("Outputs", output_cell_ref)
-                    logger.info(
-                        f"Found output cell for {name}: {actual_output_name} {target_year} = {out_val}"
-                    )
+                    logger.info(f"Found output cell for {name}: {actual_output_name} {target_year} = {out_val}")
                 except Exception as e:
                     return ExcelAnalysisToolResult(
                         status="ERROR",
@@ -618,9 +633,7 @@ def analyze_excel_model(
                 try:
                     # Use the year of the first output as default if input year is missing
                     default_year = list(output_years_dict.values())[0] if output_years_dict else None
-                    cell_address, original_name = find_matching_cell(
-                        name, input_mapping, default_year=default_year
-                    )
+                    cell_address, original_name = find_matching_cell(name, input_mapping, default_year=default_year)
                     input_cells[name] = {
                         "cell_ref": cell_address,
                         "original_name": original_name,
@@ -683,7 +696,7 @@ def analyze_excel_model(
             df_inputs = pd.DataFrame(results["inputs"])
 
             # --- Save all scenario results to Excel ---
-            output_dir = "excel_analysis"
+            output_dir = "/tmp/excel_analysis"
             os.makedirs(output_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             scenario_file = f"{output_dir}/scenarios_{timestamp}.xlsx"
@@ -782,7 +795,7 @@ def save_analysis_results(
         import pandas as pd
 
         # Create output directory
-        output_dir = "excel_analysis"
+        output_dir = "/tmp/excel_analysis"
         os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         excel_file = f"{output_dir}/scenarios_analysis_{timestamp}.xlsx"
@@ -1215,7 +1228,7 @@ def generate_min_max_scenarios(inputs: pd.DataFrame, outputs: pd.DataFrame) -> s
 
     # Создаем папку
     # output_dir = "excel_scripts"
-    output_dir = "excel_analysis"
+    output_dir = "/tmp/excel_analysis"
     os.makedirs(output_dir, exist_ok=True)
 
     # Сохраняем в Excel
@@ -1250,7 +1263,7 @@ def create_scenario_matrix(inputs: pd.DataFrame, outputs: pd.DataFrame) -> str:
 
     # Создаем папку для результатов
     # output_dir = "excel_scripts"
-    output_dir = "excel_analysis"
+    output_dir = "/tmp/excel_analysis"
     os.makedirs(output_dir, exist_ok=True)
 
     # Генерируем имя файла

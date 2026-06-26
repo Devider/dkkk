@@ -123,16 +123,36 @@ class Agent:
                       ячейки на Inputs и Outputs, пересчитает модель и вернёт
                       таблицу со всеми сценариями.
 
-                      Пример правильного вызова:
-                      Запрос: «Проанализируй models.xlsx со значением метанола
-                      2025 (450,500) и шагом 5. Покажи debt/ebitda 2025»
-                      → analyze_excel_model(
-                            input_names=["цена метанола"],
-                            output_names=["debt/ebitda"],
-                            output_years=[2025],
-                            ranges=[[450, 500]],
-                            steps=[5]
-                        )
+                       ВАЖНО: количество элементов в output_years должно
+                       строго соответствовать количеству элементов в
+                       output_names — по одному году на каждый выходной
+                       параметр.
+
+                       Пример правильного вызова (один выход):
+                       Запрос: «Проанализируй models.xlsx со значением метанола
+                       2025 (450,500) и шагом 5. Покажи debt/ebitda 2025»
+                       → analyze_excel_model(
+                             input_names=["цена метанола"],
+                             output_names=["debt/ebitda"],
+                             output_years=[2025],
+                             ranges=[[450, 500]],
+                             steps=[5]
+                         )
+
+                       Пример правильного вызова (несколько выходов):
+                       Запрос: «Проанализируй models.xlsx с метанолом (450,500)
+                       и инфляцией (0.1,0.2). Покажи debt/ebitda,
+                       net debt/ebitda, icr corr за 2025»
+                       → analyze_excel_model(
+                             input_names=["цена метанола",
+                                          "инфляция USD CPI"],
+                             output_names=["debt/ebitda",
+                                           "net debt/ebitda",
+                                           "icr corr"],
+                             output_years=[2025, 2025, 2025],
+                             ranges=[[450, 500], [0.1, 0.2]],
+                             steps=[5, 0.1]
+                         )
 
                    b) `get_output_info` используй ТОЛЬКО для чтения значений
                       выходных показателей на листе Outputs без изменения
