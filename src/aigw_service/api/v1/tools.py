@@ -1388,6 +1388,21 @@ def modify_excel_input_value(
             input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
             output_mapping = create_output_mapping(xl.get_all_data("Outputs"))
 
+            # Авто-коррекция года, если LLM передала индекс вместо года
+            available_years = sorted(input_mapping["year_columns"].values())
+            if available_years and all(y < 100 for y in year_range):
+                new_range = []
+                for y in year_range:
+                    for base in (2021, 2018, 2001):
+                        if y + base in available_years:
+                            new_range.append(y + base)
+                            break
+                    else:
+                        new_range.append(y)
+                if new_range != year_range:
+                    logger.info(f"Auto-corrected year_range from {year_range} to {new_range}")
+                    year_range = new_range
+
             # --- Читаем старые значения выходных переменных до модификации ---
             old_output_results = {}
             for output_name in output_names:

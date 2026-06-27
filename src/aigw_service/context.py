@@ -41,12 +41,15 @@ class AppContext(metaclass=Singleton):
         # Модель
         self._model_to_use = APP_CONFIG.app.model_to_use
         self._gigachat_base_params = None
+        self._gigachat_credentials = None
         self.gigachat_embeddings = None
         self._ollama_kwargs = None
 
         if self._model_to_use == "GIGACHAT":
             self._gigachat_base_params = secrets.gigachat.base_params
             self.gigachat_embeddings = GigaChatEmbeddings(**self._gigachat_base_params)
+        elif self._model_to_use == "GIGACHAT_TOKEN":
+            self._gigachat_credentials = secrets.gigachat.credentials
         elif self._model_to_use == "OLLAMA":
             self._ollama_kwargs = {
                 "base_url": secrets.ollama.base_url,
@@ -98,7 +101,7 @@ class AppContext(metaclass=Singleton):
     def get_ollama_kwargs(self):
         return self._ollama_kwargs
 
-    def create_llm(self, model_name: str = "GigaChat-2-Pro-preview", **kwargs):
+    def create_llm(self, model_name: str = "GigaChat-2-Pro", **kwargs):
         """
         Создаёт LLM в зависимости от MODEL_TO_USE.
         """
@@ -107,6 +110,14 @@ class AppContext(metaclass=Singleton):
         if self._model_to_use == "GIGACHAT":
             return GigaChat(
                 **self._gigachat_base_params,
+                model=model_name,
+                timeout=kwargs.get("timeout", 60),
+                temperature=kwargs.get("temperature", 0.000001),
+            )
+        elif self._model_to_use == "GIGACHAT_TOKEN":
+            return GigaChat(
+                credentials=self._gigachat_credentials,
+                verify_ssl_certs=False,
                 model=model_name,
                 timeout=kwargs.get("timeout", 60),
                 temperature=kwargs.get("temperature", 0.000001),
@@ -124,13 +135,18 @@ class AppContext(metaclass=Singleton):
             raise ValueError(f"Unknown MODEL_TO_USE: {self._model_to_use}")
 
     async def _check_llm_connection(self):
-        if self._model_to_use == "GIGACHAT":
+        if self._model_to_use in ("GIGACHAT", "GIGACHAT_TOKEN"):
             await self._check_gigachat_connection()
         elif self._model_to_use == "OLLAMA":
             await self._check_ollama_connection()
 
     async def _check_gigachat_connection(self):
-        gigachat = GigaChat(**self._gigachat_base_params)
+        if self._model_to_use == "GIGACHAT":
+            gigachat = GigaChat(**self._gigachat_base_params)
+        elif self._model_to_use == "GIGACHAT_TOKEN":
+            gigachat = GigaChat(credentials=self._gigachat_credentials, verify_ssl_certs=False)
+        else:
+            return
         try:
             self.logger.info(f"Attempt to connect to GigaChat at host {gigachat.base_url}.")
             models = await gigachat.aget_models()

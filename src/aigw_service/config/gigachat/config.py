@@ -17,6 +17,7 @@ class GigaChatSettings(BaseAppSettings):
     tls_cert_filepath: Optional[str] = Field(validation_alias="GIGACHAT_TLS_CERT_FILEPATH", default="")
     key_filepath: Optional[str] = Field(validation_alias="GIGACHAT_KEY_FILEPATH", default="")
     ca_bundle_filepath: Optional[str] = Field(validation_alias="GIGACHAT_CA_BUNDLE_FILEPATH", default="")
+    credentials: Optional[str] = Field(None, validation_alias="GIGACHAT_CREDENTIALS")
 
     @model_validator(mode="after")
     def validate_file_path(self):

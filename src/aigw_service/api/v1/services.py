@@ -63,7 +63,7 @@ class Agent:
             # self.logger.info("Initializing agent...")
             # Initialize LLM based on model type
             self.llm = APP_CTX.create_llm(
-                model_name="GigaChat-2-Pro-preview",
+                model_name="GigaChat-2-Max",
                 temperature=0.000001,
                 timeout=60,
             )
@@ -576,8 +576,14 @@ class Agent:
                                     )
                                     content = tool_result.content + f"\n\nГрафик: {tool_result.image_path}"
                             else:
-                                # Use .result for tools where .content is a dict (not LLM-readable)
-                                if isinstance(tool_result.content, dict):
+                                # Для analyze_excel_model передаём полный DataFrame как JSON
+                                if isinstance(tool_result.content, dict) and tool_name == "analyze_excel_model":
+                                    payload = {
+                                        "result": tool_result.result,
+                                        "content": tool_result.content,
+                                    }
+                                    content = json.dumps(payload, ensure_ascii=False, default=str)
+                                elif isinstance(tool_result.content, dict):
                                     content = tool_result.result
                                 else:
                                     content = tool_result.content
