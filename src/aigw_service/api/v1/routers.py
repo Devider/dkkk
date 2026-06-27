@@ -168,12 +168,8 @@ async def invoke_agent(
         )
 
         logger.info(f"Invoking agent with thread_id={thread_id}, user_id={user_id} ")
-        response_text = str(result["messages"][-1])
-
-        start_index = response_text.find("content=") + (len("content=") + 1)
-        end_index = response_text.find("'", start_index + 1)
-
-        result_content = response_text[start_index:end_index]
+        msg = result["messages"][-1]
+        result_content = msg.content if hasattr(msg, "content") else str(msg)
         logger.info(f"Content text: {result_content}")
 
         zip_buffer = BytesIO()

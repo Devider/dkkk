@@ -58,6 +58,8 @@ class ExcelInputModificationToolArgs(BaseModel):
         ...,
         description="Список математических выражений для каждого input (например, ['x+100', 'x+0.1']). Количество должно совпадать с input_names.",
     )
+    thread_id: str = Field(default="", description="ID потока")
+    user_id: str = Field(default="", description="ID пользователя")
 
 
 # Args classes
@@ -528,9 +530,17 @@ def generate_result_message(
 
     # Create main message
     if matching_scenarios:
+        # Build a summary of the best matching scenarios
+        best = matching_scenarios[:3]
+        details = []
+        for s in best:
+            inv = " | ".join(f"{k}={round(v, 4)}" for k, v in s["input_values"].items())
+            details.append(f"{inv} → {s['output_value']:.2f} (отклонение {s['deviation_percent']:.2f}%)")
+        detail_str = "\n".join(details)
         return (
             f"Найдено {len(matching_scenarios)} сценариев, приводящих к целевому значению {target_value} ± {tolerance}%. "
-            f"Проверено {scenarios_tested} сценариев за {processing_time:.2f} сек."
+            f"Проверено {scenarios_tested} сценариев за {processing_time:.2f} сек.\n"
+            f"Найденные значения входных параметров:\n{detail_str}"
             f"{range_description}"
         )
     else:
@@ -662,30 +672,39 @@ def analyze_excel_model(
             combinations = list(product(*value_sets))
             logger.info(f"Генерируем {len(combinations)} сценариев для анализа")
 
-            # Test scenarios
+            # Test scenarios using compiled function (fast, no LibreOffice)
+            fname = os.path.basename(file_path)
+            input_refs = [f"'[{fname}]INPUTS'!{input_cells[n]['cell_ref']}" for n in input_names]
+            output_refs = [f"'[{fname}]OUTPUTS'!{output_cells[n]['cell_ref']}" for n in output_names]
+            func = xl.get_compiled_func(input_refs, output_refs)
+
             results = {"inputs": [], "outputs": []}
             for values in combinations:
-                # Set input values
-                current_inputs = {}
+                # Set input values (also needed for ExcelWorkbook state tracking)
                 for name, value in zip(input_names, values):
                     xl.set_cell("Inputs", input_cells[name]["cell_ref"], value)
+
+                # Evaluate via compiled function (all outputs at once)
+                try:
+                    raw = func(*values)
+                    if hasattr(raw, "value"):
+                        raw = (raw,)
+                except Exception:
+                    continue
+
+                current_inputs = {}
+                for name, value in zip(input_names, values):
                     current_inputs[input_cells[name]["original_name"]] = value
 
-                # Get output values for all years (formulas evaluates on demand)
                 current_outputs = {}
-                for name, info in output_cells.items():
+                for idx, (name, info) in enumerate(output_cells.items()):
+                    output_key = f"{name}_{info['year']}"
                     try:
-                        value = xl.get_cell("Outputs", info["cell_ref"])
-                        output_key = f"{name}_{info['year']}"
-                        if value is not None:
-                            current_outputs[output_key] = round(float(value), 3)
-                        else:
-                            current_outputs[output_key] = None
+                        v = _formula_scalar(raw[idx])
+                        current_outputs[output_key] = round(float(v), 3) if v is not None else None
                     except (ValueError, TypeError):
-                        output_key = f"{name}_{info['year']}"
                         current_outputs[output_key] = None
 
-                # Store results
                 results["inputs"].append(current_inputs)
                 results["outputs"].append(current_outputs)
 
@@ -1317,7 +1336,13 @@ def create_scenario_matrix(inputs: pd.DataFrame, outputs: pd.DataFrame) -> str:
 
 @tool(args_schema=ExcelInputModificationToolArgs)
 def modify_excel_input_value(
-    file_name: str, input_names: list, output_names: list, year_range: list, expression: list
+    file_name: str,
+    input_names: list,
+    output_names: list,
+    year_range: list,
+    expression: list,
+    thread_id: str = "",
+    user_id: str = "",
 ) -> ExcelInputModificationToolResult:
     """
     Используйте эту функцию, если нужно изменить значения входных переменных Excel-модели по определённому правилу или выражению и сразу получить новые значения выбранных выходных переменных.
@@ -1332,7 +1357,14 @@ def modify_excel_input_value(
 
     try:
         logger.info(f"Starting Excel input modification for file: {file_name}")
-        file_path = os.path.abspath(os.path.join("/tmp", file_name))
+        # Look up user's uploaded file from store first
+        file_path = None
+        if user_id:
+            stored_name = get_store_file(user_id)
+            if stored_name:
+                file_path = os.path.abspath(os.path.join("/tmp", stored_name))
+        if not file_path or not os.path.exists(file_path):
+            file_path = os.path.abspath(os.path.join("/tmp", file_name))
         if not os.path.exists(file_path):
             return ExcelInputModificationToolResult(
                 status="error",
@@ -1355,6 +1387,32 @@ def modify_excel_input_value(
         with ExcelWorkbook(modified_file) as xl:
             input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
             output_mapping = create_output_mapping(xl.get_all_data("Outputs"))
+
+            # --- Читаем старые значения выходных переменных до модификации ---
+            old_output_results = {}
+            for output_name in output_names:
+                try:
+                    match = find_matching_outputs(output_name, output_mapping)
+                    if not match:
+                        continue
+                    actual_output_name = list(match.keys())[0]
+                    # Get all years from the output mapping
+                    available_years = sorted(match[actual_output_name].get("values", {}).keys())
+                    if not available_years:
+                        available_years = year_range
+                    old_values = {}
+                    for year in available_years:
+                        try:
+                            output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, year)
+                            value = xl.get_cell("Outputs", output_cell_ref)
+                            if value is not None:
+                                old_values[year] = float(value)
+                        except Exception:
+                            pass
+                    old_output_results[output_name] = old_values
+                except Exception:
+                    pass
+            logger.info(f"OLD OUTPUT VALUES: {old_output_results}")
 
             # --- Модификация входных переменных ---
             changes_made = []
@@ -1385,10 +1443,12 @@ def modify_excel_input_value(
                         )
                     except Exception as e:
                         logger.error(f"Не удалось найти ячейку для {input_name} {year}: {e}")
+                        available_inputs = sorted(info["original"] for info in input_mapping["row_mapping"].values())
+                        hint = f"\nДоступные входные параметры: {available_inputs[:30]}"
                         return ExcelInputModificationToolResult(
                             status="error",
-                            result=f"Не удалось найти ячейку для {input_name} {year}: {e}",
-                            content=str(e),
+                            result=f"Не удалось найти ячейку для {input_name} {year}: {e}{hint}",
+                            content=f"Не удалось найти ячейку для '{input_name}'. Попробуйте одно из доступных названий: {available_inputs[:30]}",
                         )
 
                 # Применяем выражение к каждому году независимо
@@ -1400,8 +1460,10 @@ def modify_excel_input_value(
 
                     # Применяем выражение к текущему значению этого года
                     try:
+                        fixed_expr = re.sub(r"\by\b", "x", input_expression)
+                        fixed_expr = re.sub(r"\bz\b", "x", fixed_expr)
                         local_vars = {"x": current_value}
-                        new_value = eval(input_expression, {"np": np}, local_vars)
+                        new_value = eval(fixed_expr, {"np": np}, local_vars)
                         logger.info(
                             f"CALCULATION: {input_name} {year}: {current_value} → {new_value} (expression: {input_expression})"
                         )
@@ -1437,9 +1499,13 @@ def modify_excel_input_value(
                     output_matching_info.append(f"Output '{output_name}' Found: '{actual_output_name}'")
                     logger.info(f"OUTPUT MATCHING: Output '{output_name}' Found: '{actual_output_name}'")
 
-                    # Получаем значения для всех лет из year_range
+                    # Get all years from output mapping values
+                    available_years = sorted(match[actual_output_name].get("values", {}).keys())
+                    if not available_years:
+                        available_years = year_range
+
                     output_values = {}
-                    for year in year_range:
+                    for year in available_years:
                         try:
                             # Находим ячейку для конкретного года
                             output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, year)
@@ -1473,6 +1539,18 @@ def modify_excel_input_value(
 === ИЗМЕНЕНИЯ ===
 {chr(10).join(changes_made)}
 
+=== СТАРЫЕ ЗНАЧЕНИЯ ВЫХОДНЫХ ПЕРЕМЕННЫХ (до модификации) ===
+"""
+            for output_name, values in old_output_results.items():
+                if isinstance(values, dict):
+                    result_message += f"\n{output_name}:\n"
+                    for year, value in values.items():
+                        if value is not None:
+                            result_message += f"  {year}: {value:.2f}\n"
+                        else:
+                            result_message += f"  {year}: Нет данных\n"
+
+            result_message += """
 === НОВЫЕ ЗНАЧЕНИЯ ВЫХОДНЫХ ПЕРЕМЕННЫХ ===
 """
             for output_name, values in output_results.items():
