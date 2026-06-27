@@ -35,7 +35,7 @@ class ExcelWorkbook:
 
     def __init__(self, file_path: str):
         self.file_path = os.path.abspath(file_path)
-        self._wb: Optional[openpyxl.Workbook] = None   # data_only=False (formulas)
+        self._wb: Optional[openpyxl.Workbook] = None  # data_only=False (formulas)
         self._wbv: Optional[openpyxl.Workbook] = None  # data_only=True (cached values)
         self._model: Optional[formulas.ExcelModel] = None
         self._inputs: dict[str, Any] = {}
