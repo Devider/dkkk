@@ -1,5 +1,6 @@
 import httpx
 import pytz
+from gigachat.exceptions import AuthenticationError
 from httpx import RequestError
 from langchain_gigachat import GigaChat, GigaChatEmbeddings
 from langgraph.store.memory import InMemoryStore
@@ -155,7 +156,7 @@ class AppContext(metaclass=Singleton):
                 self.logger.debug(f"Available models: {[model.id_ for model in models.data]}")
                 print("=" * 80)
             self.logger.info(f"Connection to GigaChat at host {gigachat.base_url} successfully established.")
-        except RequestError as e:
+        except (RequestError, AuthenticationError) as e:
             self.logger.error(f"Error connecting to GigaChat at host {gigachat.base_url}: {e}")
 
     async def _check_ollama_connection(self):

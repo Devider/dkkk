@@ -566,7 +566,7 @@ def analyze_excel_model(
     ГЛАВНЫЙ инструмент для сценарного анализа «что-если».
     Изменяет входные параметры (Inputs), пересчитывает модель (LibreOffice),
     возвращает значения выходных показателей (Outputs) для каждого сценария.
-    Пример: "Проанализируй модель при цене метанола от 450 до 500 с шагом 5, покажи debt/ebitda"
+    Пример: "Проанализируй модель при цене метанола от 450 до 500 с шагом 5 и инфляции USD CPI от 0.1 до 0.2 с шагом 0.1, покажи debt/ebitda 2025, net debt/ebitda (ltm) 2025 и icr corr (ltm) 2025"
 
     Args:
         file_name (str): Название Excel файла для анализа
@@ -1097,7 +1097,6 @@ def create_output_mapping(data: list[list]) -> dict:
 
         logger.info(f"Output data structure: {len(data)} rows")
         if data:
-            print("hehe")
             logger.info(f"First row: {data[0]}")
 
         # First row contains headers
@@ -1257,7 +1256,7 @@ def generate_min_max_scenarios(inputs: pd.DataFrame, outputs: pd.DataFrame) -> s
     filename = f"min_max_scenarios_{timestamp}.xlsx"
     filepath = os.path.join(output_dir, filename)
 
-    with pd.ExcelWriter(filepath) as writer:
+    with pd.ExcelWriter(filepath, engine="xlsxwriter") as writer:
         result.to_excel(writer, sheet_name="Сценарии", index=False)
         workbook = writer.book
         worksheet = writer.sheets["Сценарии"]
