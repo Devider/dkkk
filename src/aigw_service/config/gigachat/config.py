@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import ClassVar, Optional
 
 from pydantic import Field, model_validator
 
@@ -18,8 +18,8 @@ class GigaChatSettings(BaseAppSettings):
     key_filepath: Optional[str] = Field(validation_alias="GIGACHAT_KEY_FILEPATH", default="")
     ca_bundle_filepath: Optional[str] = Field(validation_alias="GIGACHAT_CA_BUNDLE_FILEPATH", default="")
     credentials: Optional[str] = Field(None, validation_alias="GIGACHAT_CREDENTIALS")
-    temperature: float = 0.000001
-    max_tokens: int = 8192
+    temperature: ClassVar[float] = 0.000001
+    max_tokens: ClassVar[int] = 8192
 
     @model_validator(mode="after")
     def validate_file_path(self):
