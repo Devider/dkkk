@@ -113,7 +113,6 @@ class AppContext(metaclass=Singleton):
                 **self._gigachat_base_params,
                 model=model_name,
                 timeout=kwargs.get("timeout", 60),
-                temperature=kwargs.get("temperature", 0.000001),
             )
         elif self._model_to_use == "GIGACHAT_TOKEN":
             return GigaChat(
@@ -121,7 +120,8 @@ class AppContext(metaclass=Singleton):
                 verify_ssl_certs=False,
                 model=model_name,
                 timeout=kwargs.get("timeout", 60),
-                temperature=kwargs.get("temperature", 0.000001),
+                temperature=0.000001,
+                max_tokens=8192,
             )
         elif self._model_to_use == "OLLAMA":
             from langchain_ollama import ChatOllama

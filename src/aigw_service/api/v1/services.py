@@ -64,7 +64,6 @@ class Agent:
             # Initialize LLM based on model type
             self.llm = APP_CTX.create_llm(
                 model_name="GigaChat-2-Max",
-                temperature=0.000001,
                 timeout=60,
             )
             # Initialize tools
