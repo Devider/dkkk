@@ -13,7 +13,36 @@ from typing import Any, Optional
 
 import formulas
 import openpyxl
+
+# ---------------------------------------------------------------------------
+# Monkey-patch openpyxl 3.1.5  —  MultiCellRange.__init__ silently drops
+# CellRange substrings that fail to parse (non-deterministic bug triggered
+# by certain conditional-formatting / data-validation `sqref` entries in
+# merged-cell-heavy sheets).  Applied once at import time.
+# ---------------------------------------------------------------------------
+import openpyxl.worksheet.cell_range as _openpyxl_cr
 from openpyxl.utils import get_column_letter
+
+_orig_multicellrange_init = _openpyxl_cr.MultiCellRange.__init__
+
+
+def _patched_multicellrange_init(self, ranges=None):
+    if ranges is None:
+        ranges = set()
+    if isinstance(ranges, str):
+        parts = ranges.split()
+        good: list[str] = []
+        for r in parts:
+            try:
+                _openpyxl_cr.CellRange(r)
+                good.append(r)
+            except Exception:
+                pass
+        ranges = [_openpyxl_cr.CellRange(r) for r in good]
+    _orig_multicellrange_init(self, ranges)
+
+
+_openpyxl_cr.MultiCellRange.__init__ = _patched_multicellrange_init
 
 
 class ExcelWorkbook:
