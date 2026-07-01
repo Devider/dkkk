@@ -22,6 +22,19 @@ from aigw_service.api.v1.excel_handler import ExcelWorkbook, copy_to_temp
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
+
+
+def _humanize_error(e: Exception) -> str:
+    msg = str(e)
+    if "MultiCellRange" in msg:
+        return (
+            "Excel-файл содержит повреждённые объединённые ячейки (merged cells). "
+            "Откройте файл в Excel или LibreOffice, сохраните его заново (File → Save As → .xlsx) "
+            "и загрузите снова через /api/v1/upload."
+        )
+    return msg
+
+
 # Result classes
 
 
@@ -339,7 +352,8 @@ def analyze_model_inputs_for_target(
 
     except Exception as e:
         logger.error(f"Ошибка при анализе: {str(e)}", exc_info=True)
-        return ModelInputAnalysisToolResult(status="ERROR", result=f"Ошибка при анализе: {str(e)}", content={})
+        msg = _humanize_error(e)
+        return ModelInputAnalysisToolResult(status="ERROR", result=msg, content={})
 
 
 def generate_scenarios(input_cells: dict, current_values: dict, max_scenarios: int) -> list:
@@ -784,7 +798,8 @@ def analyze_excel_model(
 
     except Exception as e:
         logger.error(f"Ошибка при анализе Excel модели: {str(e)}", exc_info=True)
-        return ExcelAnalysisToolResult(status="ERROR", result=f"Ошибка при анализе: {str(e)}", content={})
+        msg = _humanize_error(e)
+        return ExcelAnalysisToolResult(status="ERROR", result=f"Ошибка при анализе: {msg}", content={})
 
 
 def save_analysis_results(
@@ -1586,10 +1601,11 @@ def modify_excel_input_value(
 
     except Exception as e:
         logger.error(f"Error in modify_excel_input_value: {str(e)}", exc_info=True)
+        msg = _humanize_error(e)
         return ExcelInputModificationToolResult(
             status="error",
-            result=f"Error modifying Excel input: {str(e)}",
-            content=f"Произошла ошибка при модификации входного параметра: {str(e)}",
+            result=msg,
+            content=f"Произошла ошибка: {msg}",
         )
 
 
@@ -2091,11 +2107,11 @@ def get_output_info(
             content=f"Файл '{file_path}' не найден",
         )
     except Exception as e:
-        # logger.error(f"Ошибка в get_output_info: {str(e)}")
+        msg = _humanize_error(e)
         return GetOutputInfoToolResult(
             status="ERROR",
-            result=f"Произошла ошибка при обработке запроса: {str(e)}",
-            content=f"Произошла ошибка при обработке запроса: {str(e)}",
+            result=f"Произошла ошибка: {msg}",
+            content=f"Произошла ошибка: {msg}",
         )
 
 

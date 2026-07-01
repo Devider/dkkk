@@ -44,15 +44,31 @@ class ExcelWorkbook:
 
     def _open(self):
         self.close()
-        self._wb = openpyxl.load_workbook(self.file_path, data_only=False)
-        self._wbv = openpyxl.load_workbook(self.file_path, data_only=True)
+        try:
+            self._wb = openpyxl.load_workbook(self.file_path, data_only=False)
+            self._wbv = openpyxl.load_workbook(self.file_path, data_only=True)
+        except TypeError as e:
+            if "MultiCellRange" in str(e):
+                raise TypeError(
+                    "Excel-файл содержит повреждённые объединённые ячейки (merged cells). "
+                    "Откройте файл в Excel или LibreOffice, сохраните заново и загрузите снова."
+                ) from e
+            raise
         self._model = None
         self._inputs = {}
         self._solution = None
 
     def _ensure_model(self):
         if self._model is None:
-            self._model = formulas.ExcelModel().loads(self.file_path).finish()
+            try:
+                self._model = formulas.ExcelModel().loads(self.file_path).finish()
+            except TypeError as e:
+                if "MultiCellRange" in str(e):
+                    raise TypeError(
+                        "Excel-файл содержит повреждённые объединённые ячейки (merged cells). "
+                        "Откройте файл в Excel или LibreOffice, сохраните заново и загрузите снова."
+                    ) from e
+                raise
 
     # ------------------------------------------------------------------
     # context manager

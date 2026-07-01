@@ -78,14 +78,15 @@ async def upload_file(
         key = user_id
 
         store = APP_CTX.agent_memory.store
-        await store.aput(namespace, key, {"filename": filename})
 
-        store_items = await store.aget(namespace, key)
         async with aiofiles.open(file_location, "wb") as out_file:
             content = await file.read()
             await out_file.write(content)
 
-        logger.info(f"STORE start: {store} \n Store items: {store_items} \n STORE end")
+        await store.aput(namespace, key, {"filename": filename})
+        store_items = await store.aget(namespace, key)
+
+        logger.info(f"File saved to {file_location}, store: {store_items}")
 
         return FileLoaderResponse(content="Файл был успешно сохранен.", filename=str(filename), save_dir=str(save_dir))
     except Exception as e:
