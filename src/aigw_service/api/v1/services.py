@@ -489,6 +489,48 @@ class Agent:
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
             return state
 
+    @staticmethod
+    def _validate_tool_args(tool_name: str, tool_args: dict) -> str | None:
+        """Проверяет, что списковые параметры тула не усечены.
+        Возвращает сообщение об ошибке для модели или None, если всё корректно.
+        """
+        if tool_name == "analyze_excel_model":
+            inn = tool_args.get("input_names", [])
+            out = tool_args.get("output_names", [])
+            years = tool_args.get("output_years", [])
+            ranges = tool_args.get("ranges", [])
+            steps = tool_args.get("steps", [])
+
+            errors = []
+            if inn and ranges and len(inn) != len(ranges):
+                errors.append(f"input_names ({len(inn)} эл.) != ranges ({len(ranges)} эл.)")
+            if inn and steps and len(inn) != len(steps):
+                errors.append(f"input_names ({len(inn)} эл.) != steps ({len(steps)} эл.)")
+            if out and years and len(out) != len(years):
+                errors.append(f"output_names ({len(out)} эл.) != output_years ({len(years)} эл.)")
+
+            if errors:
+                return (
+                    f"Ошибка: параметры тула analyze_excel_model усечены. "
+                    f"{'; '.join(errors)}. "
+                    f"Пожалуйста, вызови инструмент снова, передав ВСЕ входные и ВСЕ выходные параметры "
+                    f"из запроса пользователя. Не пропускай ни один параметр."
+                )
+
+        elif tool_name == "modify_excel_input_value":
+            inn = tool_args.get("input_names", [])
+            exp = tool_args.get("expression", [])
+
+            if inn and exp and len(inn) != len(exp):
+                return (
+                    f"Ошибка: параметры тула modify_excel_input_value усечены. "
+                    f"input_names ({len(inn)} эл.) != expression ({len(exp)} эл.). "
+                    f"Пожалуйста, вызови инструмент снова, передав ВСЕ входные параметры и "
+                    f"выражения из запроса пользователя."
+                )
+
+        return None
+
     def execute_tool(self, state: AgentState) -> AgentState:
         """Execute a tool and return the result."""
         # Get the last message which should contain tool calls
@@ -531,6 +573,19 @@ class Agent:
                     except Exception:
                         self.logger.info(f"Invalid JSON args: {tool_args}")
                         tool_args = {}
+
+                # --- Валидация: проверка усечения списковых параметров ---
+                validation_error = self._validate_tool_args(tool_name, tool_args)
+                if validation_error:
+                    self.logger.info(f"Tool args validation failed for {tool_name}: {validation_error}")
+                    state["messages"].append(
+                        ToolMessage(
+                            content=validation_error,
+                            name=tool_name,
+                            tool_call_id=tool_call.get("id"),
+                        )
+                    )
+                    continue
 
                 # Find the tool
                 tool_found = False

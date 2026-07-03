@@ -118,6 +118,8 @@ class AppContext(metaclass=Singleton):
                 model=model_name,
                 timeout=kwargs.get("timeout", 60),
                 function_ranker=function_ranker,
+                top_p=1.0,
+                repetition_penalty=1.0,
             )
         elif self._model_to_use == "GIGACHAT_TOKEN":
             return GigaChat(
@@ -128,6 +130,8 @@ class AppContext(metaclass=Singleton):
                 temperature=0.000001,
                 max_tokens=8192,
                 function_ranker=function_ranker,
+                top_p=1.0,
+                repetition_penalty=1.0,
             )
         elif self._model_to_use == "OLLAMA":
             from langchain_ollama import ChatOllama
