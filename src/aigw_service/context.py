@@ -108,11 +108,16 @@ class AppContext(metaclass=Singleton):
         """
         from langchain_gigachat import GigaChat
 
+        from aigw_service.api.v1.tools import TOOLS
+
+        function_ranker = {"enabled": True, "top_n": len(TOOLS)}
+
         if self._model_to_use == "GIGACHAT":
             return GigaChat(
                 **self._gigachat_base_params,
                 model=model_name,
                 timeout=kwargs.get("timeout", 60),
+                function_ranker=function_ranker,
             )
         elif self._model_to_use == "GIGACHAT_TOKEN":
             return GigaChat(
@@ -122,6 +127,7 @@ class AppContext(metaclass=Singleton):
                 timeout=kwargs.get("timeout", 60),
                 temperature=0.000001,
                 max_tokens=8192,
+                function_ranker=function_ranker,
             )
         elif self._model_to_use == "OLLAMA":
             from langchain_ollama import ChatOllama
