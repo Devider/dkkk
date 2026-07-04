@@ -165,7 +165,7 @@ class FileLoaderResponse(BaseModel):
         description="Результат выполнения сохранения файла",
         min_length=4,
         max_length=2000,
-        example="The file file.excel has successfully been loaded to /tmp/.",
+        example="The file file.excel has successfully been loaded to the server.",
     )
     filename: str = Field(description="Имя сохраненного файла", min_length=4, max_length=2000, example="filename.xlsx")
     save_dir: str = Field(description="Путь сохранения файла", min_length=4, max_length=2000, example="tmp")

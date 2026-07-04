@@ -1,3 +1,4 @@
+import tempfile
 import zipfile
 from functools import cache
 from io import BytesIO
@@ -26,7 +27,7 @@ logger = APP_CTX.get_logger()
     response_description="OK",
     summary="Загрузка файла на ПОД AI GW",
     description=(
-        "Эндпоинт для загрузки Excel файла для дальнейшей обработки агентом. загрузка в папку /tmp, далее будет добавлено сохранение в базу."
+        "Эндпоинт для загрузки Excel файла для дальнейшей обработки агентом. Файл сохраняется во временную папку, далее будет добавлено сохранение в базу."
     ),
     responses={
         status.HTTP_424_FAILED_DEPENDENCY: {
@@ -64,7 +65,7 @@ async def upload_file(
     excel_extentions = {"xlsx", "xls"}
 
     try:
-        save_dir = Path("/tmp")
+        save_dir = Path(tempfile.gettempdir())
         file_extension = file.filename.split(".")[-1] if "." in file.filename else ""
 
         if file_extension not in excel_extentions:

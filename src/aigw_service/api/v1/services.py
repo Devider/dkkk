@@ -39,6 +39,7 @@ class AgentState(TypedDict):
     summary: str
     scratchpad: list[str]
     last_token_usage: dict[str, int]
+    validation_retries: dict[str, int]  # Consecutive failures per tool_name
 
 
 class Agent:
@@ -262,6 +263,7 @@ class Agent:
             "summary": "",
             "scratchpad": [],
             "last_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "validation_retries": {},
         }
 
     def _estimate_tokens(self, messages: list[Any]) -> int:
@@ -535,7 +537,7 @@ class Agent:
         """Execute a tool and return the result."""
         # Get the last message which should contain tool calls
 
-        self.logger.info(f"inside execute tool agent state is the following: {state}")
+        self.logger.debug(f"inside execute tool agent state is the following: {state}")
         if not state["messages"]:
             self.logger.info("No messages found", "error")
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
@@ -575,17 +577,26 @@ class Agent:
                         tool_args = {}
 
                 # --- Валидация: проверка усечения списковых параметров ---
-                validation_error = self._validate_tool_args(tool_name, tool_args)
-                if validation_error:
-                    self.logger.info(f"Tool args validation failed for {tool_name}: {validation_error}")
-                    state["messages"].append(
-                        ToolMessage(
-                            content=validation_error,
-                            name=tool_name,
-                            tool_call_id=tool_call.get("id"),
-                        )
+                state.setdefault("validation_retries", {})
+                retries = state["validation_retries"].get(tool_name, 0)
+                if retries >= 2:
+                    self.logger.info(
+                        f"Skipping validation for {tool_name} after {retries} retries, executing with partial args"
                     )
-                    continue
+                else:
+                    validation_error = self._validate_tool_args(tool_name, tool_args)
+                    if validation_error:
+                        self.logger.info(f"Tool args validation failed for {tool_name}: {validation_error}")
+                        state["validation_retries"][tool_name] = retries + 1
+                        state["messages"].append(
+                            ToolMessage(
+                                content=validation_error,
+                                name=tool_name,
+                                tool_call_id=tool_call.get("id"),
+                            )
+                        )
+                        continue
+                    state["validation_retries"][tool_name] = 0
 
                 # Find the tool
                 tool_found = False
@@ -656,6 +667,7 @@ class Agent:
                             )
 
                             tool_found = True
+                            state["validation_retries"][tool_name] = 0
                             break
                         except Exception as e:
                             self.logger.info(f"Error executing tool {tool_name}: {str(e)}")

@@ -1,6 +1,7 @@
 import os
 import random
 import re
+import tempfile
 import time
 from ast import literal_eval
 from collections import deque
@@ -22,6 +23,8 @@ from aigw_service.api.v1.excel_handler import ExcelWorkbook, copy_to_temp
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
+
+TEMP_DIR = tempfile.gettempdir()
 
 
 def _humanize_error(e: Exception) -> str:
@@ -191,9 +194,9 @@ def analyze_model_inputs_for_target(
         if user_id:
             stored_name = get_store_file(user_id)
             if stored_name:
-                file_path = os.path.abspath(os.path.join("/tmp", stored_name))
+                file_path = os.path.abspath(os.path.join(TEMP_DIR, stored_name))
         if not file_path or not os.path.exists(file_path):
-            file_path = os.path.abspath(os.path.join("/tmp", file_name))
+            file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
         if not os.path.exists(file_path):
             return ModelInputAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
@@ -596,9 +599,9 @@ def analyze_excel_model(
         if user_id:
             stored_name = get_store_file(user_id)
             if stored_name:
-                file_path = os.path.abspath(os.path.join("/tmp", stored_name))
+                file_path = os.path.abspath(os.path.join(TEMP_DIR, stored_name))
         if not file_path or not os.path.exists(file_path):
-            file_path = os.path.abspath(os.path.join("/tmp", file_name))
+            file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
         if not os.path.exists(file_path):
             return ExcelAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
@@ -729,7 +732,7 @@ def analyze_excel_model(
             df_inputs = pd.DataFrame(results["inputs"])
 
             # --- Save all scenario results to Excel ---
-            output_dir = "/tmp/excel_analysis"
+            output_dir = f"{TEMP_DIR}/excel_analysis"
             os.makedirs(output_dir, exist_ok=True)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             scenario_file = f"{output_dir}/scenarios_{timestamp}.xlsx"
@@ -829,7 +832,7 @@ def save_analysis_results(
         import pandas as pd
 
         # Create output directory
-        output_dir = "/tmp/excel_analysis"
+        output_dir = f"{TEMP_DIR}/excel_analysis"
         os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         excel_file = f"{output_dir}/scenarios_analysis_{timestamp}.xlsx"
@@ -1261,7 +1264,7 @@ def generate_min_max_scenarios(inputs: pd.DataFrame, outputs: pd.DataFrame) -> s
 
     # Создаем папку
     # output_dir = "excel_scripts"
-    output_dir = "/tmp/excel_analysis"
+    output_dir = f"{TEMP_DIR}/excel_analysis"
     os.makedirs(output_dir, exist_ok=True)
 
     # Сохраняем в Excel
@@ -1296,7 +1299,7 @@ def create_scenario_matrix(inputs: pd.DataFrame, outputs: pd.DataFrame) -> str:
 
     # Создаем папку для результатов
     # output_dir = "excel_scripts"
-    output_dir = "/tmp/excel_analysis"
+    output_dir = f"{TEMP_DIR}/excel_analysis"
     os.makedirs(output_dir, exist_ok=True)
 
     # Генерируем имя файла
@@ -1376,9 +1379,9 @@ def modify_excel_input_value(
         if user_id:
             stored_name = get_store_file(user_id)
             if stored_name:
-                file_path = os.path.abspath(os.path.join("/tmp", stored_name))
+                file_path = os.path.abspath(os.path.join(TEMP_DIR, stored_name))
         if not file_path or not os.path.exists(file_path):
-            file_path = os.path.abspath(os.path.join("/tmp", file_name))
+            file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
         if not os.path.exists(file_path):
             return ExcelInputModificationToolResult(
                 status="error",
@@ -1631,7 +1634,7 @@ def build_dependency_graph(file_name: str, output_description: str) -> BuildDepe
             year = int(year_match.group(1))
 
         # Получаем полный путь к файлу
-        file_path = os.path.abspath(os.path.join("/tmp", file_name))
+        file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
 
         # Проверяем существование файла
         if not os.path.exists(file_path):
@@ -1658,7 +1661,7 @@ def build_dependency_graph(file_name: str, output_description: str) -> BuildDepe
         cell_address = matching_output["cell_address"]
 
         # Загружаем Excel файл с openpyxl для анализа зависимостей
-        workbook = openpyxl.load_workbook(os.path.join("/tmp", file_name), data_only=False)
+        workbook = openpyxl.load_workbook(os.path.join(TEMP_DIR, file_name), data_only=False)
 
         # Строим граф зависимостей используя ваш инструментарий
         graph = build_dependency_graph_from_cell(workbook, sheet_name, cell_address)
@@ -1996,7 +1999,7 @@ def get_output_info(
 
         try:
             p = pd.read_excel(
-                os.path.abspath(os.path.join("/tmp", file_path)), sheet_name="Outputs", usecols=list(range(1, 30))
+                os.path.abspath(os.path.join(TEMP_DIR, file_path)), sheet_name="Outputs", usecols=list(range(1, 30))
             )
         except Exception:
             return GetOutputInfoToolResult(
@@ -2233,11 +2236,11 @@ def describe_outputs_sheet(
         file_name = get_store_file(user_id)
         # print(f'FILE_PATH: {file_name}')
         # Строим путь к файлу в папке data/data_for_agent
-        file_path = os.path.abspath(os.path.join("/tmp", file_name))
+        file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
         if not os.path.exists(file_path):
             return DescribeOutputsSheetToolResult(
                 status="ERROR",
-                result=f"Файл '{file_name}' не найден в папке /tmp",
+                result=f"Файл '{file_name}' не найден в папке {TEMP_DIR}",
                 content={"content": "Не найден файл"},
             )
 

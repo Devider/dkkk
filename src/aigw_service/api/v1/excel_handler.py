@@ -7,6 +7,7 @@ entirely in memory — no external process required.
 
 import os
 import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -54,12 +55,12 @@ class ExcelWorkbook:
 
     Usage::
 
-        with ExcelWorkbook("/tmp/model.xlsx") as xl:
+        with ExcelWorkbook("model.xlsx") as xl:
             data = xl.get_all_data("Inputs")          # list[list] of values
             xl.set_cell("Inputs", "B12", 150.0)
             xl.calculate()                             # in-memory recalc
             result = xl.get_cell("Outputs", "C5")
-            xl.save("/tmp/output.xlsx")                # persist
+            xl.save("output.xlsx")                # persist
     """
 
     def __init__(self, file_path: str):
@@ -239,13 +240,13 @@ class ExcelWorkbook:
 
 
 def copy_to_temp(source_path: str, suffix: str = "") -> str:
-    """Copy *source_path* to ``/tmp`` with an optional *suffix* and
+    """Copy *source_path* to the temp directory with an optional *suffix* and
     return the new path."""
     src = Path(source_path)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     stem = src.stem
     if suffix:
         stem = f"{stem}_{suffix}"
-    dest = Path("/tmp") / f"{stem}_{ts}{src.suffix}"
+    dest = Path(tempfile.gettempdir()) / f"{stem}_{ts}{src.suffix}"
     shutil.copy2(str(src), str(dest))
     return str(dest)
