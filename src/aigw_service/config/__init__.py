@@ -1,6 +1,7 @@
 # from .platform_v_search import PlatformVSearchSettings
 from langgraph.store.memory import InMemoryStore
 
+from .agent import AgentSettings
 from .app import AppSettings
 from .base_config import PROJECT_PATH, BaseAppSettings
 from .gigachat import GigaChatSettings, OllamaSettings
@@ -12,6 +13,7 @@ from .pangolin import PangolinSettings
 
 
 class Secrets:
+    agent: AgentSettings = AgentSettings()
     app: AppSettings = AppSettings()
     log: LogSettings = LogSettings()
     gigachat: GigaChatSettings = GigaChatSettings()
@@ -47,6 +49,7 @@ def get_store() -> InMemoryStore:
 DEFAULT_STORE = get_store()
 
 __all__ = [
+    "AgentSettings",
     "APP_CONFIG",
     "PROJECT_PATH",
     "AppSettings",

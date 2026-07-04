@@ -406,7 +406,7 @@ def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_va
     input_names = list(input_cells)
 
     for i, values in enumerate(scenarios):
-        scenario_inputs = dict(zip(input_names, values))
+        scenario_inputs = dict(zip(input_names, values, strict=True))
 
         try:
             result = func(*values)
@@ -575,7 +575,7 @@ def analyze_excel_model(
     output_names: list,
     output_years: list,
     ranges: list,
-    steps: list = [0.5],
+    steps: Optional[list] = None,
     user_id: Optional[str] = None,
     thread_id: Optional[str] = None,
 ) -> ExcelAnalysisToolResult:
@@ -593,6 +593,8 @@ def analyze_excel_model(
         ranges (list): Диапазоны [начало, конец] для каждой ячейки в input_names
         steps (list): Шаги для генерации значений (по умолчанию [0.5])
     """
+    if steps is None:
+        steps = [0.5]
     try:
         # Setup Excel — try user's uploaded file first, fall back to file_name from LLM
         file_path = None
@@ -698,7 +700,7 @@ def analyze_excel_model(
             results = {"inputs": [], "outputs": []}
             for values in combinations:
                 # Set input values (also needed for ExcelWorkbook state tracking)
-                for name, value in zip(input_names, values):
+                for name, value in zip(input_names, values, strict=True):
                     xl.set_cell("Inputs", input_cells[name]["cell_ref"], value)
 
                 # Evaluate via compiled function (all outputs at once)
@@ -710,7 +712,7 @@ def analyze_excel_model(
                     continue
 
                 current_inputs = {}
-                for name, value in zip(input_names, values):
+                for name, value in zip(input_names, values, strict=True):
                     current_inputs[input_cells[name]["original_name"]] = value
 
                 current_outputs = {}
@@ -910,7 +912,7 @@ def parse_cell(cell):
     try:
         d = literal_eval(str(cell))
         return {int(float(k)): float(v) if v else np.nan for k, v in d.items() if k.strip()}
-    except:
+    except Exception:
         return {}
 
 

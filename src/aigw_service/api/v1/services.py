@@ -40,6 +40,7 @@ class AgentState(TypedDict):
     scratchpad: list[str]
     last_token_usage: dict[str, int]
     validation_retries: dict[str, int]  # Consecutive failures per tool_name
+    # TODO (resilience): add stop_reason field for StopEvent (#2)
 
 
 class Agent:
@@ -67,6 +68,8 @@ class Agent:
                 model_name="GigaChat-2-Max",
                 timeout=60,
             )
+            # TODO (resilience): wrap llm.invoke in analyze_step with tenacity retry
+            # See APP_CONFIG.agent.llm_retry_attempts / llm_retry_wait (#1)
             # Initialize tools
 
             if TOOLS is not None:
@@ -229,7 +232,7 @@ class Agent:
                 logger.info(f"Error initializing Agent: {str(e)}")
             else:
                 self.logger.info(f"Error initializing Agent: {str(e)}")
-            raise Exception(f"Ошибка инициализации агента: {str(e)}")
+            raise Exception(f"Ошибка инициализации агента: {str(e)}") from e
 
     def _bind_tools_to_llm(self) -> None:
         """Bind configured tools to the current LLM instance."""
@@ -302,6 +305,12 @@ class Agent:
             # workflow.add_node("summarize_history", self.summarize_history)
 
             # Decide next action
+            # TODO (resilience): add guards in next_action for:
+            #   - max_iterations (APP_CONFIG.agent.max_iterations) (#3)
+            #   - max_messages (APP_CONFIG.agent.max_messages)   (#3)
+            #   - max_prompt_tokens (APP_CONFIG.agent.max_prompt_tokens) (#3)
+            #   - duplicate tool call detection (APP_CONFIG.agent.duplicate_tool_call_threshold) (#3)
+            #   - stop_reason severity check (StopEvent, #2)
             def next_action(state: AgentState) -> str:
                 if not state["messages"]:
                     return END
@@ -381,6 +390,9 @@ class Agent:
             ]
         }
 
+    # TODO (resilience): retry llm.invoke on transient errors (httpx.RequestError, 429, 5xx)
+    # with tenacity @retry(stop=stop_after_attempt(APP_CONFIG.agent.llm_retry_attempts),
+    #                        wait=wait_exponential(multiplier=APP_CONFIG.agent.llm_retry_wait)) (#1)
     def analyze_step(self, state: AgentState, config: Optional[RunnableConfig] = None) -> AgentState:
         """Analyze the current state and determine next action."""
         self.logger.info(f"inside analyze step:\n{pprint.pformat(self._summarize_state(state), width=100)}")
@@ -533,6 +545,7 @@ class Agent:
 
         return None
 
+    # TODO (resilience): track tool_call_history in state for duplicate detection (#3)
     def execute_tool(self, state: AgentState) -> AgentState:
         """Execute a tool and return the result."""
         # Get the last message which should contain tool calls
