@@ -38,6 +38,10 @@ def _humanize_error(e: Exception) -> str:
     return msg
 
 
+# LRU cache for analyze_excel_model — LLMs often repeat identical queries
+_ANALYSIS_CACHE: dict = {}
+_ANALYSIS_CACHE_ORDER: list = []
+_ANALYSIS_CACHE_MAXSIZE = 10
 # Result classes
 
 
@@ -581,7 +585,7 @@ def analyze_excel_model(
 ) -> ExcelAnalysisToolResult:
     """
     ГЛАВНЫЙ инструмент для сценарного анализа «что-если».
-    Изменяет входные параметры (Inputs), пересчитывает модель (LibreOffice),
+    Изменяет входные параметры (Inputs), пересчитывает модель (formulas),
     возвращает значения выходных показателей (Outputs) для каждого сценария.
     Пример: "Проанализируй модель при цене метанола от 450 до 500 с шагом 5 и инфляции USD CPI от 0.1 до 0.2 с шагом 0.1, покажи debt/ebitda 2025, net debt/ebitda (ltm) 2025 и icr corr (ltm) 2025"
 
@@ -606,6 +610,21 @@ def analyze_excel_model(
             file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
         if not os.path.exists(file_path):
             return ExcelAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
+
+        # Check analysis cache (LLMs often repeat identical queries)
+        cache_key = (
+            file_path,
+            tuple(input_names),
+            tuple(output_names),
+            tuple(output_years),
+            tuple(tuple(r) for r in ranges),
+            tuple(steps),
+            user_id,
+        )
+        cached = _ANALYSIS_CACHE.get(cache_key)
+        if cached is not None:
+            logger.info("Cache hit for analyze_excel_model — returning cached result")
+            return cached
 
         start_time = time.perf_counter()
         with ExcelWorkbook(file_path) as xl:
@@ -795,11 +814,20 @@ def analyze_excel_model(
                 sample_lines.append("...")
                 result_text = "\n".join(sample_lines)
 
-            return ExcelAnalysisToolResult(
+            result = ExcelAnalysisToolResult(
                 status="OK",
                 result=result_text,
                 content=results_dict,
             )
+
+            # Cache successful result
+            _ANALYSIS_CACHE[cache_key] = result
+            _ANALYSIS_CACHE_ORDER.append(cache_key)
+            if len(_ANALYSIS_CACHE) > _ANALYSIS_CACHE_MAXSIZE:
+                oldest = _ANALYSIS_CACHE_ORDER.pop(0)
+                _ANALYSIS_CACHE.pop(oldest, None)
+
+            return result
 
     except Exception as e:
         logger.error(f"Ошибка при анализе Excel модели: {str(e)}", exc_info=True)
@@ -1403,7 +1431,7 @@ def modify_excel_input_value(
         modified_file = copy_to_temp(file_path, suffix="modified")
         logger.info(f"Created modified file: {modified_file}")
 
-        with ExcelWorkbook(modified_file) as xl:
+        with ExcelWorkbook(modified_file, model_seed_path=file_path) as xl:
             input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
             output_mapping = create_output_mapping(xl.get_all_data("Outputs"))
 
@@ -1466,7 +1494,7 @@ def modify_excel_input_value(
                             f"{input_name} {year}", input_mapping, default_year=year
                         )
                         cur_val = xl.get_cell("Inputs", cell_ref)
-                        cells_by_year[year] = cell_ref
+                        cells_by_year[year] = {"cell_ref": cell_ref, "cur_val": cur_val}
 
                         # Добавляем информацию о найденной ячейке для отладки
                         cell_matching_info.append(
@@ -1487,7 +1515,7 @@ def modify_excel_input_value(
 
                 # Применяем выражение к каждому году независимо
                 for year in year_range:
-                    current_value = xl.get_cell("Inputs", cells_by_year[year])
+                    current_value = cells_by_year[year]["cur_val"]
                     if current_value is None:
                         logger.warning(f"Значение для {input_name} {year} равно None, используем 0")
                         current_value = 0
@@ -1508,18 +1536,43 @@ def modify_excel_input_value(
                         )
 
                     # Записываем новое значение
-                    old_value = xl.get_cell("Inputs", cells_by_year[year])
-                    xl.set_cell("Inputs", cells_by_year[year], new_value)
+                    old_value = cells_by_year[year]["cur_val"]
+                    xl.set_cell("Inputs", cells_by_year[year]["cell_ref"], new_value)
                     changes_made.append(f"{input_name} {year}: {old_value} {new_value}")
 
             # Сохраняем изменения
             xl.save()
             logger.info(f"Saved changes to {modified_file}")
 
-            # --- Получение новых значений выходных переменных (formulas evaluates on demand) ---
+            # --- Batch calculate all output refs (one call instead of N) ---
+            fname = os.path.basename(modified_file)
+            all_output_refs = []
+            output_meta = []  # (output_name, year, cell_ref) for later reading
+            for output_name in output_names:
+                try:
+                    match = find_matching_outputs(output_name, output_mapping)
+                    if not match:
+                        continue
+                    actual_output_name = list(match.keys())[0]
+                    available_years = sorted(match[actual_output_name].get("values", {}).keys())
+                    if not available_years:
+                        available_years = year_range
+                    for year in available_years:
+                        output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, year)
+                        formula_ref = f"'[{fname}]OUTPUTS'!{output_cell_ref}"
+                        all_output_refs.append(formula_ref)
+                        output_meta.append((output_name, year, output_cell_ref))
+                except Exception:
+                    pass
+
+            if all_output_refs:
+                xl.calculate(outputs=all_output_refs)
+
+            # --- Получение новых значений выходных переменных (из кэша после batch calculate) ---
             output_results = {}
             output_matching_info = []  # Для отладки - показываем какие выходные ячейки нашли
 
+            # Build output_name → {year: value} from cached _solution
             for output_name in output_names:
                 try:
                     # Ищем выходную переменную (без года в названии)

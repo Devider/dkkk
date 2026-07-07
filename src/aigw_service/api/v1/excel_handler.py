@@ -1,14 +1,14 @@
 """Cross-platform Excel handler using openpyxl + formulas (in-memory formula evaluation).
 
-Replaces LibreOffice headless formula recalculation with the pure-Python
-``formulas`` library, which parses, compiles, and evaluates Excel formulas
-entirely in memory — no external process required.
+``formulas`` parses, compiles, and evaluates Excel formulas entirely in
+memory — no external process required.
 """
 
 import os
 import shutil
 import tempfile
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
@@ -46,6 +46,17 @@ def _patched_multicellrange_init(self, ranges=None):
 _openpyxl_cr.MultiCellRange.__init__ = _patched_multicellrange_init
 
 
+@lru_cache(maxsize=3)
+def _load_model(file_path: str) -> formulas.ExcelModel:
+    """Load a formulas ExcelModel and cache it by file path.
+
+    ``lru_cache`` avoids re-parsing and re-compiling the formula graph
+    (``loads().finish()`` ~34s) on every request.  The model is read-only
+    after ``finish()`` — ``calculate()`` and ``compile()`` don't mutate it.
+    """
+    return formulas.ExcelModel().loads(file_path).finish()
+
+
 class ExcelWorkbook:
     """Context manager for cross-platform Excel operations.
 
@@ -63,8 +74,9 @@ class ExcelWorkbook:
             xl.save("output.xlsx")                # persist
     """
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, model_seed_path: str = ""):
         self.file_path = os.path.abspath(file_path)
+        self._model_seed_path = os.path.abspath(model_seed_path) if model_seed_path else ""
         self._wb: Optional[openpyxl.Workbook] = None  # data_only=False (formulas)
         self._wbv: Optional[openpyxl.Workbook] = None  # data_only=True (cached values)
         self._model: Optional[formulas.ExcelModel] = None
@@ -90,8 +102,9 @@ class ExcelWorkbook:
 
     def _ensure_model(self):
         if self._model is None:
+            load_path = self._model_seed_path or self.file_path
             try:
-                self._model = formulas.ExcelModel().loads(self.file_path).finish()
+                self._model = _load_model(load_path)
             except TypeError as e:
                 if "MultiCellRange" in str(e):
                     raise TypeError(
@@ -154,7 +167,8 @@ class ExcelWorkbook:
         ``formulas`` normalises sheet names to uppercase internally,
         so we uppercase *sheet_name* to match.
         """
-        fname = os.path.basename(self.file_path)
+        ref_path = self._model_seed_path or self.file_path
+        fname = os.path.basename(ref_path)
         return f"'[{fname}]{sheet_name.upper()}'!{cell_ref}"
 
     def _extract_value(self, val: Any):
@@ -183,9 +197,13 @@ class ExcelWorkbook:
             if val is not None:
                 return self._extract_value(val)
 
-        # Evaluate just the requested cell
-        solution = self._model.calculate(inputs=self._inputs, outputs=[ref])
-        return self._extract_value(solution[ref])
+        # Evaluate the requested cell and cache result
+        new_solution = self._model.calculate(inputs=self._inputs, outputs=[ref])
+        if self._solution is None:
+            self._solution = new_solution
+        else:
+            self._solution.update(new_solution)
+        return self._extract_value(self._solution[ref])
 
     def set_cell(self, sheet_name: str, cell_ref: str, value: Any):
         """Write a value to the workbook.
@@ -195,6 +213,7 @@ class ExcelWorkbook:
         """
         ref = self._formula_ref(sheet_name, cell_ref)
         self._inputs[ref] = value
+        self._solution = None  # invalidate cache — inputs have changed
         self._wb[sheet_name][cell_ref].value = value
         if self._wbv is not None:
             self._wbv[sheet_name][cell_ref].value = value
