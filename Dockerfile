@@ -15,7 +15,6 @@ RUN poetry build --no-interaction -f wheel && \
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libreoffice-calc \
     graphviz \
     wget \
     && rm -rf /var/lib/apt/lists/*
