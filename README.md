@@ -214,6 +214,28 @@ pytest tests
 # Требуют GIGACHAT_HOST и GIGACHAT_PORT в pyproject.toml [tool.pytest.ini_options.env]
 ```
 
+### Валидация вызовов инструментов
+
+`scripts/run_tool_queries.py` — проверяет, что LLM формирует корректные вызовы инструментов, а Jaccard-резолвинг приводит английские алиасы из запроса к каноническим русским именам.
+
+Тестовые данные: `tests/data/Methanex_tool_test_queries.xlsx` (600 запросов × expected_call JSON).
+
+Принцип:
+1. HTTP POST с уникальным `x-trace-id` на работающий сервер
+2. Парсинг `server.log` — строка с `rqUId` + `"TOOL ARGS"`
+3. Каждый алиас → `find_matching_cell()` / `find_matching_outputs()` (тот же Jaccard-пайплайн, что в production)
+4. Сравнение разрешённого канонического имени с `expected_call`
+
+```bash
+# Сервер должен быть запущен:
+python src/aigw_service/__main__.py 2>&1 | tee server.log
+
+# В другом терминале:
+python scripts/run_tool_queries.py --url http://localhost:8080 --log server.log --subset 5
+```
+
+Результат: PASS / FAIL для каждого запроса + детальные диффы. Чекпоинты сохраняются в `test_output/`, поддержка `--resume`.
+
 ## Требования
 
 - **Docker + Docker Compose**

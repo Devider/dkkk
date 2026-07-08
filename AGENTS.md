@@ -24,6 +24,9 @@ pylint src               # must score >7
 pytest tests             # -v -s --maxfail=1 --cov=src
 pytest tests/test_tools_performance.py -v -s --no-header --no-cov  # ~2.5 min (no --maxfail, runs all 7 tests)
 
+# tool query validation (requires running server)
+python scripts/run_tool_queries.py --url http://localhost:8080 --log server.log [--subset N]
+
 # deps
 poetry install
 poetry add <pkg>
@@ -43,6 +46,7 @@ poetry update            # after pyproject.toml changes
   - **Two-workbook pattern**: `self._wb` (data_only=False, formulas) for edits + saves; `self._wbv` (data_only=True, values) for reads. **Critical** — `save()` on a `data_only=True` workbook strips formulas.
   - **`calculate()`**: calls `formulas.ExcelModel.calculate(inputs=..., outputs=...)` — full dependency graph evaluation in memory (~5–35s). Tools should pass explicit `outputs=` to prune the graph and avoid the full evaluation cost. `get_cell()` caches results in `self._solution`; `set_cell()` invalidates it.
 - **Private dep stub**: `sber-aigw` replaced with local stubs in `src/aigw_modules/`. Only 3 imports used (all in `context.py`). No auth needed.
+- **Name resolution pipeline**: `tools.py:find_matching_cell` / `find_matching_outputs` используют `jaccard_similarity` + `normalize_text` для fuzzy-маппинга английских алиасов из запроса → канонические русские имена из листа Inputs/Outputs.
 - **Agent examples**: `api/v1/agent_examples/` — reference LangGraph agents (react, memorizer, graph).
 - **All deps from public PyPI** — both private repos (`sberosc`, `nexus-release`) were removed.
 
@@ -56,6 +60,7 @@ poetry update            # after pyproject.toml changes
 - Test env vars in `[tool.pytest.ini_options.env]` — `GIGACHAT_HOST` and `GIGACHAT_PORT` required.
 - Integration tests expect 5 headers (validated in `api/v1/utils.py`): `x-trace-id` (UUID), `x-client-id` (2 letters + 8 digits), `x-request-time` (RFC-3339), `x-session-id` (UUID, optional), `x-user-id` (≤8 chars, needed for upload).
 - Do NOT edit: `api/os_router.py`, `api/metric_router.py` — marked `!!!!!! НЕ РЕДАКТИРОВАТЬ !!!!!!`.
+- **Tool query tests** (`scripts/run_tool_queries.py`): тестирует LLM + resolution через production-сервер. Читает 600 промптов из `.xlsx`, ловит `TOOL ARGS` в server.log по `x-trace-id`, резолвит имена через тот же Jaccard-пайплайн. Флаги: `--subset`, `--resume`, `--timeout`.
 - `giga_test.py` at root of `aigw_service` — standalone script, not part of app.
 - Coverage: `--cov=src`, output to `coverage.xml` + `term-missing`.
 - `LOCAL` flag (default False): when False, cert paths in GigaChat/Pangolin config are empty strings, no cert files needed even with Ollama or MEMORY store.
