@@ -1086,7 +1086,12 @@ def jaccard_similarity(str1: str, str2: str) -> float:
     return intersection / union if union > 0 else 0.0
 
 
-def find_matching_cell(query: str, input_mapping: dict, default_year: int = None) -> tuple:
+def find_matching_cell(
+    query: str,
+    input_mapping: dict,
+    default_year: int = None,
+    return_best_score: bool = False,
+) -> tuple:
     """Find the single most matching cell for a given query using Jaccard similarity. If year is not found, use default_year if provided."""
     # Extract year from query
     target_year = extract_year_from_query(query)
@@ -1131,6 +1136,8 @@ def find_matching_cell(query: str, input_mapping: dict, default_year: int = None
 
     # Return proper xlwings cell reference format
     cell_reference = f"{col_letter}{best_match['row']}"
+    if return_best_score:
+        return cell_reference, best_match["original"], best_score
     return cell_reference, best_match["original"]
 
 
@@ -1225,7 +1232,7 @@ def create_output_mapping(data: list[list]) -> dict:
         raise
 
 
-def find_matching_outputs(query: str, output_mapping: dict) -> dict:
+def find_matching_outputs(query: str, output_mapping: dict, return_best_score: bool = False) -> dict:
     """Find the single most matching output for a given query using Jaccard similarity."""
     # Extract year from query if present
     target_year = extract_year_from_query(query)
@@ -1246,19 +1253,25 @@ def find_matching_outputs(query: str, output_mapping: dict) -> dict:
             best_match = (output_info["original"], output_info)
 
     if not best_match or best_score < 0.1:  # Very low threshold since we want the best match even if not great
-        return {}
+        return {"_best_score": best_score} if return_best_score else {}
 
     output_name, output_info = best_match
 
     # If year is specified, only include that year's value
     if target_year:
         if target_year in output_info["values"]:
-            return {output_name: {"value": output_info["values"][target_year], "year": target_year}}
+            result = {output_name: {"value": output_info["values"][target_year], "year": target_year}}
+            if return_best_score:
+                result["_best_score"] = best_score
+            return result
     else:
         # Include all years if no specific year requested
-        return {output_name: {"values": output_info["values"]}}
+        result = {output_name: {"values": output_info["values"]}}
+        if return_best_score:
+            result["_best_score"] = best_score
+        return result
 
-    return {}
+    return {"_best_score": best_score} if return_best_score else {}
 
 
 def generate_min_max_scenarios(inputs: pd.DataFrame, outputs: pd.DataFrame) -> str:

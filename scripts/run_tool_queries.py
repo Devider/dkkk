@@ -9,10 +9,13 @@ Usage:
     python scripts/run_tool_queries.py --url http://localhost:8080 --log server.log
     python scripts/run_tool_queries.py --subset 10               # first 10 per sheet
     python scripts/run_tool_queries.py --resume results.json     # continue from checkpoint
+    python scripts/run_tool_queries.py --verbose                  # detailed per-field output
+    python scripts/run_tool_queries.py --csv report.csv           # write CSV comparison dump
 """
 
 import argparse
 import ast
+import csv
 import json
 import sys
 import uuid
@@ -22,9 +25,6 @@ from pathlib import Path
 import httpx
 import openpyxl
 
-# ---------------------------------------------------------------------------
-# Imports from the production codebase (resolution pipeline)
-# ---------------------------------------------------------------------------
 from aigw_service.api.v1.tools import (
     create_input_mapping,
     create_output_mapping,
@@ -32,15 +32,9 @@ from aigw_service.api.v1.tools import (
     find_matching_outputs,
 )
 
-# ---------------------------------------------------------------------------
-# System-injected / always-present fields to skip when comparing
-# ---------------------------------------------------------------------------
 SYSTEM_FIELDS = {"thread_id", "user_id", "file_name"}
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
 def parse_args():
     parser = argparse.ArgumentParser(description="Run tool query tests")
     parser.add_argument("--url", default="http://localhost:8080", help="Server URL")
@@ -79,12 +73,20 @@ def parse_args():
         default=600,
         help="HTTP request timeout in seconds",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print detailed per-field comparison",
+    )
+    parser.add_argument(
+        "--csv",
+        type=str,
+        default=None,
+        help="Write comparison details to CSV file",
+    )
     return parser.parse_args()
 
 
-# ---------------------------------------------------------------------------
-# Read test queries from the Excel workbook
-# ---------------------------------------------------------------------------
 def read_queries(path: str) -> list[dict]:
     wb = openpyxl.load_workbook(path, data_only=True)
     queries: list[dict] = []
@@ -116,21 +118,15 @@ def read_queries(path: str) -> list[dict]:
     return queries
 
 
-# ---------------------------------------------------------------------------
-# Build input / output mapping from the model file (replicates what the
-# production tools do internally).
-# ---------------------------------------------------------------------------
 def build_mappings(model_path: str) -> tuple[dict, dict]:
     wb = openpyxl.load_workbook(model_path, data_only=True)
 
-    # Inputs sheet → 2D list (same shape as ExcelWorkbook.get_all_data)
     ws_in = wb["Inputs"]
     inputs_data: list[list] = [
         [c.value for c in row]
         for row in ws_in.iter_rows(min_row=1, max_row=ws_in.max_row, max_col=ws_in.max_column)
     ]
 
-    # Outputs sheet
     ws_out = wb["Outputs"]
     outputs_data: list[list] = [
         [c.value for c in row]
@@ -144,9 +140,6 @@ def build_mappings(model_path: str) -> tuple[dict, dict]:
     return input_mapping, output_mapping
 
 
-# ---------------------------------------------------------------------------
-# Extract tool args dict from a log line (by rqUId)
-# ---------------------------------------------------------------------------
 def extract_tool_args(log_file: str, trace_id: str) -> dict | None:
     """Search log file for a TOOL ARGS line with matching rqUId."""
     target = f'"rqUId": "{trace_id}"'
@@ -178,9 +171,6 @@ def extract_tool_args(log_file: str, trace_id: str) -> dict | None:
     return None
 
 
-# ---------------------------------------------------------------------------
-# Numeric comparison with tolerance
-# ---------------------------------------------------------------------------
 def _approx_equal(a, b, tol: float = 1e-9) -> bool:
     if a is None and b is None:
         return True
@@ -191,16 +181,13 @@ def _approx_equal(a, b, tol: float = 1e-9) -> bool:
     return a == b
 
 
-# ---------------------------------------------------------------------------
-# Normalize actual tool args to match expected_call structure
-# ---------------------------------------------------------------------------
 def _normalize(actual: dict) -> dict:
     norm = dict(actual)
 
-    # output_years [y] → year
+    # output_years [y, y, ...] → year (all equal → scalar)
     if "output_years" in norm and "year" not in norm:
         oy = norm.pop("output_years")
-        if isinstance(oy, list) and len(oy) == 1:
+        if isinstance(oy, list) and len(oy) > 0 and len(set(oy)) == 1:
             norm["year"] = oy[0]
 
     # ranges with fused [start, end, step] → [start, end]
@@ -221,7 +208,34 @@ def _normalize(actual: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Structured comparison entry
+# ---------------------------------------------------------------------------
+def _entry(
+    field: str,
+    status: str,
+    *,
+    alias=None,
+    resolved=None,
+    expected=None,
+    actual=None,
+    similarity=None,
+    detail=None,
+) -> dict:
+    return {
+        "field": field,
+        "alias": alias,
+        "resolved": resolved,
+        "expected": expected,
+        "actual": actual,
+        "similarity": similarity,
+        "status": status,
+        "detail": detail,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Compare expected vs actual using the production name-resolution pipeline
+# Returns list of structured comparison entries
 # ---------------------------------------------------------------------------
 def compare(
     expected: dict,
@@ -230,10 +244,9 @@ def compare(
     *,
     input_mapping: dict,
     output_mapping: dict,
-) -> list[str]:
-    diffs: list[str] = []
+) -> list[dict]:
+    entries: list[dict] = []
 
-    # Normalise then strip system fields
     actual = _normalize(actual)
     for sf in SYSTEM_FIELDS:
         actual.pop(sf, None)
@@ -245,84 +258,158 @@ def compare(
         exp_val = expected.get(key)
         act_val = actual.get(key)
         if not _approx_equal(exp_val, act_val):
-            diffs.append(f"{key}: expected {exp_val!r}, got {act_val!r}")
+            raw = actual.get("output_years") if key == "year" and "output_years" in actual else None
+            detail = None
+            if raw is not None:
+                detail = f"output_years={raw}"
+            entries.append(_entry(key, "MISMATCH", expected=exp_val, actual=act_val, detail=detail))
 
-    # ---- Ranges / steps (direct comparison, no resolution needed) ----
+    # ---- Ranges / steps ----
     for key in ("ranges", "steps"):
         exp_val = expected.get(key)
         act_val = actual.get(key)
         if isinstance(exp_val, list) and isinstance(act_val, list):
             if len(exp_val) != len(act_val):
-                diffs.append(f"{key}: length mismatch expected {len(exp_val)}, got {len(act_val)}")
+                entries.append(
+                    _entry(key, "LENGTH_MISMATCH", expected=len(exp_val), actual=len(act_val))
+                )
                 continue
             for i, (e, a_) in enumerate(zip(exp_val, act_val, strict=True)):
+                fq_key = f"{key}[{i}]"
                 if isinstance(e, list) and isinstance(a_, list):
                     if len(e) != len(a_):
-                        diffs.append(f"{key}[{i}]: length mismatch")
+                        entries.append(
+                            _entry(fq_key, "LENGTH_MISMATCH", expected=len(e), actual=len(a_))
+                        )
                     else:
                         for j, (ev, av) in enumerate(zip(e, a_, strict=True)):
                             if not _approx_equal(ev, av):
-                                diffs.append(f"{key}[{i}][{j}]: expected {ev!r}, got {av!r}")
+                                entries.append(
+                                    _entry(f"{fq_key}[{j}]", "MISMATCH", expected=ev, actual=av)
+                                )
                 elif not _approx_equal(e, a_):
-                    diffs.append(f"{key}[{i}]: expected {e!r}, got {a_!r}")
+                    entries.append(_entry(fq_key, "MISMATCH", expected=e, actual=a_))
 
-    # ---- input_names (resolve via production Jaccard pipeline) ----
+    # ---- input_names ----
     exp_in: list[str] = expected.get("input_names", [])
     act_in: list[str] = actual.get("input_names", [])
     if len(exp_in) != len(act_in):
-        diffs.append(
-            f"input_names: length mismatch expected {len(exp_in)}, got {len(act_in)}"
+        entries.append(
+            _entry(
+                "input_names",
+                "LENGTH_MISMATCH",
+                expected=len(exp_in),
+                actual=len(act_in),
+                alias=act_in,
+            )
         )
     else:
         for i, (exp_name, act_alias) in enumerate(zip(exp_in, act_in, strict=True)):
+            fq_key = f"input_names[{i}]"
             try:
-                _cell_ref, resolved = find_matching_cell(
-                    act_alias, input_mapping, default_year=default_year
+                result = find_matching_cell(
+                    act_alias, input_mapping, default_year=default_year, return_best_score=True
                 )
+                _cell_ref, resolved, best_score = result
             except Exception as e:
-                diffs.append(f"input_names[{i}]: resolution raised {e}")
+                entries.append(
+                    _entry(fq_key, "RESOLUTION_ERROR", alias=act_alias, expected=exp_name, detail=str(e))
+                )
                 continue
 
             if not resolved:
-                diffs.append(
-                    f"input_names[{i}]: resolution FAILED for {act_alias!r} "
-                    f"(similarity < 0.1 threshold)"
+                entries.append(
+                    _entry(fq_key, "NO_MATCH", alias=act_alias, expected=exp_name, similarity=best_score)
                 )
             elif resolved != exp_name:
-                diffs.append(
-                    f"input_names[{i}]: resolved to {resolved!r}, "
-                    f"expected {exp_name!r}"
+                entries.append(
+                    _entry(
+                        fq_key,
+                        "MISMATCH",
+                        alias=act_alias,
+                        resolved=resolved,
+                        expected=exp_name,
+                        similarity=best_score,
+                    )
                 )
 
-    # ---- output_names (resolve via production Jaccard pipeline) ----
+    # ---- output_names ----
     exp_out: list[str] = expected.get("output_names", [])
     act_out: list[str] = actual.get("output_names", [])
     if len(exp_out) != len(act_out):
-        diffs.append(
-            f"output_names: length mismatch expected {len(exp_out)}, got {len(act_out)}"
+        entries.append(
+            _entry(
+                "output_names",
+                "LENGTH_MISMATCH",
+                expected=len(exp_out),
+                actual=len(act_out),
+                alias=act_out,
+            )
         )
     else:
         for i, (exp_name, act_alias) in enumerate(zip(exp_out, act_out, strict=True)):
+            fq_key = f"output_names[{i}]"
             try:
-                result = find_matching_outputs(act_alias, output_mapping)
+                result = find_matching_outputs(act_alias, output_mapping, return_best_score=True)
+                best_score = result.pop("_best_score", 0.0) if isinstance(result, dict) else 0.0
             except Exception as e:
-                diffs.append(f"output_names[{i}]: resolution raised {e}")
+                entries.append(
+                    _entry(fq_key, "RESOLUTION_ERROR", alias=act_alias, expected=exp_name, detail=str(e))
+                )
                 continue
 
             if not result:
-                diffs.append(
-                    f"output_names[{i}]: resolution FAILED for {act_alias!r} "
-                    f"(no match in output mapping)"
+                entries.append(
+                    _entry(fq_key, "NO_MATCH", alias=act_alias, expected=exp_name, similarity=best_score)
                 )
             else:
                 resolved_name = next(iter(result.keys()))
                 if resolved_name != exp_name:
-                    diffs.append(
-                        f"output_names[{i}]: resolved to {resolved_name!r}, "
-                        f"expected {exp_name!r}"
+                    entries.append(
+                        _entry(
+                            fq_key,
+                            "MISMATCH",
+                            alias=act_alias,
+                            resolved=resolved_name,
+                            expected=exp_name,
+                            similarity=best_score,
+                        )
                     )
 
-    return diffs
+    return entries
+
+
+# ---------------------------------------------------------------------------
+# Pretty-print a single comparison entry in verbose mode
+# ---------------------------------------------------------------------------
+def _format_entry(e: dict) -> str:
+    parts = [f"  {e['field']}:"]
+    if e["alias"] is not None:
+        parts.append(f"    alias:     {e['alias']!r}")
+    if e["resolved"] is not None:
+        sim = f"  (sim: {e['similarity']:.3f})" if e["similarity"] is not None else ""
+        parts.append(f"    resolved:  {e['resolved']!r}{sim}")
+    if e["expected"] is not None:
+        parts.append(f"    expected:  {e['expected']!r}")
+    if e["actual"] is not None:
+        parts.append(f"    actual:    {e['actual']!r}")
+    if e["similarity"] is not None and e["resolved"] is None and e["detail"] is None:
+        parts.append(f"    similarity: {e['similarity']:.3f}")
+    if e["detail"] is not None:
+        parts.append(f"    detail:    {e['detail']}")
+    parts.append(f"    status:    {e['status']}")
+    return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Write CSV with all comparison details
+# ---------------------------------------------------------------------------
+def write_csv(csv_path: str, all_entries: list[dict]) -> None:
+    fieldnames = ["id", "field", "alias", "resolved", "expected", "actual", "similarity", "status", "detail"]
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(all_entries)
 
 
 # ---------------------------------------------------------------------------
@@ -344,7 +431,7 @@ def main() -> int:
             print(f"ERROR: {label} file not found: {fpath}")
             return 1
 
-    # ---- Build name-resolution mappings (done once) ----
+    # ---- Build name-resolution mappings ----
     print(f"Building mappings from {model_file}...")
     try:
         input_mapping, output_mapping = build_mappings(str(model_file))
@@ -396,6 +483,7 @@ def main() -> int:
 
     # ---- Run tests ----
     results: list[dict] = []
+    csv_entries: list[dict] = []
     passed = 0
     failed = 0
     errors = 0
@@ -443,19 +531,32 @@ def main() -> int:
                 print("FAIL (no tool call)")
                 failed += 1
             else:
-                diffs = compare(
+                entries = compare(
                     q["expected"],
                     actual,
                     q["tool"],
                     input_mapping=input_mapping,
                     output_mapping=output_mapping,
                 )
-                if diffs:
+                # Flatten diffs to strings for backward compat in JSON
+                flat_diffs = [f"{e['field']}: {e['status']}" + (f" — {e['detail']}" if e['detail'] else "") for e in entries]
+
+                # Add to CSV
+                for e in entries:
+                    csv_entries.append({"id": q["id"], **e})
+
+                if entries:
                     result_entry["status"] = "FAIL"
-                    result_entry["diffs"] = diffs
+                    result_entry["diffs"] = flat_diffs
+                    result_entry["comparison"] = entries
                     print("FAIL")
-                    for d in diffs:
-                        print(f"  {d}")
+                    if args.verbose:
+                        for e in entries:
+                            print()
+                            print(_format_entry(e))
+                    else:
+                        for d in flat_diffs:
+                            print(f"  {d}")
                     failed += 1
                 else:
                     result_entry["status"] = "PASS"
@@ -499,6 +600,11 @@ def main() -> int:
                 indent=2,
                 ensure_ascii=False,
             )
+
+    # ---- Write CSV ----
+    if args.csv and csv_entries:
+        write_csv(args.csv, csv_entries)
+        print(f"CSV comparison written to {args.csv}")
 
     # ---- Summary ----
     total = passed + failed + errors
