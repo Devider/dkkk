@@ -53,7 +53,7 @@ def parse_args():
         "--subset",
         type=int,
         default=0,
-        help="Run only first N queries per sheet (0 = all)",
+        help="First N queries from each sheet (0 = all)",
     )
     parser.add_argument(
         "--resume",
@@ -93,7 +93,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def read_queries(path: str) -> list[dict]:
+def read_queries(path: str, subset_per_sheet: int = 0) -> list[dict]:
     wb = openpyxl.load_workbook(path, data_only=True)
     queries: list[dict] = []
 
@@ -103,6 +103,7 @@ def read_queries(path: str) -> list[dict]:
         col_map: dict[str, int] = {h: i for i, h in enumerate(headers)}
 
         tool = sheet_name
+        sheet_queries: list[dict] = []
 
         for row_idx in range(2, ws.max_row + 1):
             row = [c.value for c in ws[row_idx]]
@@ -112,7 +113,7 @@ def read_queries(path: str) -> list[dict]:
             prompt = str(row[col_map["Запрос (prompt)"]])
             expected_call = json.loads(row[col_map["expected_call (JSON)"]])
 
-            queries.append(
+            sheet_queries.append(
                 {
                     "id": str(row[col_map["ID"]]),
                     "prompt": prompt,
@@ -120,6 +121,10 @@ def read_queries(path: str) -> list[dict]:
                     "tool": tool,
                 }
             )
+
+        if subset_per_sheet > 0:
+            sheet_queries = sheet_queries[:subset_per_sheet]
+        queries.extend(sheet_queries)
 
     return queries
 
@@ -449,13 +454,15 @@ def main() -> int:
 
     # ---- Read test data ----
     print(f"Reading queries from {queries_file}...")
-    queries = read_queries(str(queries_file))
+    queries = read_queries(str(queries_file), subset_per_sheet=args.subset)
     total_queries = len(queries)
     print(
         f"  Total: {total_queries} queries"
         f" ({sum(1 for q in queries if q['tool']=='analyze_excel_model')} analyze,"
         f" {sum(1 for q in queries if q['tool']=='analyze_model_inputs_for_target')} target)"
     )
+    if args.subset > 0:
+        print(f"  Subset: first {args.subset} per sheet")
 
     # ---- Resume support ----
     completed_ids: set[str] = set()
@@ -467,10 +474,6 @@ def main() -> int:
             completed_ids = {r["id"] for r in saved.get("results", [])}
             print(f"  Resuming: {len(completed_ids)} already completed")
             queries = [q for q in queries if q["id"] not in completed_ids]
-
-    if args.subset > 0:
-        queries = queries[: args.subset]
-        print(f"  Subset: first {len(queries)} queries")
 
     if not queries:
         print("Nothing to run.")
