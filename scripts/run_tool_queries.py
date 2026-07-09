@@ -255,7 +255,7 @@ def compare(
     *,
     input_mapping: dict,
     output_mapping: dict,
-) -> list[dict]:
+) -> tuple[list[dict], dict]:
     entries: list[dict] = []
 
     actual = _normalize(actual)
@@ -387,7 +387,17 @@ def compare(
                         )
                     )
 
-    return entries
+    total_checks = 1 + len(exp_in) + len(exp_out)  # year + inputs + outputs
+    param_field_prefixes = ("input", "output", "year")
+    failed_checks = sum(
+        1 for e in entries if e["field"].startswith(param_field_prefixes)
+    )
+
+    return entries, {
+        "total": total_checks,
+        "failed": failed_checks,
+        "passed": total_checks - failed_checks,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -529,11 +539,17 @@ def main() -> int:
 
     log_file_path = str(log_file)
 
+    tool_stats: dict[str, dict] = {
+        "analyze_excel_model": {"queries": 0, "queries_passed": 0, "params_total": 0, "params_passed": 0},
+        "analyze_model_inputs_for_target": {"queries": 0, "queries_passed": 0, "params_total": 0, "params_passed": 0},
+    }
+
     for i, q in enumerate(queries):
         trace_id = str(uuid.uuid4())
         label = f"[{i+1}/{len(queries)}] {q['id']}"
         prompt_preview = q["prompt"][:80].replace("\n", " ")
-        print(f"{label} {prompt_preview}... ", end="", flush=True)
+        ts = tool_stats[q["tool"]]
+        ts["queries"] += 1
 
         now = datetime.now(UTC).isoformat()
         headers = {
@@ -570,13 +586,16 @@ def main() -> int:
                 print("FAIL (no tool call)")
                 failed += 1
             else:
-                entries = compare(
+                entries, stats = compare(
                     q["expected"],
                     actual,
                     q["tool"],
                     input_mapping=input_mapping,
                     output_mapping=output_mapping,
                 )
+                ts["params_total"] += stats["total"]
+                ts["params_passed"] += stats["passed"]
+
                 # Flatten diffs to strings for backward compat in JSON
                 flat_diffs = [f"{e['field']}: {e['status']}" + (f" — {e['detail']}" if e['detail'] else "") for e in entries]
 
@@ -584,11 +603,13 @@ def main() -> int:
                 for e in entries:
                     csv_entries.append({"id": q["id"], **e})
 
+                status_line = f"FAIL ({stats['passed']}/{stats['total']} params)"
                 if entries:
                     result_entry["status"] = "FAIL"
                     result_entry["diffs"] = flat_diffs
                     result_entry["comparison"] = entries
-                    print("FAIL")
+                    result_entry["param_stats"] = stats
+                    print(status_line)
                     if args.verbose:
                         for e in entries:
                             print()
@@ -599,7 +620,9 @@ def main() -> int:
                     failed += 1
                 else:
                     result_entry["status"] = "PASS"
+                    result_entry["param_stats"] = stats
                     print("PASS")
+                    ts["queries_passed"] += 1
                     passed += 1
 
             results.append(result_entry)
@@ -633,6 +656,7 @@ def main() -> int:
                         "failed": failed,
                         "errors": errors,
                     },
+                    "tool_stats": tool_stats,
                     "results": results,
                 },
                 f,
@@ -649,8 +673,31 @@ def main() -> int:
     total = passed + failed + errors
     pct = passed / total * 100 if total else 0
     print(f"\n{'=' * 60}")
-    print(f"RESULTS: {passed}/{total} passed, {failed} failed, {errors} errors ({pct:.1f}%)")
-    print(f"Results saved to {out_file}")
+
+    for tool_key, label in [
+        ("analyze_excel_model", "analyze_excel_model"),
+        ("analyze_model_inputs_for_target", "analyze_model_inputs_for_target"),
+    ]:
+        ts = tool_stats[tool_key]
+        if ts["queries"] == 0:
+            continue
+        q_pct = ts["queries_passed"] / ts["queries"] * 100
+        p_pct = ts["params_passed"] / ts["params_total"] * 100 if ts["params_total"] else 0
+        print(f"=== {label} ({ts['queries']} queries) ===")
+        print(f"  PASS: {ts['queries_passed']}/{ts['queries']} ({q_pct:.1f}%)")
+        print(f"  Params: {ts['params_passed']}/{ts['params_total']} correct ({p_pct:.1f}%)")
+        print()
+
+    print(f"=== TOTAL ({total} queries) ===")
+    print(f"  PASS: {passed}/{total} ({pct:.1f}%)")
+
+    all_params_total = sum(ts["params_total"] for ts in tool_stats.values())
+    all_params_passed = sum(ts["params_passed"] for ts in tool_stats.values())
+    if all_params_total > 0:
+        all_pct = all_params_passed / all_params_total * 100
+        print(f"  Params: {all_params_passed}/{all_params_total} correct ({all_pct:.1f}%)")
+
+    print(f"Saved to {out_file}")
 
     return 0 if failed == 0 and errors == 0 else 1
 

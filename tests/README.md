@@ -102,11 +102,14 @@ python scripts/run_tool_queries.py --resume test_output/results.json
 #### Базовый (без флагов)
 
 ```
-[1/3] A001 ... FAIL
+[1/3] A001 ... FAIL (3/8 params)
   year: MISMATCH — expected 2026, got None
   input_names: LENGTH_MISMATCH — expected 3, got 4
   output_names[3]: MISMATCH — resolved to 'Net Debt/EBITDA', expected 'Чистая прибыль'
 ```
+
+После каждого запроса выводится количество корректно зарезолвленных параметров (`params`):
+`FAIL (3/8 params)` значит, что из 8 проверяемых сущностей (year + input_names + output_names) 3 совпали, 5 нет.
 
 #### С `--verbose`
 
@@ -162,8 +165,30 @@ A001,input_names[1],ав USD/RUB,Табак (USD),Средний за перио
 
 ---
 
+## Сводка по инструментам
+
+В конце выводится сводка — отдельно по каждому инструменту и общая:
+
+```
+=== analyze_excel_model (15 queries) ===
+  PASS: 0/15 (0.0%)
+  Params: 32/75 correct (42.7%)
+
+=== analyze_model_inputs_for_target (15 queries) ===
+  PASS: 0/15 (0.0%)
+  Params: 28/60 correct (46.7%)
+
+=== TOTAL (30 queries) ===
+  PASS: 0/30 (0.0%)
+  Params: 60/135 correct (44.4%)
+```
+
+`Params: X/Y correct (Z%)` — доля успешно зарезолвленных параметров (year + input_names + output_names) среди всех запросов инструмента. Это дополнительная метрика к PASS/FAIL: даже если все запросы висят в FAIL из-за хотя бы одной ошибки, можно видеть прогресс по отдельным алиасам.
+
+---
+
 ## Результаты
 
 Все форматы сохраняются в `test_output/`:
-- `tool_query_results_<timestamp>.json` — полные результаты с `diffs` и `comparison`
+- `tool_query_results_<timestamp>.json` — полные результаты с `diffs`, `comparison` и `tool_stats`
 - `comparison_dump.csv` — плоский CSV (если указан `--csv`)
