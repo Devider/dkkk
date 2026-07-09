@@ -264,16 +264,23 @@ def compare(
 
     default_year = expected.get("year")
 
-    # ---- Scalars: year / target_value ----
-    for key in ("year", "target_value"):
-        exp_val = expected.get(key)
-        act_val = actual.get(key)
+    # ---- Scalars ----
+    if tool == "analyze_excel_model":
+        exp_val = expected.get("year")
+        act_val = actual.get("year")
+        if act_val is None:
+            act_val = actual.get("output_years")
         if not _approx_equal(exp_val, act_val):
-            raw = actual.get("output_years") if key == "year" and "output_years" in actual else None
+            raw = actual.get("output_years") if "output_years" in actual else None
             detail = None
             if raw is not None:
                 detail = f"output_years={raw}"
-            entries.append(_entry(key, "MISMATCH", expected=exp_val, actual=act_val, detail=detail))
+            entries.append(_entry("year", "MISMATCH", expected=exp_val, actual=act_val, detail=detail))
+    if tool == "analyze_model_inputs_for_target":
+        exp_val = expected.get("target_value")
+        act_val = actual.get("target_value")
+        if not _approx_equal(exp_val, act_val):
+            entries.append(_entry("target_value", "MISMATCH", expected=exp_val, actual=act_val))
 
     # ---- Ranges / steps ----
     for key in ("ranges", "steps"):
@@ -387,8 +394,46 @@ def compare(
                         )
                     )
 
-    total_checks = 1 + len(exp_in) + len(exp_out)  # year + inputs + outputs
-    param_field_prefixes = ("input", "output", "year")
+    # ---- output_name (singular, for analyze_model_inputs_for_target) ----
+    if tool == "analyze_model_inputs_for_target":
+        exp_name = expected.get("output_name")
+        act_name = actual.get("output_name")
+        if exp_name is not None:
+            if act_name is None:
+                entries.append(_entry("output_name", "MISSING", expected=exp_name, actual=act_name))
+            else:
+                try:
+                    result = find_matching_outputs(act_name, output_mapping, return_best_score=True)
+                    best_score = result.pop("_best_score", 0.0) if isinstance(result, dict) else 0.0
+                except Exception as e:
+                    entries.append(
+                        _entry("output_name", "RESOLUTION_ERROR", alias=act_name, expected=exp_name, detail=str(e))
+                    )
+                else:
+                    if not result:
+                        entries.append(
+                            _entry("output_name", "NO_MATCH", alias=act_name, expected=exp_name, similarity=best_score)
+                        )
+                    else:
+                        resolved_name = next(iter(result.keys()))
+                        if resolved_name != exp_name:
+                            entries.append(
+                                _entry(
+                                    "output_name",
+                                    "MISMATCH",
+                                    alias=act_name,
+                                    resolved=resolved_name,
+                                    expected=exp_name,
+                                    similarity=best_score,
+                                )
+                            )
+
+    if tool == "analyze_model_inputs_for_target":
+        total_checks = 1 + len(exp_in) + (1 if expected.get("output_name") else 0)  # target_value + inputs + output_name
+        param_field_prefixes = ("input", "output", "target")
+    else:
+        total_checks = 1 + len(exp_in) + len(exp_out)  # year + inputs + outputs
+        param_field_prefixes = ("input", "output", "year")
     failed_checks = sum(
         1 for e in entries if e["field"].startswith(param_field_prefixes)
     )
@@ -546,8 +591,9 @@ def main() -> int:
 
     for i, q in enumerate(queries):
         trace_id = str(uuid.uuid4())
-        label = f"[{i+1}/{len(queries)}] {q['id']}"
-        prompt_preview = q["prompt"][:80].replace("\n", " ")
+        prog = f"[{i+1:>3}/{len(queries)}]"
+        label = f"{prog} {q['id']}"
+        prompt_full = q["prompt"].replace("\n", " ")
         ts = tool_stats[q["tool"]]
         ts["queries"] += 1
 
@@ -583,7 +629,8 @@ def main() -> int:
             if actual is None:
                 result_entry["status"] = "FAIL"
                 result_entry["diffs"] = ["No TOOL ARGS found in log"]
-                print("FAIL (no tool call)")
+                print(f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 FAIL (no tool call) \u2501\u2501\u2501")
+                print(f"  Prompt: {prompt_full}")
                 failed += 1
             else:
                 entries, stats = compare(
@@ -597,19 +644,19 @@ def main() -> int:
                 ts["params_passed"] += stats["passed"]
 
                 # Flatten diffs to strings for backward compat in JSON
-                flat_diffs = [f"{e['field']}: {e['status']}" + (f" — {e['detail']}" if e['detail'] else "") for e in entries]
+                flat_diffs = [f"{e['field']}: {e['status']}" + (f" — {e['detail']}" if e["detail"] else "") for e in entries]
 
                 # Add to CSV
                 for e in entries:
                     csv_entries.append({"id": q["id"], **e})
 
-                status_line = f"FAIL ({stats['passed']}/{stats['total']} params)"
                 if entries:
                     result_entry["status"] = "FAIL"
                     result_entry["diffs"] = flat_diffs
                     result_entry["comparison"] = entries
                     result_entry["param_stats"] = stats
-                    print(status_line)
+                    print(f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 FAIL ({stats['passed']}/{stats['total']} params) \u2501\u2501\u2501")
+                    print(f"  Prompt: {prompt_full}")
                     if args.verbose:
                         for e in entries:
                             print()
@@ -621,7 +668,8 @@ def main() -> int:
                 else:
                     result_entry["status"] = "PASS"
                     result_entry["param_stats"] = stats
-                    print("PASS")
+                    print(f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 PASS ({stats['passed']}/{stats['total']} params) \u2501\u2501\u2501")
+                    print(f"  Prompt: {prompt_full}")
                     ts["queries_passed"] += 1
                     passed += 1
 
@@ -640,10 +688,10 @@ def main() -> int:
                 }
             )
 
-        # Save checkpoint after each test
+        # Save checkpoint after each test (reuses same filename, overwrites)
         output_path = (
             args.output
-            or f"test_output/tool_query_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+            or "test_output/tool_query_results.json"
         )
         out_file = Path(output_path)
         out_file.parent.mkdir(parents=True, exist_ok=True)

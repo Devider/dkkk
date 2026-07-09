@@ -102,19 +102,21 @@ python scripts/run_tool_queries.py --resume test_output/results.json
 #### Базовый (без флагов)
 
 ```
-[1/3] A001 ... FAIL (3/8 params)
+━━━ [  1/30] A001 ━━━ FAIL (3/8 params) ━━━
+  Prompt: В модели Methanex_FinModel.xlsx посчитай CFI, ICR (LTM), EBITDA, net profit и minimum annual DSCR за 2026...
   year: MISMATCH — expected 2026, got None
   input_names: LENGTH_MISMATCH — expected 3, got 4
   output_names[3]: MISMATCH — resolved to 'Net Debt/EBITDA', expected 'Чистая прибыль'
 ```
 
-После каждого запроса выводится количество корректно зарезолвленных параметров (`params`):
-`FAIL (3/8 params)` значит, что из 8 проверяемых сущностей (year + input_names + output_names) 3 совпали, 5 нет.
+`params` — количество корректно зарезолвленных параметров (year + input_names + output_names).
+`FAIL (3/8 params)` — из 8 проверяемых сущностей 3 совпали, 5 нет.
 
 #### С `--verbose`
 
 ```
-[1/3] A001 FAIL
+━━━ [  1/30] A001 ━━━ FAIL (3/8 params) ━━━
+  Prompt: В модели Methanex_FinModel.xlsx посчитай CFI, ICR (LTM), EBITDA, net profit и minimum annual DSCR за 2026...
 
   input_names[1]:
     alias:      'US CPI (USD) 2030'       ← что вернула LLM
