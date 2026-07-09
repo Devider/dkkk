@@ -74,7 +74,10 @@ python scripts/run_tool_queries.py --subset 5 --verbose
 # 3. С выгрузкой CSV для просмотра в таблице
 python scripts/run_tool_queries.py --subset 5 --csv errors.csv
 
-# 4. Продолжить с прерванного места
+# 4. Загрузить модель перед тестами (если файла нет на сервере)
+python scripts/run_tool_queries.py --subset 5 --upload models/model.xlsx
+
+# 5. Продолжить с прерванного места
 python scripts/run_tool_queries.py --resume test_output/results.json
 ```
 
@@ -92,6 +95,7 @@ python scripts/run_tool_queries.py --resume test_output/results.json
 | `--timeout SEC` | Таймаут HTTP-запроса (по умолч. 600) |
 | `--verbose` | Детальный вывод alias/resolved/expected по каждому полю |
 | `--csv FILE` | Записать CSV с деталями сравнения |
+| `--upload FILE` | Загрузить .xlsx на сервер перед тестами |
 
 ### Формат вывода
 

@@ -84,6 +84,12 @@ def parse_args():
         default=None,
         help="Write comparison details to CSV file",
     )
+    parser.add_argument(
+        "--upload",
+        type=str,
+        default=None,
+        help="Upload this .xlsx file to the server before running tests",
+    )
     return parser.parse_args()
 
 
@@ -480,6 +486,36 @@ def main() -> int:
     except Exception as e:
         print(f"  ERROR: Server not reachable: {e}")
         return 1
+
+    # ---- Upload model file if requested ----
+    if args.upload:
+        upload_path = Path(args.upload)
+        if not upload_path.exists():
+            print(f"  ERROR: upload file not found: {upload_path}")
+            return 1
+        print(f"Uploading {upload_path} to server...")
+        trace_id = str(uuid.uuid4())
+        now = datetime.now(UTC).isoformat()
+        upload_headers = {
+            "x-trace-id": trace_id,
+            "x-client-id": "CI12345678",
+            "x-request-time": now,
+            "x-session-id": trace_id,
+            "x-user-id": "test",
+        }
+        try:
+            with open(upload_path, "rb") as f:
+                resp = httpx.post(
+                    f"{url}/api/v1/upload",
+                    files={"file": (upload_path.name, f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+                    headers=upload_headers,
+                    timeout=30,
+                )
+            resp.raise_for_status()
+            print(f"  Upload OK ({resp.status_code})")
+        except Exception as e:
+            print(f"  ERROR uploading file: {e}")
+            return 1
 
     # ---- Run tests ----
     results: list[dict] = []
