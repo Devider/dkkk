@@ -18,6 +18,7 @@ import ast
 import csv
 import json
 import sys
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -90,6 +91,12 @@ def parse_args():
         default=None,
         help="Upload this .xlsx file to the server before running tests",
     )
+    parser.add_argument(
+        "--delay",
+        type=float,
+        default=0,
+        help="Delay in seconds between requests",
+    )
     return parser.parse_args()
 
 
@@ -134,8 +141,7 @@ def build_mappings(model_path: str) -> tuple[dict, dict]:
 
     ws_in = wb["Inputs"]
     inputs_data: list[list] = [
-        [c.value for c in row]
-        for row in ws_in.iter_rows(min_row=1, max_row=ws_in.max_row, max_col=ws_in.max_column)
+        [c.value for c in row] for row in ws_in.iter_rows(min_row=1, max_row=ws_in.max_row, max_col=ws_in.max_column)
     ]
 
     ws_out = wb["Outputs"]
@@ -151,9 +157,16 @@ def build_mappings(model_path: str) -> tuple[dict, dict]:
     return input_mapping, output_mapping
 
 
-def extract_tool_args(log_file: str, trace_id: str) -> dict | None:
-    """Search log file for a TOOL ARGS line with matching rqUId."""
+def extract_all_tool_calls(log_file: str, trace_id: str) -> list[dict]:
+    """Search log file for ALL TOOL ARGS lines with matching rqUId.
+
+    Returns list of ``{"tool": str, "args": dict}``.
+    Supports both new format ``TOOL ARGS: <tool_name> | <dict>``
+    and legacy format ``TOOL ARGS: <dict>``.
+    """
     target = f'"rqUId": "{trace_id}"'
+    prefix = "TOOL ARGS: "
+    results: list[dict] = []
 
     with open(log_file) as f:
         for line in f:
@@ -169,17 +182,48 @@ def extract_tool_args(log_file: str, trace_id: str) -> dict | None:
                 continue
 
             msg = entry.get("message", "")
-            prefix = "TOOL ARGS: "
             if prefix not in msg:
                 continue
 
-            dict_str = msg.split(prefix, 1)[1]
+            payload = msg.split(prefix, 1)[1]
+
+            tool_name = None
+            if " | " in payload:
+                tool_name, payload = payload.split(" | ", 1)
+
             try:
-                return ast.literal_eval(dict_str)
+                args = ast.literal_eval(payload)
             except (ValueError, SyntaxError):
                 continue
 
-    return None
+            results.append({"tool": tool_name, "args": args})
+
+    return results
+
+
+def merge_tool_calls(calls: list[dict]) -> tuple[str | None, dict]:
+    """Merge multiple tool calls into one.
+
+    If all calls are the same tool: concatenate ``input_names``,
+    take the first ``target_value`` / ``output_name`` / ``output_names``.
+    If different tools called: return the first tool's name + merged args.
+    """
+    if not calls:
+        return None, {}
+
+    tool_name = calls[0]["tool"]
+    merged: dict = {}
+
+    list_keys = ("input_names", "output_names", "ranges", "steps", "output_years")
+    for call in calls:
+        args = call["args"]
+        for key, val in args.items():
+            if key in list_keys and isinstance(val, list) and isinstance(merged.get(key), list):
+                merged[key].extend(val)
+            elif key not in merged:
+                merged[key] = val
+
+    return tool_name, merged
 
 
 def _approx_equal(a, b, tol: float = 1e-9) -> bool:
@@ -281,6 +325,10 @@ def compare(
         act_val = actual.get("target_value")
         if not _approx_equal(exp_val, act_val):
             entries.append(_entry("target_value", "MISMATCH", expected=exp_val, actual=act_val))
+        exp_val = expected.get("output_year")
+        act_val = actual.get("output_year")
+        if not _approx_equal(exp_val, act_val):
+            entries.append(_entry("output_year", "MISMATCH", expected=exp_val, actual=act_val))
 
     # ---- Ranges / steps ----
     for key in ("ranges", "steps"):
@@ -288,111 +336,112 @@ def compare(
         act_val = actual.get(key)
         if isinstance(exp_val, list) and isinstance(act_val, list):
             if len(exp_val) != len(act_val):
-                entries.append(
-                    _entry(key, "LENGTH_MISMATCH", expected=len(exp_val), actual=len(act_val))
-                )
+                entries.append(_entry(key, "LENGTH_MISMATCH", expected=len(exp_val), actual=len(act_val)))
                 continue
             for i, (e, a_) in enumerate(zip(exp_val, act_val, strict=True)):
                 fq_key = f"{key}[{i}]"
                 if isinstance(e, list) and isinstance(a_, list):
                     if len(e) != len(a_):
-                        entries.append(
-                            _entry(fq_key, "LENGTH_MISMATCH", expected=len(e), actual=len(a_))
-                        )
+                        entries.append(_entry(fq_key, "LENGTH_MISMATCH", expected=len(e), actual=len(a_)))
                     else:
                         for j, (ev, av) in enumerate(zip(e, a_, strict=True)):
                             if not _approx_equal(ev, av):
-                                entries.append(
-                                    _entry(f"{fq_key}[{j}]", "MISMATCH", expected=ev, actual=av)
-                                )
+                                entries.append(_entry(f"{fq_key}[{j}]", "MISMATCH", expected=ev, actual=av))
                 elif not _approx_equal(e, a_):
                     entries.append(_entry(fq_key, "MISMATCH", expected=e, actual=a_))
 
-    # ---- input_names ----
+    # ---- input_names: set-based matching ----
     exp_in: list[str] = expected.get("input_names", [])
     act_in: list[str] = actual.get("input_names", [])
-    if len(exp_in) != len(act_in):
-        entries.append(
-            _entry(
-                "input_names",
-                "LENGTH_MISMATCH",
-                expected=len(exp_in),
-                actual=len(act_in),
-                alias=act_in,
-            )
-        )
-    else:
-        for i, (exp_name, act_alias) in enumerate(zip(exp_in, act_in, strict=True)):
-            fq_key = f"input_names[{i}]"
-            try:
-                result = find_matching_cell(
-                    act_alias, input_mapping, default_year=default_year, return_best_score=True
-                )
-                _cell_ref, resolved, best_score = result
-            except Exception as e:
-                entries.append(
-                    _entry(fq_key, "RESOLUTION_ERROR", alias=act_alias, expected=exp_name, detail=str(e))
-                )
-                continue
 
-            if not resolved:
-                entries.append(
-                    _entry(fq_key, "NO_MATCH", alias=act_alias, expected=exp_name, similarity=best_score)
-                )
-            elif resolved != exp_name:
+    resolved_inputs: list[dict] = []
+    for alias in act_in:
+        try:
+            result = find_matching_cell(alias, input_mapping, default_year=default_year, return_best_score=True)
+            _cell_ref, resolved, best_score = result
+        except Exception:
+            resolved, best_score = None, 0.0
+        resolved_inputs.append({"alias": alias, "resolved": resolved, "best_score": best_score})
+
+    used_input_indices: set[int] = set()
+
+    for i, exp_name in enumerate(exp_in):
+        fq_key = f"input_names[{i}]"
+        match_j = None
+        for j, ri in enumerate(resolved_inputs):
+            if j not in used_input_indices and ri["resolved"] == exp_name:
+                match_j = j
+                break
+
+        if match_j is None:
+            candidates = [ri for j, ri in enumerate(resolved_inputs) if j not in used_input_indices]
+            best = max(candidates, key=lambda r: r["best_score"], default=None)
+            if best and best["resolved"] is not None:
                 entries.append(
                     _entry(
                         fq_key,
                         "MISMATCH",
-                        alias=act_alias,
-                        resolved=resolved,
+                        alias=best["alias"],
+                        resolved=best["resolved"],
                         expected=exp_name,
-                        similarity=best_score,
+                        similarity=best["best_score"],
                     )
                 )
-
-    # ---- output_names ----
-    exp_out: list[str] = expected.get("output_names", [])
-    act_out: list[str] = actual.get("output_names", [])
-    if len(exp_out) != len(act_out):
-        entries.append(
-            _entry(
-                "output_names",
-                "LENGTH_MISMATCH",
-                expected=len(exp_out),
-                actual=len(act_out),
-                alias=act_out,
-            )
-        )
-    else:
-        for i, (exp_name, act_alias) in enumerate(zip(exp_out, act_out, strict=True)):
-            fq_key = f"output_names[{i}]"
-            try:
-                result = find_matching_outputs(act_alias, output_mapping, return_best_score=True)
-                best_score = result.pop("_best_score", 0.0) if isinstance(result, dict) else 0.0
-            except Exception as e:
+            elif best:
                 entries.append(
-                    _entry(fq_key, "RESOLUTION_ERROR", alias=act_alias, expected=exp_name, detail=str(e))
-                )
-                continue
-
-            if not result:
-                entries.append(
-                    _entry(fq_key, "NO_MATCH", alias=act_alias, expected=exp_name, similarity=best_score)
+                    _entry(fq_key, "NO_MATCH", alias=best["alias"], expected=exp_name, similarity=best["best_score"])
                 )
             else:
-                resolved_name = next(iter(result.keys()))
-                if resolved_name != exp_name:
-                    entries.append(
-                        _entry(
-                            fq_key,
-                            "MISMATCH",
-                            alias=act_alias,
-                            resolved=resolved_name,
-                            expected=exp_name,
-                            similarity=best_score,
-                        )
+                entries.append(_entry(fq_key, "MISSING", expected=exp_name, actual=None))
+        else:
+            used_input_indices.add(match_j)
+
+    # ---- output_names: set-based matching ----
+    exp_out: list[str] = expected.get("output_names", [])
+    act_out: list[str] = actual.get("output_names", [])
+
+    resolved_outputs: list[dict] = []
+    for alias in act_out:
+        try:
+            result = find_matching_outputs(alias, output_mapping, return_best_score=True)
+            best_score = result.pop("_best_score", 0.0) if isinstance(result, dict) else 0.0
+            resolved_name = next(iter(result.keys()), None) if result else None
+        except Exception:
+            resolved_name, best_score = None, 0.0
+        resolved_outputs.append({"alias": alias, "resolved": resolved_name, "best_score": best_score})
+
+    used_output_indices: set[int] = set()
+
+    for i, exp_name in enumerate(exp_out):
+        fq_key = f"output_names[{i}]"
+        match_j = None
+        for j, ro in enumerate(resolved_outputs):
+            if j not in used_output_indices and ro["resolved"] == exp_name:
+                match_j = j
+                break
+
+        if match_j is None:
+            candidates = [ro for j, ro in enumerate(resolved_outputs) if j not in used_output_indices]
+            best = max(candidates, key=lambda r: r["best_score"], default=None)
+            if best and best["resolved"] is not None:
+                entries.append(
+                    _entry(
+                        fq_key,
+                        "MISMATCH",
+                        alias=best["alias"],
+                        resolved=best["resolved"],
+                        expected=exp_name,
+                        similarity=best["best_score"],
                     )
+                )
+            elif best:
+                entries.append(
+                    _entry(fq_key, "NO_MATCH", alias=best["alias"], expected=exp_name, similarity=best["best_score"])
+                )
+            else:
+                entries.append(_entry(fq_key, "MISSING", expected=exp_name, actual=None))
+        else:
+            used_output_indices.add(match_j)
 
     # ---- output_name (singular, for analyze_model_inputs_for_target) ----
     if tool == "analyze_model_inputs_for_target":
@@ -429,14 +478,14 @@ def compare(
                             )
 
     if tool == "analyze_model_inputs_for_target":
-        total_checks = 1 + len(exp_in) + (1 if expected.get("output_name") else 0)  # target_value + inputs + output_name
+        total_checks = (
+            1 + 1 + len(exp_in) + (1 if expected.get("output_name") else 0)
+        )  # output_year + target_value + inputs + output_name
         param_field_prefixes = ("input", "output", "target")
     else:
         total_checks = 1 + len(exp_in) + len(exp_out)  # year + inputs + outputs
         param_field_prefixes = ("input", "output", "year")
-    failed_checks = sum(
-        1 for e in entries if e["field"].startswith(param_field_prefixes)
-    )
+    failed_checks = sum(1 for e in entries if e["field"].startswith(param_field_prefixes))
 
     return entries, {
         "total": total_checks,
@@ -481,6 +530,15 @@ def write_csv(csv_path: str, all_entries: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+def _calc_expected_checks(expected: dict, tool: str) -> int:
+    exp_in = expected.get("input_names", [])
+    if tool == "analyze_model_inputs_for_target":
+        # output_year + target_value + inputs + output_name
+        return 1 + 1 + len(exp_in) + (1 if expected.get("output_name") else 0)
+    exp_out = expected.get("output_names", [])
+    return 1 + len(exp_in) + len(exp_out)
+
+
 def main() -> int:
     args = parse_args()
     url = args.url.rstrip("/")
@@ -513,8 +571,8 @@ def main() -> int:
     total_queries = len(queries)
     print(
         f"  Total: {total_queries} queries"
-        f" ({sum(1 for q in queries if q['tool']=='analyze_excel_model')} analyze,"
-        f" {sum(1 for q in queries if q['tool']=='analyze_model_inputs_for_target')} target)"
+        f" ({sum(1 for q in queries if q['tool'] == 'analyze_excel_model')} analyze,"
+        f" {sum(1 for q in queries if q['tool'] == 'analyze_model_inputs_for_target')} target)"
     )
     if args.subset > 0:
         print(f"  Subset: first {args.subset} per sheet")
@@ -565,7 +623,13 @@ def main() -> int:
             with open(upload_path, "rb") as f:
                 resp = httpx.post(
                     f"{url}/api/v1/upload",
-                    files={"file": (upload_path.name, f, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+                    files={
+                        "file": (
+                            upload_path.name,
+                            f,
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        )
+                    },
                     headers=upload_headers,
                     timeout=30,
                 )
@@ -585,13 +649,29 @@ def main() -> int:
     log_file_path = str(log_file)
 
     tool_stats: dict[str, dict] = {
-        "analyze_excel_model": {"queries": 0, "queries_passed": 0, "params_total": 0, "params_passed": 0},
-        "analyze_model_inputs_for_target": {"queries": 0, "queries_passed": 0, "params_total": 0, "params_passed": 0},
+        "analyze_excel_model": {
+            "queries": 0,
+            "queries_passed": 0,
+            "params_total": 0,
+            "params_passed": 0,
+            "splits": 0,
+            "wrong_tool": 0,
+            "no_tool_call": 0,
+        },
+        "analyze_model_inputs_for_target": {
+            "queries": 0,
+            "queries_passed": 0,
+            "params_total": 0,
+            "params_passed": 0,
+            "splits": 0,
+            "wrong_tool": 0,
+            "no_tool_call": 0,
+        },
     }
 
     for i, q in enumerate(queries):
         trace_id = str(uuid.uuid4())
-        prog = f"[{i+1:>3}/{len(queries)}]"
+        prog = f"[{i + 1:>3}/{len(queries)}]"
         label = f"{prog} {q['id']}"
         prompt_full = q["prompt"].replace("\n", " ")
         ts = tool_stats[q["tool"]]
@@ -616,62 +696,93 @@ def main() -> int:
             )
             resp.raise_for_status()
 
-            actual = extract_tool_args(log_file_path, trace_id)
+            all_calls = extract_all_tool_calls(log_file_path, trace_id)
 
             result_entry: dict = {
                 "id": q["id"],
                 "tool": q["tool"],
                 "prompt": q["prompt"],
                 "expected": q["expected"],
-                "actual": actual,
             }
 
-            if actual is None:
+            if not all_calls:
+                # No tool call — all expected params count as failed
+                exp_total = _calc_expected_checks(q["expected"], q["tool"])
+                ts["params_total"] += exp_total
+                ts["no_tool_call"] += 1
                 result_entry["status"] = "FAIL"
                 result_entry["diffs"] = ["No TOOL ARGS found in log"]
-                print(f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 FAIL (no tool call) \u2501\u2501\u2501")
+                print(
+                    f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 FAIL (no tool call, {exp_total} params missed) \u2501\u2501\u2501"
+                )
                 print(f"  Prompt: {prompt_full}")
                 failed += 1
             else:
-                entries, stats = compare(
-                    q["expected"],
-                    actual,
-                    q["tool"],
-                    input_mapping=input_mapping,
-                    output_mapping=output_mapping,
-                )
-                ts["params_total"] += stats["total"]
-                ts["params_passed"] += stats["passed"]
+                if len(all_calls) > 1:
+                    ts["splits"] += 1
+                    result_entry["split"] = len(all_calls)
 
-                # Flatten diffs to strings for backward compat in JSON
-                flat_diffs = [f"{e['field']}: {e['status']}" + (f" — {e['detail']}" if e["detail"] else "") for e in entries]
+                actual_tool, actual = merge_tool_calls(all_calls)
+                result_entry["actual"] = actual
+                result_entry["actual_tool"] = actual_tool
 
-                # Add to CSV
-                for e in entries:
-                    csv_entries.append({"id": q["id"], **e})
-
-                if entries:
+                if actual_tool and actual_tool != q["tool"]:
+                    # Wrong tool called — all expected params count as failed
+                    exp_total = _calc_expected_checks(q["expected"], q["tool"])
+                    ts["params_total"] += exp_total
+                    ts["wrong_tool"] += 1
                     result_entry["status"] = "FAIL"
-                    result_entry["diffs"] = flat_diffs
-                    result_entry["comparison"] = entries
-                    result_entry["param_stats"] = stats
-                    print(f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 FAIL ({stats['passed']}/{stats['total']} params) \u2501\u2501\u2501")
+                    result_entry["diffs"] = [f"Wrong tool: expected {q['tool']}, got {actual_tool}"]
+                    print(
+                        f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 FAIL (wrong tool: {actual_tool}) \u2501\u2501\u2501"
+                    )
                     print(f"  Prompt: {prompt_full}")
-                    if args.verbose:
-                        for e in entries:
-                            print()
-                            print(_format_entry(e))
-                    else:
-                        for d in flat_diffs:
-                            print(f"  {d}")
                     failed += 1
                 else:
-                    result_entry["status"] = "PASS"
-                    result_entry["param_stats"] = stats
-                    print(f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 PASS ({stats['passed']}/{stats['total']} params) \u2501\u2501\u2501")
-                    print(f"  Prompt: {prompt_full}")
-                    ts["queries_passed"] += 1
-                    passed += 1
+                    entries, stats = compare(
+                        q["expected"],
+                        actual,
+                        q["tool"],
+                        input_mapping=input_mapping,
+                        output_mapping=output_mapping,
+                    )
+                    ts["params_total"] += stats["total"]
+                    ts["params_passed"] += stats["passed"]
+
+                    flat_diffs = [
+                        f"{e['field']}: {e['status']}" + (f" — {e['detail']}" if e["detail"] else "") for e in entries
+                    ]
+
+                    csv_entries.extend({"id": q["id"], **e} for e in entries)
+
+                    if entries:
+                        result_entry["status"] = "FAIL"
+                        result_entry["diffs"] = flat_diffs
+                        result_entry["comparison"] = entries
+                        result_entry["param_stats"] = stats
+                        split_tag = f", split={len(all_calls)}" if len(all_calls) > 1 else ""
+                        print(
+                            f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 FAIL ({stats['passed']}/{stats['total']} params{split_tag}) \u2501\u2501\u2501"
+                        )
+                        print(f"  Prompt: {prompt_full}")
+                        if args.verbose:
+                            for e in entries:
+                                print()
+                                print(_format_entry(e))
+                        else:
+                            for d in flat_diffs:
+                                print(f"  {d}")
+                        failed += 1
+                    else:
+                        result_entry["status"] = "PASS"
+                        result_entry["param_stats"] = stats
+                        split_tag = f", split={len(all_calls)}" if len(all_calls) > 1 else ""
+                        print(
+                            f"\u2501\u2501\u2501 {label} \u2501\u2501\u2501 PASS ({stats['passed']}/{stats['total']} params{split_tag}) \u2501\u2501\u2501"
+                        )
+                        print(f"  Prompt: {prompt_full}")
+                        ts["queries_passed"] += 1
+                        passed += 1
 
             results.append(result_entry)
 
@@ -688,11 +799,12 @@ def main() -> int:
                 }
             )
 
+        # Delay between requests
+        if args.delay > 0:
+            time.sleep(args.delay)
+
         # Save checkpoint after each test (reuses same filename, overwrites)
-        output_path = (
-            args.output
-            or "test_output/tool_query_results.json"
-        )
+        output_path = args.output or "test_output/tool_query_results.json"
         out_file = Path(output_path)
         out_file.parent.mkdir(parents=True, exist_ok=True)
         with open(out_file, "w") as f:
@@ -734,6 +846,15 @@ def main() -> int:
         print(f"=== {label} ({ts['queries']} queries) ===")
         print(f"  PASS: {ts['queries_passed']}/{ts['queries']} ({q_pct:.1f}%)")
         print(f"  Params: {ts['params_passed']}/{ts['params_total']} correct ({p_pct:.1f}%)")
+        if ts["splits"] or ts["wrong_tool"] or ts["no_tool_call"]:
+            details = []
+            if ts["splits"]:
+                details.append(f"splits={ts['splits']}")
+            if ts["wrong_tool"]:
+                details.append(f"wrong_tool={ts['wrong_tool']}")
+            if ts["no_tool_call"]:
+                details.append(f"no_tool_call={ts['no_tool_call']}")
+            print(f"  Issues: {', '.join(details)}")
         print()
 
     print(f"=== TOTAL ({total} queries) ===")

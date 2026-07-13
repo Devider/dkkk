@@ -205,10 +205,37 @@ class Agent:
                              expression=["x+100", "x+0.1"]
                          )
 
-                       ВАЖНО: имена входных параметров (input_names) должны быть
-                       на русском языке, как они указаны в модели. Например:
-                       «цена метанола», «инфляция USD CPI», а НЕ "Price of
-                       Methanol", "US Inflation".
+                        ВАЖНО: имена входных параметров (input_names) должны быть
+                        на русском языке, как они указаны в модели. Например:
+                        «цена метанола», «инфляция USD CPI», а НЕ "Price of
+                        Methanol", "US Inflation".
+
+                   g) Если пользователь просит «при каких значениях»,
+                      «подбери параметры», «найди значения X, при которых
+                      Y достигнет Z» — используй
+                      `analyze_model_inputs_for_target`. Этот инструмент
+                      подбирает входные параметры, при которых выходной
+                      показатель достигает целевого значения.
+
+                      Пример:
+                      Запрос: «При каких USD/RUB и цене нефти Brent
+                      Debt/EBITDA 2028 достигнет 1.85x?»
+                      → analyze_model_inputs_for_target(
+                            output_name="Debt/EBITDA",
+                            output_year=2028,
+                            target_value=1.85,
+                            input_names=["USD/RUB eop",
+                                         "Brent oil price"]
+                        )
+
+                      ВАЖНО:
+                      - target_value — чистое число без единиц
+                        измерения и суффиксов.
+                        Неверно: 1.85x, 3650M, -270 млн.
+                        Верно: 1.85, 3650, -270.
+                      - output_name указывается БЕЗ года, год передаётся
+                        отдельно в output_year.
+                      - input_names указываются БЕЗ года.
 
                 СТРОГИЕ Правила формирования ответа, обязательно неукоснительно следуй им:
                     - Вы НЕ должны отвечать на вопросы, требующие актуальной или фактической информации, без использования инструментов.
@@ -635,7 +662,7 @@ class Agent:
                         if state.get("user_id"):
                             tool_args_with_thread["user_id"] = state.get("user_id")
 
-                        self.logger.info(f"TOOL ARGS: {tool_args_with_thread}")
+                        self.logger.info(f"TOOL ARGS: {tool_name} | {tool_args_with_thread}")
 
                         try:
                             # Execute the tool with the provided arguments

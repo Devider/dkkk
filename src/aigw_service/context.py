@@ -129,6 +129,8 @@ class AppContext(metaclass=Singleton):
                 timeout=kwargs.get("timeout", 60),
                 temperature=0.000001,
                 max_tokens=8192,
+                max_retries=5,
+                retry_backoff_factor=0.5,
                 function_ranker=function_ranker,
                 top_p=1.0,
                 repetition_penalty=1.0,
@@ -155,7 +157,9 @@ class AppContext(metaclass=Singleton):
         if self._model_to_use == "GIGACHAT":
             gigachat = GigaChat(**self._gigachat_base_params)
         elif self._model_to_use == "GIGACHAT_TOKEN":
-            gigachat = GigaChat(credentials=self._gigachat_credentials, verify_ssl_certs=False)
+            gigachat = GigaChat(
+                credentials=self._gigachat_credentials, verify_ssl_certs=False, max_retries=5, retry_backoff_factor=0.5
+            )
         else:
             return
         try:

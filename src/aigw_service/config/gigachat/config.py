@@ -18,6 +18,8 @@ class GigaChatSettings(BaseAppSettings):
     key_filepath: Optional[str] = Field(validation_alias="GIGACHAT_KEY_FILEPATH", default="")
     ca_bundle_filepath: Optional[str] = Field(validation_alias="GIGACHAT_CA_BUNDLE_FILEPATH", default="")
     credentials: Optional[str] = Field(None, validation_alias="GIGACHAT_CREDENTIALS")
+    max_retries: int = Field(default=5, validation_alias="GIGACHAT_MAX_RETRIES")
+    retry_backoff_factor: float = Field(default=0.5, validation_alias="GIGACHAT_RETRY_BACKOFF_FACTOR")
     temperature: ClassVar[float] = 0.000001
     max_tokens: ClassVar[int] = 8192
 
@@ -58,6 +60,8 @@ class GigaChatSettings(BaseAppSettings):
             "verify_ssl_certs": False,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            "max_retries": self.max_retries,
+            "retry_backoff_factor": self.retry_backoff_factor,
             **self.certs,
         }
 

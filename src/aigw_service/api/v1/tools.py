@@ -107,13 +107,16 @@ class ExcelAnalysisToolArgs(BaseModel):
 class ModelInputAnalysisToolArgs(BaseModel):
     file_name: str = Field(..., description="Название Excel файла для анализа")
     output_name: str = Field(
-        ..., description="Описательный запрос для идентификации целевой ячейки на листе 'outputs без года"
+        ..., description="Описательный запрос для идентификации целевой ячейки на листе 'outputs' (без года)"
     )
-    target_value: float = Field(..., description="Целевое значение, которое нужно достичь")
+    output_year: int = Field(..., description="Год целевого показателя (например: 2028)")
+    target_value: float = Field(
+        ..., description="Целевое число без единиц измерения и суффиксов. Например: 1.85, 3650, -270"
+    )
     tolerance: float = Field(default=0.1, description="Допустимое отклонение от целевого значения")
     max_scenarios: int = Field(default=1000, description="Максимальное количество сценариев для анализа")
     input_names: list[str] = Field(
-        default=None, description="Список описательных запросов для идентификации ячеек на листе 'inputs' без года."
+        ..., description="Список описательных запросов для идентификации ячеек на листе 'inputs' (без года)."
     )
     thread_id: str = Field(default="", description="ID потока")
     user_id: str = Field(default="", description="ID пользователя")
@@ -165,8 +168,9 @@ class DescribeOutputsSheetToolArgs(BaseModel):
 def analyze_model_inputs_for_target(
     file_name: str,
     output_name: str,
+    output_year: int,
     target_value: float,
-    input_names: list,
+    input_names: list[str],
     tolerance: float = 0.1,
     max_scenarios: int = 1000,
     thread_id: str = "",
@@ -177,9 +181,10 @@ def analyze_model_inputs_for_target(
 
     Args:
         file_name (str): Имя Excel файла для анализа
-        output_name (str): Описательный запрос для идентификации целевой ячейки
-        target_value (float): Целевое значение для выходного параметра
-        input_names (list): Список входных параметров для анализа
+        output_name (str): Описательный запрос для идентификации целевой ячейки (без года)
+        output_year (int): Год целевого показателя
+        target_value (float): Целевое значение для выходного параметра (без единиц и суффиксов)
+        input_names (list[str]): Список входных параметров для анализа (без года)
         tolerance (float): Допустимое отклонение от целевого значения в процентах (по умолчанию 0.1%)
         max_scenarios (int): Максимальное количество сценариев для анализа (по умолчанию 1000)
 
@@ -216,14 +221,8 @@ def analyze_model_inputs_for_target(
                     return ModelInputAnalysisToolResult(
                         status="ERROR", result=f'Выходной параметр "{output_name}" не найден', content={}
                     )
-                target_year = extract_year_from_query(output_name)
-                if not target_year:
-                    return ModelInputAnalysisToolResult(
-                        status="ERROR",
-                        result=f'Не удалось определить год из параметра "{output_name}"',
-                        content={},
-                    )
                 actual_output_name = list(output_info.keys())[0]
+                target_year = output_year
                 output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, target_year)
                 output_cell_value = xl.get_cell("Outputs", output_cell_ref)
 

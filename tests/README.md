@@ -192,5 +192,44 @@ A001,input_names[1],ав USD/RUB,Табак (USD),Средний за перио
 ## Результаты
 
 Все форматы сохраняются в `test_output/`:
-- `tool_query_results_<timestamp>.json` — полные результаты с `diffs`, `comparison` и `tool_stats`
+- `tool_query_results.json` — полные результаты с `diffs`, `comparison` и `tool_stats`
 - `comparison_dump.csv` — плоский CSV (если указан `--csv`)
+
+---
+
+## Анализ результатов
+
+`scripts/analyze_results.py` — принимает JSON с результатами (из `run_tool_queries.py`)
+и выводит 8 секций для понимания причин падений тестов.
+
+### Запуск
+
+```bash
+python scripts/analyze_results.py test_output/tool_query_results.json
+python scripts/analyze_results.py results.json --top-n 30
+python scripts/analyze_results.py results.json --csv analysis.csv
+```
+
+### Секции вывода
+
+| Секция | Что показывает |
+|--------|---------------|
+| **Summary** | Итоговые метрики (queries_passed, params_passed) |
+| **Error Type Distribution** | MISMATCH / RESOLUTION_ERROR / NO_MATCH / LENGTH_MISMATCH / MISSING — соотношение причин ошибок |
+| **Field-Level Accuracy** | Точность по каждому полю (year, input_names, output_names, target_value). total = сколько раз поле ожидалось, pass = total − ошибки |
+| **Confusion Matrix** | Систематические ошибки: expected → resolved (count). Если одна пара повторяется десятки раз — систематическая проблема в Jaccard-маппинге |
+| **NO_MATCH Aliases** | Какие алиасы никогда не резолвятся — обычно English без пересечения с русскими каноническими именами |
+| **Resolution Errors** | Какие алиасы вызывают серверные ошибки "No match found" |
+| **Similarity Distribution** | Гистограмма Jaccard similarity для MISMATCH: sim < 0.2 = cross-lingual, 0.2–0.4 = низкое совпадение, 0.6–1.0 = почти попал |
+| **Input Count vs Accuracy** | Деградирует ли точность с ростом числа input_names |
+
+### На что смотреть в первую очередь
+
+1. **Confusion Matrix** — если одна пара expected→resolved повторяется >20 раз,
+   это систематическая ошибка. Нужно либо добавить синоним, либо править system prompt.
+2. **Similarity Distribution** — если >40% ошибок с sim < 0.2, проблема в разнице языков
+   (LLM пишет по-английски, канонические имена русские).
+3. **NO_MATCH Aliases** — чистые English-термины, которые не резолвятся никак.
+   Либо править LLM, либо добавлять синонимы в resolution pipeline.
+4. **Field-Level Accuracy** — если одно поле стабильно ниже других (например,
+   input_names хуже output_names), фокус доработки на нём.
