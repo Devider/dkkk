@@ -64,6 +64,7 @@ poetry update            # after pyproject.toml changes
 - `giga_test.py` at root of `aigw_service` — standalone script, not part of app.
 - Coverage: `--cov=src`, output to `coverage.xml` + `term-missing`.
 - `LOCAL` flag (default False): when False, cert paths in GigaChat/Pangolin config are empty strings, no cert files needed even with Ollama or MEMORY store.
+- **Pydantic monkey-patch**: `_wrap_llm_with_stop_event` заменяет `llm.invoke`/`llm.ainvoke` через `object.__setattr__`, потому что GigaChat/ChatOllama — Pydantic BaseModel, и прямой `setattr` на не-поле вызывает `ValueError("… has no field …")`.
 
 ## Docker workflow (primary deployment)
 

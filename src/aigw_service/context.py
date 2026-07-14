@@ -54,7 +54,9 @@ def _wrap_llm_with_stop_event(llm, logger) -> object:
             _check_stop(e)
             raise
 
-    llm.invoke = wrapped_invoke
+    # Pydantic v2 BaseModel блокирует прямое присвоение не-полей, используем
+    # object.__setattr__ для безопасного monkey-patching (см. README/dev-notes).
+    object.__setattr__(llm, "invoke", wrapped_invoke)
 
     if original_ainvoke is not None:
 
@@ -65,7 +67,7 @@ def _wrap_llm_with_stop_event(llm, logger) -> object:
                 _check_stop(e)
                 raise
 
-        llm.ainvoke = wrapped_ainvoke
+        object.__setattr__(llm, "ainvoke", wrapped_ainvoke)
 
     return llm
 

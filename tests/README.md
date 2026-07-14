@@ -1,5 +1,19 @@
 # Тесты AI Gateway
 
+## Unit-тесты
+
+`tests/unit/` — тесты без внешних зависимостей (mock'и), быстрые:
+
+| Файл | Что тестирует |
+|---|---|
+| `test_stop_event.py` | ТН05 (Retry), ТН08 (StopEvent): `StopEventError`, `_wrap_llm_with_stop_event`, Pydantic-совместимость monkey-patching, конфиг retry-параметров |
+| `test_tool_dedup.py` | Дедупликация повторных вызовов инструментов (fingerprint: tool_name + sorted args) |
+
+```bash
+pytest tests/unit/                        # все unit-тесты
+pytest tests/unit/test_stop_event.py -v   # выборочно
+```
+
 ## Быстрый запуск
 
 ```bash

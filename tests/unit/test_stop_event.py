@@ -4,9 +4,11 @@
 exceptions.py (StopEventError), config (retry params from config not hardcoded).
 """
 
+import asyncio
 import logging
 from unittest.mock import MagicMock
 
+import pydantic
 import pytest
 from gigachat.exceptions import BadRequestError, ForbiddenError, ServerError
 
@@ -279,3 +281,52 @@ class TestSDKRetryBehavior:
         from gigachat.settings import Settings
 
         assert Settings.model_fields["max_retries"].default == 0
+
+
+# ============================================================================
+# Pydantic-совместимость _wrap_llm_with_stop_event
+# ============================================================================
+# GigaChat / ChatOllama — Pydantic BaseModel, прямой setattr блокируется.
+# Проверяем что object.__setattr__ работает через _wrap_llm_with_stop_event.
+
+
+class _PydanticLLM(pydantic.BaseModel):
+    """LLM-заглушка на Pydantic (как настоящий GigaChat/ChatOllama)."""
+    model: str = "test"
+    result: str = "ok"
+
+    def invoke(self, *args, **kwargs):
+        return self.result
+
+    async def ainvoke(self, *args, **kwargs):
+        return self.result
+
+
+class TestPydanticLLMCompat:
+    """_wrap_llm_with_stop_event должен работать с Pydantic BaseModel."""
+
+    def test_wrap_invoke_works_on_pydantic_model(self):
+        """_wrap_llm_with_stop_event не падает на Pydantic BaseModel, invoke работает."""
+        llm = _PydanticLLM()
+        wrapped = _wrap_llm_with_stop_event(llm, MagicMock())
+        assert wrapped.invoke() == "ok"
+
+    def test_wrap_ainvoke_works_on_pydantic_model(self):
+        """ainvoke тоже оборачивается корректно на Pydantic BaseModel."""
+        llm = _PydanticLLM()
+        wrapped = _wrap_llm_with_stop_event(llm, MagicMock())
+        assert asyncio.run(wrapped.ainvoke()) == "ok"
+
+    def test_blocked_direct_setattr_raises(self):
+        """Прямой setattr на Pydantic BaseModel НЕ работает (для справки)."""
+        llm = _PydanticLLM()
+        with pytest.raises(ValueError, match="has no field"):
+            llm.invoke = lambda: None
+
+    def test_direct_setattr_raises_on_gigachat_class(self):
+        """Прямой setattr на реальном GigaChat тоже не работает — документирует баг."""
+        from langchain_gigachat import GigaChat
+
+        llm = GigaChat.__new__(GigaChat)
+        with pytest.raises(ValueError, match="has no field"):
+            llm.invoke = lambda: None
