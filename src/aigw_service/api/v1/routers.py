@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from aigw_service.context import APP_CTX
+from aigw_service.exceptions import StopEventError
 
 from .schemas import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
 from .services import Agent
@@ -190,6 +191,17 @@ async def invoke_agent(
             headers={"Content-Disposition": f"attachment; filename=agent_response_{thread_id}.zip"},
         )
 
+    except StopEventError as e:
+        logger.error(
+            "StopEvent: %s (url=%s, timestamp=%s)",
+            e.user_message,
+            e.url,
+            e.timestamp,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=FailedDependencyResponse(error_description=e.user_message).model_dump(),
+        )
     except Exception as e:
         logger.error(f"Agent invocation failed: {e}", exc_info=True)
         return JSONResponse(

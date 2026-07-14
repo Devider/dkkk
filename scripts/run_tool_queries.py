@@ -306,7 +306,7 @@ def compare(
     for sf in SYSTEM_FIELDS:
         actual.pop(sf, None)
 
-    default_year = expected.get("year")
+    default_year = expected.get("year") or expected.get("output_year")
 
     # ---- Scalars ----
     if tool == "analyze_excel_model":

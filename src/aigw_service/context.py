@@ -1,6 +1,9 @@
+import logging
+from datetime import UTC, datetime
+
 import httpx
 import pytz
-from gigachat.exceptions import AuthenticationError
+from gigachat.exceptions import AuthenticationError, ForbiddenError
 from httpx import RequestError
 from langchain_gigachat import GigaChat, GigaChatEmbeddings
 from langgraph.store.memory import InMemoryStore
@@ -10,7 +13,61 @@ from aigw_modules.base import BaseAsyncInterface
 from aigw_modules.hub_services.pangolin import AsyncPangolinClient
 from aigw_service.base import Singleton
 from aigw_service.config import APP_CONFIG, Secrets
+from aigw_service.exceptions import StopEventError
 from aigw_service.logger import ContextVarsContainer, LoggerConfigurator
+
+_STOP_EVENT_MARKER = b"temporarily unavailable due to technical reasons"
+
+
+def _wrap_llm_with_stop_event(llm, logger) -> object:
+    """Обернуть LLM для обнаружения StopEvent (ТН08).
+
+    Перехватывает ``ForbiddenError`` от GigaChat SDK. Если тело ответа содержит
+    маркер временной недоступности — поднимает ``StopEventError``.
+    Реализовано в инфраструктурном слое (Rule 1 ТН08): бизнес-логика не должна
+    самостоятельно детектировать стоп-сигнал.
+    """
+    original_invoke = llm.invoke
+    original_ainvoke = getattr(llm, "ainvoke", None)
+
+    def _check_stop(error: Exception) -> None:
+        if isinstance(error, ForbiddenError):
+            content = (error.content or b"").lower()
+            if _STOP_EVENT_MARKER in content:
+                logger.error(
+                    "StopEvent detected: HTTP 403 from %s, body=%s, timestamp=%s",
+                    error.url,
+                    error.content,
+                    datetime.now(UTC).isoformat(),
+                )
+                raise StopEventError(
+                    user_message="Выбранная модель GigaChat временно недоступна. Попробуйте позже.",
+                    url=str(error.url),
+                    status_code=403,
+                    reason=str(error.content),
+                ) from error
+
+    def wrapped_invoke(*args, **kwargs):
+        try:
+            return original_invoke(*args, **kwargs)
+        except Exception as e:
+            _check_stop(e)
+            raise
+
+    llm.invoke = wrapped_invoke
+
+    if original_ainvoke is not None:
+
+        async def wrapped_ainvoke(*args, **kwargs):
+            try:
+                return await original_ainvoke(*args, **kwargs)
+            except Exception as e:
+                _check_stop(e)
+                raise
+
+        llm.ainvoke = wrapped_ainvoke
+
+    return llm
 
 
 class AppContext(metaclass=Singleton):
@@ -39,10 +96,15 @@ class AppContext(metaclass=Singleton):
             rotation=secrets.log.log_rotation,
         )
 
+        # ТН05 Rule 14: единый источник retry-параметров — config, а не хардкод
+        logging.getLogger("gigachat.retry").setLevel(logging.WARNING)
+
         # Модель
         self._model_to_use = APP_CONFIG.app.model_to_use
         self._gigachat_base_params = None
         self._gigachat_credentials = None
+        self._gigachat_max_retries = secrets.gigachat.max_retries
+        self._gigachat_retry_backoff_factor = secrets.gigachat.retry_backoff_factor
         self.gigachat_embeddings = None
         self._ollama_kwargs = None
 
@@ -103,8 +165,11 @@ class AppContext(metaclass=Singleton):
         return self._ollama_kwargs
 
     def create_llm(self, model_name: str = "GigaChat-2-Pro", **kwargs):
-        """
-        Создаёт LLM в зависимости от MODEL_TO_USE.
+        """Создаёт LLM в зависимости от MODEL_TO_USE.
+
+        Retry-параметры (max_retries, retry_backoff_factor) читаются из config
+        для всех веток — ТН05 Rule 14 (без копипасты).
+        Обёрнут StopEvent-wrapper'ом — ТН08.
         """
         from langchain_gigachat import GigaChat
 
@@ -113,7 +178,7 @@ class AppContext(metaclass=Singleton):
         function_ranker = {"enabled": True, "top_n": len(TOOLS)}
 
         if self._model_to_use == "GIGACHAT":
-            return GigaChat(
+            llm = GigaChat(
                 **self._gigachat_base_params,
                 model=model_name,
                 timeout=kwargs.get("timeout", 60),
@@ -122,15 +187,15 @@ class AppContext(metaclass=Singleton):
                 repetition_penalty=1.0,
             )
         elif self._model_to_use == "GIGACHAT_TOKEN":
-            return GigaChat(
+            llm = GigaChat(
                 credentials=self._gigachat_credentials,
                 verify_ssl_certs=False,
                 model=model_name,
                 timeout=kwargs.get("timeout", 60),
                 temperature=0.000001,
                 max_tokens=8192,
-                max_retries=5,
-                retry_backoff_factor=0.5,
+                max_retries=self._gigachat_max_retries,
+                retry_backoff_factor=self._gigachat_retry_backoff_factor,
                 function_ranker=function_ranker,
                 top_p=1.0,
                 repetition_penalty=1.0,
@@ -138,7 +203,7 @@ class AppContext(metaclass=Singleton):
         elif self._model_to_use == "OLLAMA":
             from langchain_ollama import ChatOllama
 
-            return ChatOllama(
+            llm = ChatOllama(
                 base_url=self._ollama_kwargs["base_url"],
                 model=self._ollama_kwargs.get("model", kwargs.get("model", "llama3")),
                 temperature=self._ollama_kwargs.get("temperature", kwargs.get("temperature", 0.000001)),
@@ -146,6 +211,8 @@ class AppContext(metaclass=Singleton):
             )
         else:
             raise ValueError(f"Unknown MODEL_TO_USE: {self._model_to_use}")
+
+        return _wrap_llm_with_stop_event(llm, self.logger)
 
     async def _check_llm_connection(self):
         if self._model_to_use in ("GIGACHAT", "GIGACHAT_TOKEN"):
@@ -158,7 +225,10 @@ class AppContext(metaclass=Singleton):
             gigachat = GigaChat(**self._gigachat_base_params)
         elif self._model_to_use == "GIGACHAT_TOKEN":
             gigachat = GigaChat(
-                credentials=self._gigachat_credentials, verify_ssl_certs=False, max_retries=5, retry_backoff_factor=0.5
+                credentials=self._gigachat_credentials,
+                verify_ssl_certs=False,
+                max_retries=self._gigachat_max_retries,
+                retry_backoff_factor=self._gigachat_retry_backoff_factor,
             )
         else:
             return

@@ -14,6 +14,26 @@ Pipeline (что откуда берётся):
     запрос не прошёл полностью (все поля), но params_passed может
     быть > 0 (отдельные поля правильные).
 
+  Query Status Breakdown — разбивка всех запросов по категориям:
+    • PASS — прошли полностью.
+    • ERROR (timeout) — серверный таймаут, запрос не дошёл до
+      сравнения параметров.
+    • ERROR (other) — прочие серверные ошибки.
+    • NO_TOOL_ARGS — LLM не вызвал инструмент (или аргументы не
+      найдены в логе).
+    • PARAM_MISMATCH — дошли до сравнения, но с ошибками резолвинга.
+    Критично: показывает, какая доля запросов вообще не дошла до
+    проверки параметров. Без этого секция выглядит так, будто все
+    300 запросов провалили резолвинг, хотя на самом деле 55% —
+    таймауты.
+
+  Effective Comparison Analysis — проверка консистентности:
+    Берёт только запросы, дошедшие до сравнения параметров, и
+    считает ожидаемый query-pass-rate = per_param_acc ^ avg_params.
+    Сравнивает с фактическим. Если «CONSISTENT» — наблюдаемый
+    pass-rate объясняется per-param accuracy и числом параметров.
+    Если «ANOMALOUS» — есть скрытая корреляция или баг в сравнении.
+
   Error Type Distribution — распределение статусов сравнения:
     • MISMATCH — alias зарезолвился, но не в то каноническое имя.
       Причина: jaccard_similarity выбрала ближайшее, но неправильное
@@ -59,6 +79,11 @@ Pipeline (что откуда берётся):
     Если большая часть в < 0.2 — проблема в разнице языков, и
     Jaccard тут не поможет (нужны синонимы или перевод).
 
+  Near-Miss Analysis — распределение числа провалившихся
+    параметров среди PARAM_MISMATCH запросов. Показывает, сколько
+    запросов «почти прошли» (1 ошибка) — это candidates для
+    быстрого улучшения через починку top confused aliases.
+
   Input Count vs Accuracy — группировка по числу input_names.
     Показывает, деградирует ли accuracy с ростом числа входов.
     Если accuracy падает — LLM не справляется с большим контекстом
@@ -73,6 +98,7 @@ Usage:
 import argparse
 import csv
 import json
+import math
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -313,6 +339,146 @@ def tool_summary(data: dict):
         print(f"    Params:   {pp}/{pt} ({ppct:.1f}%)  {bar_p}")
 
 
+def _categorize_query(r: dict) -> str:
+    """Classify a single query result into a status category."""
+    status = r["status"]
+    ps = r.get("param_stats", {})
+    diffs = str(r.get("diffs", []))
+    error = str(r.get("error", ""))
+
+    if status == "PASS":
+        return "PASS"
+    if status == "ERROR":
+        return "ERROR (timeout)" if "timed out" in error.lower() else "ERROR (other)"
+    if not ps:
+        if "No TOOL ARGS" in diffs:
+            return "NO_TOOL_ARGS"
+        if "wrong" in diffs.lower():
+            return "WRONG_TOOL"
+        return "OTHER"
+    if ps.get("failed", 0) == 0:
+        return "PARAMS_OK_FAIL"
+    return "PARAM_MISMATCH"
+
+
+def query_status_breakdown(results: list[dict], tools: list[str]):
+    print_header("Query Status Breakdown")
+    for tool in tools:
+        tool_results = [r for r in results if r["tool"] == tool]
+        if not tool_results:
+            continue
+
+        cats: dict[str, int] = Counter()
+        split_in_mismatch = 0
+        for r in tool_results:
+            cat = _categorize_query(r)
+            cats[cat] += 1
+            if cat == "PARAM_MISMATCH" and r.get("split", 1) > 1:
+                split_in_mismatch += 1
+
+        total = len(tool_results)
+        print(f"\n  {tool} ({total} queries):")
+        order = [
+            "PASS",
+            "ERROR (timeout)",
+            "ERROR (other)",
+            "NO_TOOL_ARGS",
+            "WRONG_TOOL",
+            "PARAM_MISMATCH",
+            "PARAMS_OK_FAIL",
+            "OTHER",
+        ]
+        for cat in order:
+            cnt = cats.get(cat, 0)
+            if cnt == 0:
+                continue
+            pct = 100 * cnt / total if total else 0
+            bar = "█" * int(cnt / max(total, 1) * 30)
+            print(f"    {cat:<22s} {cnt:>5d}  ({pct:>5.1f}%)  {bar}")
+
+        comparable = cats.get("PASS", 0) + cats.get("PARAM_MISMATCH", 0)
+        if comparable and comparable != total:
+            print(f"    {'─'*60}")
+            print(f"    {'Compared (PASS+MISMATCH)':<22s} {comparable:>5d}  ({100*comparable/total:.1f}%)")
+        if split_in_mismatch:
+            print(f"    {'  of which split':<22s} {split_in_mismatch:>5d}")
+
+
+def effective_comparison_analysis(results: list[dict], tools: list[str]):
+    print_header("Effective Comparison Analysis")
+    for tool in tools:
+        tool_results = [r for r in results if r["tool"] == tool]
+        if not tool_results:
+            continue
+
+        comparable = [r for r in tool_results if r.get("param_stats")]
+        if not comparable:
+            print(f"\n  {tool}: no comparable queries")
+            continue
+
+        params_total = sum(r["param_stats"].get("total", 0) for r in comparable)
+        params_passed = sum(r["param_stats"].get("passed", 0) for r in comparable)
+        actual_pass = sum(1 for r in comparable if r["status"] == "PASS")
+
+        per_param_acc = params_passed / params_total if params_total else 0
+        avg_params = params_total / len(comparable) if comparable else 0
+        expected_rate = per_param_acc ** avg_params if avg_params > 0 else 0
+        expected_pass = len(comparable) * expected_rate
+
+        print(f"\n  {tool}:")
+        print(f"    Comparable queries:   {len(comparable)} / {len(tool_results)}")
+        print(f"    Params total/passed:  {params_total} / {params_passed} ({100*per_param_acc:.1f}%)")
+        print(f"    Avg params/query:     {avg_params:.1f}")
+        print(f"    Expected query pass:  {100*expected_rate:.2f}% → {expected_pass:.1f} queries")
+        print(f"    Actual query pass:    {actual_pass}")
+
+        if expected_pass >= 0.1:
+            if expected_pass < 5:
+                poisson_p = math.exp(-expected_pass) * (expected_pass ** actual_pass) / math.factorial(actual_pass)
+                verdict = f"CONSISTENT (P(actual)={poisson_p:.1%})" if poisson_p >= 0.05 else f"ANOMALOUS (P(actual)={poisson_p:.1%})"
+            elif 0.3 <= (actual_pass / max(expected_pass, 0.1)) <= 3.0:
+                verdict = "CONSISTENT"
+            else:
+                ratio = actual_pass / max(expected_pass, 0.1)
+                verdict = f"ANOMALOUS (actual/expected={ratio:.2f})"
+        else:
+            verdict = "CONSISTENT (expected ≈ 0)"
+        print(f"    Verdict:              {verdict}")
+
+
+def near_miss_analysis(results: list[dict], tools: list[str]):
+    print_header("Near-Miss Analysis (queries failing by N params)")
+    for tool in tools:
+        mismatches = [
+            r for r in results
+            if r["tool"] == tool
+            and r.get("param_stats", {}).get("failed", 0) > 0
+        ]
+        if not mismatches:
+            print(f"\n  {tool}: no param mismatches")
+            continue
+
+        fail_dist = Counter(r["param_stats"]["failed"] for r in mismatches)
+        total = len(mismatches)
+        max_fails = max(fail_dist.keys())
+
+        print(f"\n  {tool} ({total} PARAM_MISMATCH queries):")
+        print(f"    {'Fails':>6s} {'Queries':>8s} {'%':>6s}  Bar")
+        print(f"    {'─'*6} {'─'*8} {'─'*6}  {'─'*30}")
+        for n in range(1, max_fails + 1):
+            cnt = fail_dist.get(n, 0)
+            if cnt == 0:
+                continue
+            pct = 100 * cnt / total if total else 0
+            bar = "█" * int(cnt / max(total, 1) * 30)
+            print(f"    {n:>6d} {cnt:>8d} {pct:>5.1f}%  {bar}")
+
+        near_miss = fail_dist.get(1, 0)
+        print(f"\n    Near-miss (1 fail): {near_miss} queries ({100*near_miss/total:.1f}%)")
+        if near_miss > 0:
+            print(f"    → Fixing top confused aliases could flip ~{near_miss} queries to PASS")
+
+
 def write_csv(flat: list[dict], path: str):
     fieldnames = ["id", "tool", "field", "status", "alias", "expected", "resolved", "actual", "similarity", "detail"]
     with open(path, "w", newline="") as f:
@@ -344,11 +510,14 @@ def main() -> int:
         return 1
 
     flat = flatten_comparisons(data)
-    tools = sorted({e["tool"] for e in flat})
+    tools = sorted({r["tool"] for r in results})
 
     tool_summary(data)
+    query_status_breakdown(results, tools)
+    effective_comparison_analysis(results, tools)
     error_type_distribution(flat, tools)
     field_level_accuracy(flat, tools, results)
+    near_miss_analysis(results, tools)
     confusion_matrix(flat, tools, args.top_n)
     no_match_aliases(flat, tools, args.top_n)
     resolution_errors(flat, tools, args.top_n)

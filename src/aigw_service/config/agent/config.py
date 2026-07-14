@@ -34,7 +34,8 @@ class AgentSettings(BaseAppSettings):
         validation_alias="AGENT_DUP_TOOL_THRESHOLD",
     )
 
-    # StopEvent — резервирование для будущей имплементации
+    # StopEvent (ТН08) — обработка реализована в infra-слое (context.py).
+    # При 403 + "temporarily unavailable" → StopEventError → HTTP 503.
     stop_on_critical: bool = Field(
         default=True,
         validation_alias="AGENT_STOP_ON_CRITICAL",

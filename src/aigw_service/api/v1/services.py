@@ -23,6 +23,7 @@ from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph, add_messages
 
 from aigw_service.context import APP_CTX
+from aigw_service.exceptions import StopEventError
 
 from .tools import TOOLS
 
@@ -40,7 +41,7 @@ class AgentState(TypedDict):
     scratchpad: list[str]
     last_token_usage: dict[str, int]
     validation_retries: dict[str, int]  # Consecutive failures per tool_name
-    # TODO (resilience): add stop_reason field for StopEvent (#2)
+    executed_tool_calls: list[str]  # Fingerprints of executed tool calls (dedup)
 
 
 class Agent:
@@ -68,8 +69,9 @@ class Agent:
                 model_name="GigaChat-2-Max",
                 timeout=60,
             )
-            # TODO (resilience): wrap llm.invoke in analyze_step with tenacity retry
-            # See APP_CONFIG.agent.llm_retry_attempts / llm_retry_wait (#1)
+            # Retry для транзитных ошибок (429/5xx) обрабатывается GigaChat SDK
+            # (max_retries, retry_backoff_factor в config/gigachat). ТН05 Rule 1.
+            # Дополнительный application-level retry в бизнес-слое запрещён.
             # Initialize tools
 
             if TOOLS is not None:
@@ -122,15 +124,12 @@ class Agent:
                 
                 8. ВЫБОР ИНСТРУМЕНТА ДЛЯ РАБОТЫ С EXCEL МОДЕЛЬЮ. Строгие правила:
 
-                   a) Если возможно, старайся уместить ВСЕ входные и ВСЕ
-                       выходные параметры в ОДИН вызов `analyze_excel_model`.
-                       Инструмент принимает несколько входов и выходов
-                       одновременно. Если пользователь указал два входа и три
-                       выхода — сделай ОДИН вызов с input_names из двух
-                       элементов и output_names из трёх.
-                       Если не получается уместить все параметры в один вызов
-                       (например, разные шаги или диапазоны) — можно разбить
-                       на несколько вызовов, но это менее предпочтительно.
+                    a) Уместить ВСЕ входные и ВСЕ
+                        выходные параметры в ОДИН вызов `analyze_excel_model`.
+                        Инструмент принимает несколько входов и выходов
+                        одновременно. Если пользователь указал два входа и три
+                        выхода — сделай ОДИН вызов с input_names из двух
+                        элементов и output_names из трёх.
 
                       **НЕПРАВИЛЬНО** (3 отдельных вызова вместо одного):
                       → analyze_excel_model(
@@ -246,6 +245,12 @@ class Agent:
                     - Если из контекста непонятно, какая именно информация нужна пользователю - выдай несколько вариантов ответов с пояснением.
                     - Твой ответ должен быть информативным и понятным.
                     - Если инструмент вернул таблицу со сценариями — не разбивай её на несколько таблиц и не сокращай строки. Выводи данные в точности так, как их вернул инструмент: все строки и все столбцы в одной таблице.
+
+                 9. ЗАПРЕТ НА ПОВТОРНЫЕ ВЫЗОВЫ ИНСТРУМЕНТОВ:
+                    - Каждый инструмент вызывай ОДИН раз с полным набором параметров.
+                    - Получив результат инструмента — немедленно формируй ответ пользователю.
+                    - НЕ вызывай тот же инструмент повторно с теми же параметрами.
+                    - Если результат содержит ошибку — исправь параметры и вызови ещё раз, но не более 2 попыток.
                 """
             )
             # Bind tools to the LLM with provider-specific handling
@@ -294,6 +299,7 @@ class Agent:
             "scratchpad": [],
             "last_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
             "validation_retries": {},
+            "executed_tool_calls": [],
         }
 
     def _estimate_tokens(self, messages: list[Any]) -> int:
@@ -332,12 +338,6 @@ class Agent:
             # workflow.add_node("summarize_history", self.summarize_history)
 
             # Decide next action
-            # TODO (resilience): add guards in next_action for:
-            #   - max_iterations (APP_CONFIG.agent.max_iterations) (#3)
-            #   - max_messages (APP_CONFIG.agent.max_messages)   (#3)
-            #   - max_prompt_tokens (APP_CONFIG.agent.max_prompt_tokens) (#3)
-            #   - duplicate tool call detection (APP_CONFIG.agent.duplicate_tool_call_threshold) (#3)
-            #   - stop_reason severity check (StopEvent, #2)
             def next_action(state: AgentState) -> str:
                 if not state["messages"]:
                     return END
@@ -417,9 +417,8 @@ class Agent:
             ]
         }
 
-    # TODO (resilience): retry llm.invoke on transient errors (httpx.RequestError, 429, 5xx)
-    # with tenacity @retry(stop=stop_after_attempt(APP_CONFIG.agent.llm_retry_attempts),
-    #                        wait=wait_exponential(multiplier=APP_CONFIG.agent.llm_retry_wait)) (#1)
+    # Retry для транзитных ошибок (httpx.RequestError, 429, 5xx) обрабатывается
+    # в GigaChat SDK (config/gigachat: max_retries, retry_backoff_factor). ТН05.
     def analyze_step(self, state: AgentState, config: Optional[RunnableConfig] = None) -> AgentState:
         """Analyze the current state and determine next action."""
         self.logger.info(f"inside analyze step:\n{pprint.pformat(self._summarize_state(state), width=100)}")
@@ -516,17 +515,17 @@ class Agent:
                 # If no tool calls and no unanswered questions, we're done
                 return state
 
+            except StopEventError:
+                raise
             except Exception as e:
-                self.logger.info(f"Error during LLM invocation: {str(e)}")
-                self.logger.info(f"Error type: {type(e)}")
-                self.logger.info(f"Error details: {e.__dict__ if hasattr(e, '__dict__') else 'No details available'}")
+                self.logger.error(f"Error during LLM invocation: {str(e)}", exc_info=True)
                 state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
                 return state
 
+        except StopEventError:
+            raise
         except Exception as e:
-            self.logger.info(f"Error in analyze_step: {str(e)}")
-            self.logger.info(f"Error type: {type(e)}")
-            self.logger.info(f"Error details: {e.__dict__ if hasattr(e, '__dict__') else 'No details available'}")
+            self.logger.error(f"Error in analyze_step: {str(e)}", exc_info=True)
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
             return state
 
@@ -572,14 +571,13 @@ class Agent:
 
         return None
 
-    # TODO (resilience): track tool_call_history in state for duplicate detection (#3)
     def execute_tool(self, state: AgentState) -> AgentState:
         """Execute a tool and return the result."""
         # Get the last message which should contain tool calls
 
         self.logger.debug(f"inside execute tool agent state is the following: {state}")
         if not state["messages"]:
-            self.logger.info("No messages found", "error")
+            self.logger.error("No messages found in execute_tool")
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
             return state
 
@@ -590,12 +588,12 @@ class Agent:
             not (hasattr(last_message, "additional_kwargs") and "tool_calls" in last_message.additional_kwargs)
             and not last_message.tool_calls
         ):
-            self.logger.info("No tool calls found in last message")
+            self.logger.error("No tool calls found in last message (execute_tool)")
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
             return state
         tool_calls = last_message.tool_calls
         if not tool_calls:
-            self.logger.info("No tool calls found in last message", "error")
+            self.logger.error("Empty tool_calls list in execute_tool")
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
             return state
         # Execute each tool call
@@ -616,7 +614,12 @@ class Agent:
                         self.logger.info(f"Invalid JSON args: {tool_args}")
                         tool_args = {}
 
-                # --- Валидация: проверка усечения списковых параметров ---
+                # --- Semantic validation retry (ТН05 Rule 15 justification) ---
+                # Это НЕ transient-error retry (network/5xx). Это semantic retry:
+                # LLM вернула усечённые tool args (списки разной длины), и мы
+                # просим её повторить вызов с корректными параметрами.
+                # Transient-error retry обрабатывается в GigaChat SDK (infra).
+                # Лимит: 2 попытки на tool_name.
                 state.setdefault("validation_retries", {})
                 retries = state["validation_retries"].get(tool_name, 0)
                 if retries >= 2:
@@ -637,6 +640,24 @@ class Agent:
                         )
                         continue
                     state["validation_retries"][tool_name] = 0
+
+                # --- Duplicate tool call detection ---
+                args_key = json.dumps(tool_args, sort_keys=True, ensure_ascii=False)
+                call_fingerprint = f"{tool_name}:{args_key}"
+                executed_calls = state.setdefault("executed_tool_calls", [])
+                if call_fingerprint in executed_calls:
+                    self.logger.info(f"Duplicate tool call skipped: {tool_name} (identical args)")
+                    state["messages"].append(
+                        ToolMessage(
+                            content=(
+                                "Этот инструмент уже был вызван с идентичными параметрами. "
+                                "Результат уже получен выше. Сформулируйте ответ пользователю."
+                            ),
+                            name=tool_name,
+                            tool_call_id=tool_call.get("id"),
+                        )
+                    )
+                    continue
 
                 # Find the tool
                 tool_found = False
@@ -684,6 +705,8 @@ class Agent:
                                         }
                                     )
                                     content = tool_result.content + f"\n\nГрафик: {tool_result.image_path}"
+                                else:
+                                    content = tool_result.content
                             else:
                                 # Для analyze_excel_model передаём полный DataFrame как JSON
                                 if isinstance(tool_result.content, dict) and tool_name == "analyze_excel_model":
@@ -708,9 +731,11 @@ class Agent:
 
                             tool_found = True
                             state["validation_retries"][tool_name] = 0
+                            executed_calls.append(call_fingerprint)
+                            state["executed_tool_calls"] = executed_calls
                             break
                         except Exception as e:
-                            self.logger.info(f"Error executing tool {tool_name}: {str(e)}")
+                            self.logger.error(f"Error executing tool {tool_name}: {str(e)}", exc_info=True)
                             state["messages"].append(
                                 ToolMessage(
                                     content=f"Ошибка при выполнении {tool_name}: {str(e)}",
@@ -722,12 +747,14 @@ class Agent:
                             break
 
                 if not tool_found:
-                    self.logger.info(f"Tool {tool_name} not found")
+                    self.logger.error(f"Tool {tool_name} not found")
                     state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
                     return state
 
+            except StopEventError:
+                raise
             except Exception as e:
-                self.logger.info(f"Error processing tool call: {str(e)}")
+                self.logger.error(f"Error processing tool call: {str(e)}", exc_info=True)
                 state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
                 return state
 
@@ -784,8 +811,10 @@ class Agent:
             # return response
             return result
 
+        except StopEventError:
+            raise
         except Exception as e:
-            self.logger.info(f"\nError: {str(e)}")
+            self.logger.error(f"Error in process_message: {str(e)}", exc_info=True)
             return "Извините, произошла ошибка при обработке запроса."
 
         # def save_graph(self):
