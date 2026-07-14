@@ -22,6 +22,7 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph, add_messages
 
+from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
 
@@ -66,7 +67,7 @@ class Agent:
             # self.logger.info("Initializing agent...")
             # Initialize LLM based on model type
             self.llm = APP_CTX.create_llm(
-                model_name="GigaChat-2-Max",
+                model_name=APP_CONFIG.app.llm_model_name,
                 timeout=60,
             )
             # Retry для транзитных ошибок (429/5xx) обрабатывается GigaChat SDK
@@ -251,6 +252,10 @@ class Agent:
                     - Получив результат инструмента — немедленно формируй ответ пользователю.
                     - НЕ вызывай тот же инструмент повторно с теми же параметрами.
                     - Если результат содержит ошибку — исправь параметры и вызови ещё раз, но не более 2 попыток.
+                    - Если инструмент вернул сообщение «уже был вызван с идентичными параметрами»
+                      — НЕМЕДЛЕННО прекрати попытки вызвать его снова. Сразу формируй финальный
+                      ответ пользователю на основе уже полученных данных. Повторный вызов
+                      с теми же параметрами приведёт к той же ошибке.
                 """
             )
             # Bind tools to the LLM with provider-specific handling

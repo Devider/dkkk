@@ -18,6 +18,7 @@ class BaseAppSettings(BaseSettings):
     debug: bool = Field(validation_alias="DEBUG", default=False)
     store_to_use: str = Field(validation_alias="STORE_TO_USE", default="MEMORY")
     model_to_use: str = Field(validation_alias="MODEL_TO_USE", default="GIGACHAT")
+    llm_model_name: str = Field(validation_alias="LLM_MODEL_NAME", default="GigaChat-2-Max")
 
     @property
     def protocol(self) -> str:
