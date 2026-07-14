@@ -525,7 +525,13 @@ class Agent:
         except StopEventError:
             raise
         except Exception as e:
-            self.logger.error(f"Error in analyze_step: {str(e)}", exc_info=True)
+            self.logger.error(
+                "Error in analyze_step: [%s.%s] %s",
+                type(e).__module__,
+                type(e).__qualname__,
+                str(e),
+                exc_info=True,
+            )
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
             return state
 
