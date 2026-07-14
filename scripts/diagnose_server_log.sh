@@ -17,7 +17,7 @@ import sys, json
 for l in sys.stdin:
     try: print(json.dumps(json.loads(l.strip()), indent=2, ensure_ascii=False))
     except: print(l.strip())
-" > "$OUTDIR/1_stop_event_samples.json" 2>/dev/null
+" > "$OUTDIR/1_stop_event_samples.json" 2>/dev/null || true
 
 # ---------- 2. 403 / ForbiddenError ----------
 echo "--- 2. 403 / ForbiddenError ---"
@@ -39,7 +39,7 @@ import sys, json
 for l in sys.stdin:
     try: print(json.dumps(json.loads(l.strip()), indent=2, ensure_ascii=False))
     except: print(l.strip())
-" > "$OUTDIR/4_503_samples.json" 2>/dev/null
+" > "$OUTDIR/4_503_samples.json" 2>/dev/null || true
 
 # ---------- 5. HTTP status code distribution ----------
 echo "--- 5. HTTP status code distribution ---"
@@ -80,7 +80,7 @@ for l in sys.stdin:
         print(json.dumps({k: d.get(k) for k in ['levelName','asctime','moduleName','funcName','message']}, indent=2, ensure_ascii=False))
     except:
         print(l.strip())
-" > "$OUTDIR/7_error_samples.json" 2>/dev/null
+" > "$OUTDIR/7_error_samples.json" 2>/dev/null || true
 
 # ---------- 8. Gigachat retry logs ----------
 echo "--- 8. Gigachat retry / retry logs ---"
@@ -96,7 +96,7 @@ import sys, json
 for l in sys.stdin:
     try: print(json.dumps(json.loads(l.strip()), indent=2, ensure_ascii=False))
     except: print(l.strip())
-" > "$OUTDIR/9_5xx_samples.json" 2>/dev/null
+" > "$OUTDIR/9_5xx_samples.json" 2>/dev/null || true
 
 # ---------- 10. LLM calls per model ----------
 echo "--- 10. LLM model used ---"
