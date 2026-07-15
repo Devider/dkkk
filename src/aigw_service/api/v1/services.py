@@ -524,7 +524,7 @@ class Agent:
             except StopEventError:
                 raise
             except Exception as e:
-                self.logger.error(f"Error during LLM invocation: {str(e)}", exc_info=True)
+                self.logger.opt(exception=True).error("Error during LLM invocation: {}", str(e))
                 state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
                 return state
 
@@ -826,7 +826,7 @@ class Agent:
         except StopEventError:
             raise
         except Exception as e:
-            self.logger.error(f"Error in process_message: {str(e)}", exc_info=True)
+            self.logger.opt(exception=True).error("Error in process_message: {}", str(e))
             return "Извините, произошла ошибка при обработке запроса."
 
         # def save_graph(self):

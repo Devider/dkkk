@@ -229,6 +229,13 @@ def analyze_model_inputs_for_target(
                 logger.info(
                     f"OUTPUT MATCHING: Output '{output_name}' → Found: '{actual_output_name}' at {output_cell_ref} = {output_cell_value}"
                 )
+                if output_cell_value is None:
+                    logger.warning(
+                        "Output cell {} -> {} at {} returned None (cell exists but no formula)",
+                        output_name,
+                        actual_output_name,
+                        output_cell_ref,
+                    )
 
             except Exception as e:
                 return ModelInputAnalysisToolResult(
@@ -357,7 +364,7 @@ def analyze_model_inputs_for_target(
             )
 
     except Exception as e:
-        logger.error(f"Ошибка при анализе: {str(e)}", exc_info=True)
+        logger.opt(exception=True).error("Ошибка при анализе: {}", str(e))
         msg = _humanize_error(e)
         return ModelInputAnalysisToolResult(status="ERROR", result=msg, content={})
 
@@ -666,7 +673,16 @@ def analyze_excel_model(
                     }
                     output_years_dict[name] = target_year
                     out_val = xl.get_cell("Outputs", output_cell_ref)
-                    logger.info(f"Found output cell for {name}: {actual_output_name} {target_year} = {out_val}")
+                    logger.info(
+                        "Found output cell for {}: {} at {} = {}", name, actual_output_name, output_cell_ref, out_val
+                    )
+                    if out_val is None:
+                        logger.warning(
+                            "Output cell {}: {} at {} returned None (cell exists but no formula)",
+                            name,
+                            actual_output_name,
+                            output_cell_ref,
+                        )
                 except Exception as e:
                     return ExcelAnalysisToolResult(
                         status="ERROR",
@@ -829,7 +845,7 @@ def analyze_excel_model(
             return result
 
     except Exception as e:
-        logger.error(f"Ошибка при анализе Excel модели: {str(e)}", exc_info=True)
+        logger.opt(exception=True).error("Ошибка при анализе Excel модели: {}", str(e))
         msg = _humanize_error(e)
         return ExcelAnalysisToolResult(status="ERROR", result=f"Ошибка при анализе: {msg}", content={})
 
@@ -1059,7 +1075,7 @@ def create_input_mapping(data: list[list]) -> dict:
         return {"year_columns": year_columns, "row_mapping": row_mapping}
 
     except Exception as e:
-        logger.error(f"Error in create_input_mapping: {str(e)}", exc_info=True)
+        logger.opt(exception=True).error("Error in create_input_mapping: {}", str(e))
         raise
 
 
@@ -1227,7 +1243,7 @@ def create_output_mapping(data: list[list]) -> dict:
         return {"year_columns": year_columns, "output_mapping": output_mapping}
 
     except Exception as e:
-        logger.error(f"Error in create_output_mapping: {str(e)}", exc_info=True)
+        logger.opt(exception=True).error("Error in create_output_mapping: {}", str(e))
         raise
 
 
@@ -1571,6 +1587,13 @@ def modify_excel_input_value(
                         available_years = year_range
                     for year in available_years:
                         output_cell_ref = get_output_cell_ref(output_mapping, actual_output_name, year)
+                        logger.info(
+                            "OUTPUT RESOLVED (modify): {} -> {} {} at {}",
+                            output_name,
+                            actual_output_name,
+                            year,
+                            output_cell_ref,
+                        )
                         formula_ref = f"'[{fname}]OUTPUTS'!{output_cell_ref}"
                         all_output_refs.append(formula_ref)
                         output_meta.append((output_name, year, output_cell_ref))
@@ -1670,7 +1693,7 @@ def modify_excel_input_value(
             )
 
     except Exception as e:
-        logger.error(f"Error in modify_excel_input_value: {str(e)}", exc_info=True)
+        logger.opt(exception=True).error("Error in modify_excel_input_value: {}", str(e))
         msg = _humanize_error(e)
         return ExcelInputModificationToolResult(
             status="error",
