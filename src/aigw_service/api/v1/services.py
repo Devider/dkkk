@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover - optional dependency for tests
     GigaChat = None
 import json
 import pprint
+import traceback
 from datetime import datetime
 
 # from langchain.schema import HumanMessage, SystemMessage, AIMessage
@@ -530,12 +531,11 @@ class Agent:
         except StopEventError:
             raise
         except Exception as e:
-            self.logger.error(
-                "Error in analyze_step: [%s.%s] %s",
+            self.logger.opt(exception=True).error(
+                "Error in analyze_step: [{}.{}] {}",
                 type(e).__module__,
                 type(e).__qualname__,
                 str(e),
-                exc_info=True,
             )
             state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
             return state
@@ -746,7 +746,8 @@ class Agent:
                             state["executed_tool_calls"] = executed_calls
                             break
                         except Exception as e:
-                            self.logger.error(f"Error executing tool {tool_name}: {str(e)}", exc_info=True)
+                            tb = traceback.format_exc()
+                            self.logger.error("Error executing tool {}: {}\n{}", tool_name, e, tb)
                             state["messages"].append(
                                 ToolMessage(
                                     content=f"Ошибка при выполнении {tool_name}: {str(e)}",
