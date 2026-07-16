@@ -1,58 +1,8 @@
 # Тесты AI Gateway
 
-## Unit-тесты
-
-`tests/unit/` — тесты без внешних зависимостей (mock'и), быстрые:
-
-| Файл | Что тестирует |
-|---|---|
-| `test_stop_event.py` | ТН05 (Retry), ТН08 (StopEvent): `StopEventError`, `_wrap_llm_with_stop_event`, Pydantic-совместимость monkey-patching, конфиг retry-параметров |
-| `test_tool_dedup.py` | Дедупликация повторных вызовов инструментов (fingerprint: tool_name + sorted args) |
-
-```bash
-pytest tests/unit/                        # все unit-тесты
-pytest tests/unit/test_stop_event.py -v   # выборочно
-```
-
-## Быстрый запуск
-
-```bash
-pytest tests                            # все тесты
-pytest tests/test_tools_performance.py -v -s --no-header --no-cov  # ~2.5 min
-```
-
-Тесты используют `httpx.AsyncClient` с `app=app_main` (ASGI-транспорт, без реального сервера).
-Требуют `GIGACHAT_HOST` и `GIGACHAT_PORT` в `pyproject.toml [tool.pytest.ini_options.env]`.
-`asyncio_mode = auto` — `@pytest.mark.asyncio` не нужен.
-
----
-
-## Интеграционные тесты
-
-Ожидают 5 заголовков (описаны в `src/aigw_service/api/v1/utils.py`):
-
-| Header | Формат |
-|---|---|
-| `x-trace-id` | UUID v4 |
-| `x-client-id` | 2 буквы + 8 цифр |
-| `x-request-time` | RFC-3339 |
-| `x-session-id` | UUID, опционально |
-| `x-user-id` | ≤8 символов |
-
-`tests/conftest.py` задаёт только session-scoped `event_loop` фикстуру; явного вызова `APP_CTX.on_startup()` в тестах нет.
-
----
-
-## Перформанс-тесты
-
-`tests/test_tools_performance.py` — 7 тестов, ~2.5 мин.
-
-Замеряют скорость каждого этапа пайплайна:
-- `loads().finish()` (~34s first call, затем кеш)
-- `calculate()` (~5–35s)
-- `get_cell()` (попадание в `_solution` кеш)
-
-Тесты также проверяют корректность значений (сравнение с golden reference).
+> Структура файла: сначала описаны **скрипты оценки качества** (резолвинг имён и
+> корректность вызовов инструментов LLM), затем в конце — **pytest-тесты**
+> (интеграционные, перформанс, unit).
 
 ---
 
@@ -263,7 +213,7 @@ python scripts/analyze_results.py results.json --csv analysis.csv
 | `NO_TOOL_ARGS` | LLM не вызвал инструмент (или аргументы не найдены в `server.log`) |
 | `WRONG_TOOL` | LLM вызвал не тот инструмент |
 | `PARAM_MISMATCH` | Дошёл до сравнения, но есть ошибки резолвинга (основная рабочая категория) |
-| `PARAMS_OK_FAIL` | Все параметры зарезолвились, но запрос всё равно FAIL (напр. структурная ошибка) |
+| `PARAMS_OK_FAIL` | Все параметры (year/input_names/output_names/target_value) совпали, но запрос помечен FAIL из-за `ranges`/`steps` LENGTH_MISMATCH — LLM неверно указал число диапазонов/шагов. Сам резолвинг упал не падал |
 | `OTHER` | Не попал ни в одну из категорий выше |
 
 **Статусы сравнения** (секция Error Type Distribution, по каждому полю):
@@ -295,7 +245,7 @@ python scripts/analyze_results.py results.json --csv analysis.csv
 
 ---
 
-## Диагностика name resolution (новое)
+## Диагностика name resolution (server.log)
 
 После фиксов loguru (commit: `logger.opt(exception=True).error(...)`) в `server.log` появились маркеры:
 
@@ -307,3 +257,60 @@ python scripts/analyze_results.py results.json --csv analysis.csv
 | `Unreachable output-targets` (ERROR) | `get_compiled_func` | Ячейка не в графе зависимостей — нет формулы |
 
 Используйте `rg "Found output cell\|OUTPUT RESOLVED\|returned None\|Unreachable" server.log` для анализа.
+
+---
+
+## Тесты (pytest)
+
+Ниже описаны автоматические тесты, запускаемые через `pytest`. В отличие от скриптов
+качества выше, они не оценивают резолвинг/тулколлинг в проде, а проверяют код сервиса.
+
+### Быстрый запуск
+
+```bash
+pytest tests                            # все тесты
+pytest tests/test_tools_performance.py -v -s --no-header --no-cov  # ~2.5 min
+```
+
+Тесты используют `httpx.AsyncClient` с `app=app_main` (ASGI-транспорт, без реального сервера).
+Требуют `GIGACHAT_HOST` и `GIGACHAT_PORT` в `pyproject.toml [tool.pytest.ini_options.env]`.
+`asyncio_mode = auto` — `@pytest.mark.asyncio` не нужен.
+
+### Интеграционные тесты
+
+Ожидают 5 заголовков (описаны в `src/aigw_service/api/v1/utils.py`):
+
+| Header | Формат |
+|---|---|
+| `x-trace-id` | UUID v4 |
+| `x-client-id` | 2 буквы + 8 цифр |
+| `x-request-time` | RFC-3339 |
+| `x-session-id` | UUID, опционально |
+| `x-user-id` | ≤8 символов |
+
+`tests/conftest.py` задаёт только session-scoped `event_loop` фикстуру; явного вызова `APP_CTX.on_startup()` в тестах нет.
+
+### Перформанс-тесты
+
+`tests/test_tools_performance.py` — 7 тестов, ~2.5 мин.
+
+Замеряют скорость каждого этапа пайплайна:
+- `loads().finish()` (~34s first call, затем кеш)
+- `calculate()` (~5–35s)
+- `get_cell()` (попадание в `_solution` кеш)
+
+Тесты также проверяют корректность значений (сравнение с golden reference).
+
+### Unit-тесты
+
+`tests/unit/` — тесты без внешних зависимостей (mock'и), быстрые:
+
+| Файл | Что тестирует |
+|---|---|
+| `test_stop_event.py` | ТН05 (Retry), ТН08 (StopEvent): `StopEventError`, `_wrap_llm_with_stop_event`, Pydantic-совместимость monkey-patching, конфиг retry-параметров |
+| `test_tool_dedup.py` | Дедупликация повторных вызовов инструментов (fingerprint: tool_name + sorted args) |
+
+```bash
+pytest tests/unit/                        # все unit-тесты
+pytest tests/unit/test_stop_event.py -v   # выборочно
+```
