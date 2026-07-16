@@ -39,7 +39,7 @@ pytest tests/test_tools_performance.py -v -s --no-header --no-cov  # ~2.5 min
 | `x-session-id` | UUID, опционально |
 | `x-user-id` | ≤8 символов |
 
-Conftest вызывает `APP_CTX.on_startup()`.
+`tests/conftest.py` задаёт только session-scoped `event_loop` фикстуру; явного вызова `APP_CTX.on_startup()` в тестах нет.
 
 ---
 
@@ -100,16 +100,17 @@ python scripts/run_tool_queries.py --resume test_output/results.json
 | Флаг | Описание |
 |---|---|
 | `--url` | URL сервера (по умолч. http://localhost:8080) |
-| `--log` | Путь к server.log |
-| `--queries` | Excel-файл с тестовыми запросами |
-| `--model` | Путь к .xlsx модели (для резолвинга имён) |
-| `--subset N` | Запустить только первые N запросов |
+| `--log` | Путь к server.log (по умолч. `server.log`) |
+| `--queries` | Excel-файл с тестовыми запросами (по умолч. `tests/data/Methanex_tool_test_queries.xlsx`) |
+| `--model` | Путь к .xlsx модели (для резолвинга имён, по умолч. `models/model.xlsx`) |
+| `--subset N` | Первые N запросов **из каждого листа** (0 = все, по умолч.) |
 | `--resume FILE` | Продолжить с JSON-чекпоинта |
-| `--output FILE` | Сохранить результаты в JSON |
+| `--output FILE` | Сохранить результаты в JSON (авто-генерируется, если не задан) |
 | `--timeout SEC` | Таймаут HTTP-запроса (по умолч. 600) |
 | `--verbose` | Детальный вывод alias/resolved/expected по каждому полю |
 | `--csv FILE` | Записать CSV с деталями сравнения |
 | `--upload FILE` | Загрузить .xlsx на сервер перед тестами |
+| `--delay SEC` | Задержка между запросами в секундах (по умолч. 0) |
 
 ### Формат вывода
 
@@ -214,7 +215,9 @@ A001,input_names[1],ав USD/RUB,Табак (USD),Средний за перио
 ## Анализ результатов
 
 `scripts/analyze_results.py` — принимает JSON с результатами (из `run_tool_queries.py`)
-и выводит 8 секций для понимания причин падений тестов.
+и выводит **11 секций** для понимания причин падений тестов. Скрипт «расплющивает»
+все `comparison`-записи в плоский список `{id, tool, field, status, alias, expected,
+resolved, similarity}` и агрегирует их по-разному в каждой секции.
 
 ### Запуск
 
@@ -224,26 +227,83 @@ python scripts/analyze_results.py results.json --top-n 30
 python scripts/analyze_results.py results.json --csv analysis.csv
 ```
 
-### Секции вывода
+### Параметры
 
-| Секция | Что показывает |
-|--------|---------------|
-| **Summary** | Итоговые метрики (queries_passed, params_passed) |
-| **Error Type Distribution** | MISMATCH / RESOLUTION_ERROR / NO_MATCH / LENGTH_MISMATCH / MISSING — соотношение причин ошибок |
-| **Field-Level Accuracy** | Точность по каждому полю (year, input_names, output_names, target_value). total = сколько раз поле ожидалось, pass = total − ошибки |
-| **Confusion Matrix** | Систематические ошибки: expected → resolved (count). Если одна пара повторяется десятки раз — систематическая проблема в Jaccard-маппинге |
-| **NO_MATCH Aliases** | Какие алиасы никогда не резолвятся — обычно English без пересечения с русскими каноническими именами |
-| **Resolution Errors** | Какие алиасы вызывают серверные ошибки "No match found" |
-| **Similarity Distribution** | Гистограмма Jaccard similarity для MISMATCH: sim < 0.2 = cross-lingual, 0.2–0.4 = низкое совпадение, 0.6–1.0 = почти попал |
-| **Input Count vs Accuracy** | Деградирует ли точность с ростом числа input_names |
+| Параметр | Обязательный | Описание |
+|----------|--------------|----------|
+| `input` | да | Путь к JSON-файлу с результатами (`tool_query_results.json` из `run_tool_queries.py`) |
+| `--top-n N` | нет | Сколько строк выводить в Confusion Matrix, NO_MATCH Aliases и Resolution Errors (по умолч. 15) |
+| `--csv FILE` | нет | Выгрузить плоский CSV всех comparison-записей (колонки: `id, field, alias, resolved, expected, actual, similarity, status, detail`) |
+
+### Секции вывода (11)
+
+| № | Секция | Что показывает |
+|---|--------|---------------|
+| 1 | **Summary** | Итоговые метрики из `tool_stats`: `queries_passed`, `params_passed` по каждому инструменту. `params_passed > 0` даже при `queries_passed = 0` (отдельные поля верны, но запрос целиком — нет) |
+| 2 | **Query Status Breakdown** | Разбивка **запросов** по категориям (см. ниже). Показывает, какая доля вообще не дошла до сравнения параметров (timeout / no tool call) |
+| 3 | **Effective Comparison Analysis** | Консистентность: берёт только дошедшие до сравнения запросы и считает ожидаемый pass-rate = `per_param_acc ^ avg_params`, сравнивает с фактическим. `CONSISTENT` — наблюдаемый pass-rate объясняется per-param точностью; `ANOMALOUS` — скрытый баг в сравнении |
+| 4 | **Error Type Distribution** | Распределение **статусов сравнения** (MISMATCH / NO_MATCH / LENGTH_MISMATCH / RESOLUTION_ERROR / MISSING) — см. таблицу статусов ниже |
+| 5 | **Field-Level Accuracy** | Точность по каждому полю (year, input_names, output_names, target_value, …). `total` = сколько раз поле ожидалось, `pass` = `total − ошибки` |
+| 6 | **Near-Miss Analysis** | Распределение числа провалившихся параметров среди `PARAM_MISMATCH`-запросов. Сколько запросов «в 1 ошибке от PASS» — кандидаты на быстрый фикс через починку топ-Confusion пар |
+| 7 | **Confusion Matrix** | Систематические ошибки резолвинга: `expected → resolved` (count). Повтор одной пары десятки раз = систематическая проблема в Jaccard-маппинге или prompt'е |
+| 8 | **NO_MATCH Aliases** | Алиасы, которые **ни разу** не зарезолвились (резолвер вернул None). Обычно чисто английские термины без пересечения с русскими каноническими именами |
+| 9 | **Resolution Errors** | Алиасы, упавшие с серверной ошибкой («No match found for query: X») при резолве |
+| 10 | **Similarity Distribution** | Гистограмма Jaccard similarity для MISMATCH: `sim < 0.2` = cross-lingual (разные алфавиты), `0.2–0.4` = низкое/случайное совпадение, `0.6–1.0` = почти правильное имя, но резолвер выбрал другое. Если большинство `< 0.2` — Jaccard не справляется, нужны синонимы/перевод |
+| 11 | **Input Count vs Accuracy** | Группировка по числу `input_names`. Деградирует ли точность с ростом входов (LLM путает алиасы в большом контексте) |
+
+### Типы ошибок и категорий
+
+**Категории запроса** (секция Query Status Breakdown, `analyze_results.py:_categorize_query`):
+
+| Категория | Значение |
+|-----------|----------|
+| `PASS` | Запрос прошёл полностью (все поля совпали) |
+| `ERROR (timeout)` | Серверный таймаут — запрос не дошёл до сравнения |
+| `ERROR (other)` | Прочая серверная ошибка |
+| `NO_TOOL_ARGS` | LLM не вызвал инструмент (или аргументы не найдены в `server.log`) |
+| `WRONG_TOOL` | LLM вызвал не тот инструмент |
+| `PARAM_MISMATCH` | Дошёл до сравнения, но есть ошибки резолвинга (основная рабочая категория) |
+| `PARAMS_OK_FAIL` | Все параметры зарезолвились, но запрос всё равно FAIL (напр. структурная ошибка) |
+| `OTHER` | Не попал ни в одну из категорий выше |
+
+**Статусы сравнения** (секция Error Type Distribution, по каждому полю):
+
+| Статус | Значение |
+|--------|----------|
+| `MISMATCH` | alias зарезолвился, но **не в то** каноническое имя. Причина: Jaccard выбрал ближайшее, но неправильное (cross-lingual или похожие имена в листе) |
+| `NO_MATCH` | `find_matching_cell` / `find_matching_outputs` вернул None — ни одно имя не прошло порог. Сервер **не упал**, просто нет совпадений (чаще всего английский алиас vs русское имя, similarity = 0) |
+| `RESOLUTION_ERROR` | Сервер не смог найти ячейку по alias'у и бросил exception (напр. английский термин без совпадений). Отличается от `NO_MATCH` тем, что упал с ошибкой, а не вернул пустоту |
+| `LENGTH_MISMATCH` | Разная длина списков expected и actual. В текущем прогоне это исключительно `ranges`/`steps` (LLM неверно считает число диапазонов/шагов). Ранее встречался как output_name vs output_names (старый баг, пофикшен) |
+| `MISSING` | Поле есть в `expected`, но отсутствует в `actual` |
 
 ### На что смотреть в первую очередь
 
-1. **Confusion Matrix** — если одна пара expected→resolved повторяется >20 раз,
-   это систематическая ошибка. Нужно либо добавить синоним, либо править system prompt.
-2. **Similarity Distribution** — если >40% ошибок с sim < 0.2, проблема в разнице языков
-   (LLM пишет по-английски, канонические имена русские).
-3. **NO_MATCH Aliases** — чистые English-термины, которые не резолвятся никак.
-   Либо править LLM, либо добавлять синонимы в resolution pipeline.
-4. **Field-Level Accuracy** — если одно поле стабильно ниже других (например,
-   input_names хуже output_names), фокус доработки на нём.
+1. **Query Status Breakdown** — сначала отделите запросы, дошедшие до сравнения, от
+   `NO_TOOL_ARGS` / `ERROR (timeout)`. Иначе кажется, что все N запросов провалили
+   резолвинг, хотя часть не дошла до проверки вообще.
+2. **Confusion Matrix** — если одна пара `expected → resolved` повторяется >20 раз,
+   это систематическая ошибка. Нужно либо править синонимы в resolution pipeline,
+   либо менять system prompt.
+3. **Near-Miss Analysis** — запросы с 1 ошибкой = быстрые победы. Починка топ-пар
+   Confusion Matrix может перевернуть их в PASS.
+4. **Similarity Distribution** — если >40% ошибок с `sim < 0.2`, проблема в разнице
+   языков (LLM пишет по-английски, канонические имена русские), Jaccard тут не поможет.
+5. **NO_MATCH / Resolution Errors** — чистые English-термины (`revenue`, `ending cash`,
+   `D&A`), которые не резолвятся. Либо править LLM, либо добавлять синонимы.
+6. **Field-Level Accuracy** — если одно поле стабильно ниже других (например,
+   `input_names` хуже `output_names`), фокус доработки на нём.
+
+---
+
+## Диагностика name resolution (новое)
+
+После фиксов loguru (commit: `logger.opt(exception=True).error(...)`) в `server.log` появились маркеры:
+
+| Марккер | Где | Что означает |
+|---------|-----|--------------|
+| `Found output cell for ...` | `analyze_excel_model` | Успешный резолв: `alias` → `canonical` → `cell_ref` = `value` |
+| `OUTPUT RESOLVED (modify) ...` | `modify_excel_input_value` | Резолв output перед `calculate()` |
+| `Output cell ... returned None` (WARNING) | оба инструмента | Ячейка существует, но нет формулы (section header) — приведёт к `Unreachable output-targets` |
+| `Unreachable output-targets` (ERROR) | `get_compiled_func` | Ячейка не в графе зависимостей — нет формулы |
+
+Используйте `rg "Found output cell\|OUTPUT RESOLVED\|returned None\|Unreachable" server.log` для анализа.
