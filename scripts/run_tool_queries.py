@@ -97,6 +97,12 @@ def parse_args():
         default=0,
         help="Delay in seconds between requests",
     )
+    parser.add_argument(
+        "--tokens",
+        type=str,
+        default=None,
+        help="Write per-request token usage to CSV file",
+    )
     return parser.parse_args()
 
 
@@ -696,6 +702,10 @@ def main() -> int:
             )
             resp.raise_for_status()
 
+            resp_data = resp.json()
+            token_usage = resp_data.get("token_usage", {})
+            llm_call_count = resp_data.get("llm_call_count", 0)
+
             all_calls = extract_all_tool_calls(log_file_path, trace_id)
 
             result_entry: dict = {
@@ -703,6 +713,8 @@ def main() -> int:
                 "tool": q["tool"],
                 "prompt": q["prompt"],
                 "expected": q["expected"],
+                "token_usage": token_usage,
+                "llm_call_count": llm_call_count,
             }
 
             if not all_calls:
@@ -796,6 +808,8 @@ def main() -> int:
                     "prompt": q["prompt"],
                     "status": "ERROR",
                     "error": str(e),
+                    "token_usage": {},
+                    "llm_call_count": 0,
                 }
             )
 
@@ -828,6 +842,28 @@ def main() -> int:
     if args.csv and csv_entries:
         write_csv(args.csv, csv_entries)
         print(f"CSV comparison written to {args.csv}")
+
+    # ---- Write token usage CSV ----
+    if args.tokens:
+        all_keys: set[str] = set()
+        for r in results:
+            all_keys.update(r.get("token_usage", {}).keys())
+        token_fields = sorted(all_keys)
+        token_fieldnames = ["id", "tool", "status", "llm_call_count"] + token_fields
+        with open(args.tokens, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=token_fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            for r in results:
+                row = {
+                    "id": r.get("id", ""),
+                    "tool": r.get("tool", ""),
+                    "status": r.get("status", ""),
+                    "llm_call_count": r.get("llm_call_count", 0),
+                }
+                for k in token_fields:
+                    row[k] = r.get("token_usage", {}).get(k, 0)
+                writer.writerow(row)
+        print(f"Token usage CSV written to {args.tokens}")
 
     # ---- Summary ----
     total = passed + failed + errors

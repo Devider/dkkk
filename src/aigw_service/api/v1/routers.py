@@ -1,12 +1,9 @@
 import tempfile
-import zipfile
 from functools import cache
-from io import BytesIO
 from pathlib import Path
 
 import aiofiles
 import gigachat.context as gc_ctx
-import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
@@ -175,20 +172,15 @@ async def invoke_agent(
         result_content = msg.content if hasattr(msg, "content") else str(msg)
         logger.info(f"Content text: {result_content}")
 
-        zip_buffer = BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-            zip_file.writestr("txt_response.txt", result_content)
+        total_token_usage = result.get("total_token_usage", {})
+        llm_call_count = result.get("llm_call_count", 0)
 
-            excel_buffer = BytesIO()
-            pd.DataFrame().to_excel(excel_buffer, index=False)
-            zip_file.writestr("generated/agent_output.xlsx", excel_buffer.getvalue())
-
-        zip_buffer.seek(0)
-
-        return StreamingResponse(
-            zip_buffer,
-            media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename=agent_response_{thread_id}.zip"},
+        return JSONResponse(
+            content={
+                "content": result_content,
+                "token_usage": total_token_usage,
+                "llm_call_count": llm_call_count,
+            }
         )
 
     except StopEventError as e:

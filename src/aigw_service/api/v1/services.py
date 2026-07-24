@@ -42,6 +42,8 @@ class AgentState(TypedDict):
     summary: str
     scratchpad: list[str]
     last_token_usage: dict[str, int]
+    total_token_usage: dict[str, int]
+    llm_call_count: int
     validation_retries: dict[str, int]  # Consecutive failures per tool_name
     executed_tool_calls: list[str]  # Fingerprints of executed tool calls (dedup)
 
@@ -304,6 +306,8 @@ class Agent:
             "summary": "",
             "scratchpad": [],
             "last_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "total_token_usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "llm_call_count": 0,
             "validation_retries": {},
             "executed_tool_calls": [],
         }
@@ -475,11 +479,14 @@ class Agent:
                 #     Total tokens: {token_usage.get('total_tokens')}
                 # """)
 
-                state["last_token_usage"] = {
-                    "prompt_tokens": token_usage.get("prompt_tokens", 0),
-                    "completion_tokens": token_usage.get("completion_tokens", 0),
-                    "total_tokens": token_usage.get("total_tokens", 0),
-                }
+                state["last_token_usage"] = dict(token_usage)
+
+                prev_total = state.get("total_token_usage", {})
+                for k, v in token_usage.items():
+                    if isinstance(v, (int, float)):
+                        prev_total[k] = prev_total.get(k, 0) + int(v)
+                state["total_token_usage"] = prev_total
+                state["llm_call_count"] = state.get("llm_call_count", 0) + 1
 
                 # Add debug logging for response
                 self.logger.debug(f"Raw LLM Response: {response}")
