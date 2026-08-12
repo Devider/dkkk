@@ -273,7 +273,7 @@ def analyze_model_inputs_for_target(
                 input_cells=input_cells, current_values=current_values, max_scenarios=max_scenarios
             )
 
-            # Compile a formulas function for fast repeated evaluation
+            # Compile a formualizer function for fast repeated evaluation
             fname = os.path.basename(file_path)
             input_refs = [f"'[{fname}]INPUTS'!{input_cells[n]['cell_ref']}" for n in input_names]
             output_ref = f"'[{fname}]OUTPUTS'!{output_cell_ref}"
@@ -402,14 +402,16 @@ def generate_scenarios(input_cells: dict, current_values: dict, max_scenarios: i
 
 
 def _formula_scalar(val) -> float:
-    """Extract a scalar float from a ``formulas`` return value."""
-    if hasattr(val, "value"):
-        return float(val.value[0, 0])
+    """Extract a scalar float from a formualizer return value."""
+    if isinstance(val, (list, tuple)):
+        val = val[0] if val else None
+    if val is None:
+        raise TypeError("cell value is None")
     return float(val)
 
 
 def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_value: float, tolerance: float) -> dict:
-    """Test scenarios using a pre-compiled formulas function and collect results."""
+    """Test scenarios using a compiled formualizer function and collect results."""
     matching_scenarios = []
     all_scenarios = []
     start_time = time.perf_counter()
@@ -420,11 +422,8 @@ def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_va
 
         try:
             result = func(*values)
-            # func returns a single Ranges for one output, tuple for multiple
-            if hasattr(result, "value"):
-                output = _formula_scalar(result)
-            else:
-                output = _formula_scalar(result[0])
+            # func returns a list of output values (one per output ref)
+            output = _formula_scalar(result[0])
 
             deviation = abs(output - target_value)
             deviation_percent = (deviation / target_value) * 100
@@ -470,7 +469,7 @@ def optimize_with_regression(
     input_names: list,
     target_value: float,
 ) -> dict:
-    """Optimize inputs using scipy minimize with the compiled formulas function."""
+    """Optimize inputs using scipy minimize with the compiled formualizer function."""
     try:
         from scipy.optimize import minimize
 
@@ -591,7 +590,7 @@ def analyze_excel_model(
 ) -> ExcelAnalysisToolResult:
     """
     ГЛАВНЫЙ инструмент для сценарного анализа «что-если».
-    Изменяет входные параметры (Inputs), пересчитывает модель (formulas),
+    Изменяет входные параметры (Inputs), пересчитывает модель (formualizer),
     возвращает значения выходных показателей (Outputs) для каждого сценария.
     Пример: "Проанализируй модель при цене метанола от 450 до 500 с шагом 5 и инфляции USD CPI от 0.1 до 0.2 с шагом 0.1, покажи debt/ebitda 2025, net debt/ebitda (ltm) 2025 и icr corr (ltm) 2025"
 
@@ -740,7 +739,7 @@ def analyze_excel_model(
                 # Evaluate via compiled function (all outputs at once)
                 try:
                     raw = func(*values)
-                    if hasattr(raw, "value"):
+                    if not isinstance(raw, (list, tuple)):
                         raw = (raw,)
                 except Exception:
                     continue
@@ -1459,7 +1458,7 @@ def modify_excel_input_value(
         modified_file = copy_to_temp(file_path, suffix="modified")
         logger.info(f"Created modified file: {modified_file}")
 
-        with ExcelWorkbook(modified_file, model_seed_path=file_path) as xl:
+        with ExcelWorkbook(modified_file) as xl:
             input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
             output_mapping = create_output_mapping(xl.get_all_data("Outputs"))
 

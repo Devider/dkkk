@@ -81,14 +81,14 @@ class TestExcelWorkbookInit:
 
         v = func(450.0, 0.1)
         print_timing("  1st evaluate", time.perf_counter() - t_comp)
-        assert round(float(v[0].value[0, 0]), 3) == 1.97
+        assert round(float(v[0]), 3) == 1.97
 
         v = func(450.0, 0.1)
         print_timing("  2nd evaluate (cached)", time.perf_counter() - t_comp)
-        assert round(float(v[0].value[0, 0]), 3) == 1.97
+        assert round(float(v[0]), 3) == 1.97
 
         xl2.close()
-        print(f"\n  ✓ Compiled func verified: (450, 0.1) → {[round(float(v.value[0, 0]), 3) for v in func(450, 0.1)]}")
+        print(f"\n  ✓ Compiled func verified: (450, 0.1) → {[round(float(v), 3) for v in func(450, 0.1)]}")
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +163,7 @@ class TestAnalyzeExcelModel:
         errors = []
         for meth, cpi in combos:
             raw = func(meth, cpi)
-            values = [round(float(v.value[0, 0]), 3) for v in raw]
+            values = [round(float(v), 3) for v in raw]
             if (meth, cpi) in self.REFERENCE:
                 expected = self.REFERENCE[(meth, cpi)]
                 for j, (got, exp) in enumerate(zip(values, expected, strict=True)):
@@ -345,23 +345,32 @@ class TestGetCellRecalcCount:
         xl, imap, omap, fname = discover_cells(modified)
         xl._ensure_model()
 
-        # Spy on _model.calculate
-        original_calc = xl._model.calculate
-        call_count = [0]
-        call_args = [[]]
+        # The Rust engine's evaluate_all() is read-only (cannot be spied on),
+        # so count engine re-evaluations via the _dirty flag: a get_cell that
+        # enters with _dirty=True triggers exactly one evaluate_all().
+        eval_count = [0]
+        orig_get_cell = xl.get_cell
 
-        def counting_calculate(*args, **kwargs):
-            call_count[0] += 1
-            call_args[0].append(kwargs.get("outputs", "?"))
-            return original_calc(*args, **kwargs)
+        def counting_get_cell(sheet, ref):
+            if xl._dirty:
+                eval_count[0] += 1
+            return orig_get_cell(sheet, ref)
 
-        xl._model.calculate = counting_calculate
+        xl.get_cell = counting_get_cell
+
+        orig_calculate = xl.calculate
+
+        def counting_calculate(outputs=None):
+            eval_count[0] += 1
+            return orig_calculate(outputs=outputs)
+
+        xl.calculate = counting_calculate
 
         # Resolve EBITDA output
         match = find_matching_outputs("ebitda", omap)
         actual_name = list(match.keys())[0]
 
-        # Set cells (each get_cell after first set_cell triggers a model call)
+        # Set cells (each get_cell after first set_cell triggers an evaluate)
         for iname, expr in zip(self.input_queries, self.expressions, strict=True):
             for y in self.year_range:
                 cell, _ = find_matching_cell(f"{iname} {y}", imap, default_year=y)
@@ -369,32 +378,31 @@ class TestGetCellRecalcCount:
                 new_val = eval(expr, {"np": np}, {"x": cur})
                 xl.set_cell("Inputs", cell, new_val)
 
-        calls_after_setup = call_count[0]
-        print(f"  Set-loop calculate calls: {calls_after_setup} (5 expected — 1 per get_cell after first set_cell)")
+        calls_after_setup = eval_count[0]
+        print(f"  Set-loop evaluate calls: {calls_after_setup} (5 expected — 1 per get_cell after first set_cell)")
 
-        # BATCH: collect all output refs, single calculate call
+        # BATCH: single calculate call
         all_refs = []
         for y in range(2018, 2033):
             ref = get_output_cell_ref(omap, actual_name, y)
             all_refs.append(f"'[{fname}]OUTPUTS'!{ref}")
 
         xl.calculate(outputs=all_refs)
-        print(f"  Batch calculate calls: {call_count[0] - calls_after_setup}")
+        print(f"  Batch calculate calls: {eval_count[0] - calls_after_setup}")
 
-        # Read 15 EBITDA years — all should hit _solution cache
+        # Read 15 EBITDA years — all should hit the engine cache
         for y in range(2018, 2033):
             ref = get_output_cell_ref(omap, actual_name, y)
             xl.get_cell("Outputs", ref)
 
         xl.close()
-        total_calls = call_count[0]
+        total_calls = eval_count[0]
         output_read_calls = total_calls - calls_after_setup - 1  # except the batch calculate
-        print(f"  Output-read calculate calls (should be 0): {output_read_calls}")
-        print(f"  Total model.calculate() calls: {total_calls}")
+        print(f"  Output-read evaluate calls (should be 0): {output_read_calls}")
+        print(f"  Total model evaluate calls: {total_calls}")
 
         assert output_read_calls == 0, (
-            f"{output_read_calls} extra calculate() calls during output reads — "
-            "batch calculate cache not working"
+            f"{output_read_calls} extra evaluate calls during output reads — batch calculate cache not working"
         )
         print("  ✓ Batch calculate cache hit: 0 extra calls during output reads")
 
@@ -421,12 +429,11 @@ class TestFormulasModelStability:
         m = xl._model
         assert m is not None
         print(f"\n  ExcelModel type: {type(m).__name__}")
-        # Count cells in compiled graph
-        try:
-            func = m.compile(["'[model.xlsx]INPUTS'!AH340"], ["'[model.xlsx]OUTPUTS'!O69"])
-            print(f"  Compiled function fgetnode: {type(func).__name__}")
-        except Exception as e:
-            print(f"  Compile (expected for diag): {e}")
+        # Evaluate via compiled function
+        func = xl.get_compiled_func(["'[model.xlsx]INPUTS'!AH340"], ["'[model.xlsx]OUTPUTS'!O69"])
+        print(f"  Compiled function type: {type(func).__name__}")
+        v = func(450.0)
+        print(f"  First output value: {v}")
         xl.close()
 
 

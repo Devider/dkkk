@@ -1,18 +1,17 @@
-"""Cross-platform Excel handler using openpyxl + formulas (in-memory formula evaluation).
+"""Cross-platform Excel handler using openpyxl + formualizer (Rust in-memory formula evaluation).
 
-``formulas`` parses, compiles, and evaluates Excel formulas entirely in
-memory — no external process required.
+``formualizer`` parses, compiles, and evaluates Excel formulas natively (PyO3
+binding to a Rust engine, calamine-based) — no external process required.
 """
 
 import os
 import shutil
 import tempfile
 from datetime import datetime
-from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 
-import formulas
+import formualizer as fz
 import openpyxl
 
 # ---------------------------------------------------------------------------
@@ -23,6 +22,9 @@ import openpyxl
 # ---------------------------------------------------------------------------
 import openpyxl.worksheet.cell_range as _openpyxl_cr
 from openpyxl.utils import get_column_letter
+from openpyxl.utils.cell import coordinate_to_tuple
+
+from aigw_service.api.v1.formualizer_ext import register_patches, to_native
 
 _orig_multicellrange_init = _openpyxl_cr.MultiCellRange.__init__
 
@@ -46,23 +48,25 @@ def _patched_multicellrange_init(self, ranges=None):
 _openpyxl_cr.MultiCellRange.__init__ = _patched_multicellrange_init
 
 
-@lru_cache(maxsize=3)
-def _load_model(file_path: str) -> formulas.ExcelModel:
-    """Load a formulas ExcelModel and cache it by file path.
+def _parse_ref(ref: str) -> tuple[str, int, int]:
+    """Parse ``"'[model.xlsx]INPUTS'!AH340"`` → ``("INPUTS", 340, 34)``.
 
-    ``lru_cache`` avoids re-parsing and re-compiling the formula graph
-    (``loads().finish()`` ~34s) on every request.  The model is read-only
-    after ``finish()`` — ``calculate()`` and ``compile()`` don't mutate it.
+    ``formualizer`` addresses cells by (sheet, row, col) with 1-based row/col,
+    while the rest of the service builds formulas-style string references.
     """
-    return formulas.ExcelModel().loads(file_path).finish()
+    sheet_part, cell = ref.split("!")
+    sheet = sheet_part.split("]")[-1].strip("'").strip()
+    row, col = coordinate_to_tuple(cell)
+    return sheet, row, col
 
 
 class ExcelWorkbook:
     """Context manager for cross-platform Excel operations.
 
-    Opens an ``.xlsx`` file with openpyxl for I/O and uses ``formulas`` for
-    in-memory formula evaluation.  ``calculate()`` is ~1000× faster than
-    the previous LibreOffice-based implementation.
+    Opens an ``.xlsx`` file with openpyxl for I/O and uses ``formualizer`` for
+    in-memory formula evaluation.  ``calculate()`` is ~100× faster than the
+    previous LibreOffice-based implementation and loads the model in ~0.5s
+    (formulas took ~35s).
 
     Usage::
 
@@ -74,14 +78,13 @@ class ExcelWorkbook:
             xl.save("output.xlsx")                # persist
     """
 
-    def __init__(self, file_path: str, model_seed_path: str = ""):
+    def __init__(self, file_path: str):
         self.file_path = os.path.abspath(file_path)
-        self._model_seed_path = os.path.abspath(model_seed_path) if model_seed_path else ""
         self._wb: Optional[openpyxl.Workbook] = None  # data_only=False (formulas)
         self._wbv: Optional[openpyxl.Workbook] = None  # data_only=True (cached values)
-        self._model: Optional[formulas.ExcelModel] = None
+        self._model: Optional[fz.Workbook] = None
         self._inputs: dict[str, Any] = {}
-        self._solution: Optional[dict] = None
+        self._dirty: bool = False
         self._open()
 
     def _open(self):
@@ -98,20 +101,12 @@ class ExcelWorkbook:
             raise
         self._model = None
         self._inputs = {}
-        self._solution = None
+        self._dirty = False
 
     def _ensure_model(self):
         if self._model is None:
-            load_path = self._model_seed_path or self.file_path
-            try:
-                self._model = _load_model(load_path)
-            except TypeError as e:
-                if "MultiCellRange" in str(e):
-                    raise TypeError(
-                        "Excel-файл содержит повреждённые объединённые ячейки (merged cells). "
-                        "Откройте файл в Excel или LibreOffice, сохраните заново и загрузите снова."
-                    ) from e
-                raise
+            self._model = fz.load_workbook(self.file_path)
+            register_patches(self._model)
 
     # ------------------------------------------------------------------
     # context manager
@@ -161,26 +156,11 @@ class ExcelWorkbook:
         ]
         return rows if rows else None
 
-    def _formula_ref(self, sheet_name: str, cell_ref: str) -> str:
-        """Build a formulas-compatible cell reference.
-
-        ``formulas`` normalises sheet names to uppercase internally,
-        so we uppercase *sheet_name* to match.
-        """
-        ref_path = self._model_seed_path or self.file_path
-        fname = os.path.basename(ref_path)
-        return f"'[{fname}]{sheet_name.upper()}'!{cell_ref}"
-
-    def _extract_value(self, val: Any):
-        if hasattr(val, "value"):
-            return val.value[0, 0]
-        return val
-
     def get_cell(self, sheet_name: str, cell_ref: str) -> Any:
         """Read a single cell.
 
         If any cells have been modified via ``set_cell()`` the value is
-        obtained from the ``formulas`` engine (which evaluates the
+        obtained from the ``formualizer`` engine (which evaluates the
         dependency graph in memory).  Otherwise the cached value from
         ``openpyxl`` (``data_only=True``) is returned.
         """
@@ -189,31 +169,26 @@ class ExcelWorkbook:
             return src[sheet_name][cell_ref].value
 
         self._ensure_model()
-        ref = self._formula_ref(sheet_name, cell_ref)
+        if self._dirty:
+            self._model.evaluate_all()
+            self._dirty = False
 
-        # Check cached solution first (populated by calculate())
-        if self._solution is not None:
-            val = self._solution.get(ref)
-            if val is not None:
-                return self._extract_value(val)
-
-        # Evaluate the requested cell and cache result
-        new_solution = self._model.calculate(inputs=self._inputs, outputs=[ref])
-        if self._solution is None:
-            self._solution = new_solution
-        else:
-            self._solution.update(new_solution)
-        return self._extract_value(self._solution[ref])
+        row, col = coordinate_to_tuple(cell_ref)
+        return to_native(self._model.get_value(sheet_name, row, col))
 
     def set_cell(self, sheet_name: str, cell_ref: str, value: Any):
         """Write a value to the workbook.
 
-        The value is recorded for the ``formulas`` engine so subsequent
+        The value is recorded for the ``formualizer`` engine so subsequent
         ``get_cell()`` / ``calculate()`` calls see the change.
         """
-        ref = self._formula_ref(sheet_name, cell_ref)
-        self._inputs[ref] = value
-        self._solution = None  # invalidate cache — inputs have changed
+        self._ensure_model()
+        if hasattr(value, "item"):
+            value = value.item()
+        row, col = coordinate_to_tuple(cell_ref)
+        self._model.set_value(sheet_name, row, col, value)
+        self._inputs[cell_ref] = value
+        self._dirty = True
         self._wb[sheet_name][cell_ref].value = value
         if self._wbv is not None:
             self._wbv[sheet_name][cell_ref].value = value
@@ -228,19 +203,17 @@ class ExcelWorkbook:
     # ------------------------------------------------------------------
 
     def calculate(self, outputs: Optional[list[str]] = None):
-        """Recalculate formulas in memory via ``formulas``.
+        """Recalculate formulas in memory via ``formualizer``.
 
-        When *outputs* is ``None`` the full dependency graph is evaluated.
-        To avoid the full evaluation cost, pass specific output references
-        (e.g. ``["'[model.xlsx]OUTPUTS'!O69"]``).
+        ``evaluate_all()`` re-evaluates only the dirty subgraph (~5ms on the
+        real model after ``set_cell()``); *outputs* is accepted for API
+        compatibility and ignored.
         """
         if not self._inputs:
             return
         self._ensure_model()
-        kwargs: dict[str, Any] = {"inputs": self._inputs}
-        if outputs is not None:
-            kwargs["outputs"] = outputs
-        self._solution = self._model.calculate(**kwargs)
+        self._model.evaluate_all()
+        self._dirty = False
 
     def save(self, file_path: Optional[str] = None):
         """Save the workbook to disk (preserves formulas)."""
@@ -248,14 +221,31 @@ class ExcelWorkbook:
         self._wb.save(target)
 
     def get_compiled_func(self, input_refs: list[str], output_refs: list[str]):
-        """Compile a fast function for repeated evaluations.
+        """Build a fast callable for repeated scenario evaluation.
 
-        Returns a ``DispatchPipe`` that maps *input_refs* → *output_refs*.
-        Calling it with scalar values returns a single ``Ranges`` object
-        (for one output) or a tuple of ``Ranges`` (for multiple outputs).
+        Returns a function mapping *input_refs* (in order) → a list of native
+        output values, one per *output_ref*.  Each call pushes the input
+        values into the engine and re-evaluates the dirty graph (~5ms on the
+        real model).
         """
         self._ensure_model()
-        return self._model.compile(inputs=input_refs, outputs=output_refs)
+        model = self._model
+        actual_names = {name.casefold(): name for name in model.sheet_names}
+        in_cells = [_parse_ref(r) for r in input_refs]
+        out_cells = [_parse_ref(r) for r in output_refs]
+
+        def resolve(name: str) -> str:
+            return actual_names.get(name.casefold(), name)
+
+        def evaluate(*values):
+            for (sheet, row, col), v in zip(in_cells, values, strict=True):
+                if hasattr(v, "item"):
+                    v = v.item()
+                model.set_value(resolve(sheet), row, col, v)
+            model.evaluate_all()
+            return [to_native(model.get_value(resolve(s), r, c)) for s, r, c in out_cells]
+
+        return evaluate
 
 
 def copy_to_temp(source_path: str, suffix: str = "") -> str:
