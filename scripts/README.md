@@ -37,6 +37,43 @@ python scripts/run_tool_queries.py --url http://localhost:8080 --log server.log 
 `--catalog FILE` (препенд каталога: `message = catalog + "\n\nЗапрос пользователя: " + prompt`),
 `--output`, `--resume`, `--verbose`, `--csv`.
 
+**Полная статистика** — после цикла скрипт считает и пишет в `--output` (ключ `stats`)
+и печатает в stdout отчёт `FULL STATISTICS`:
+
+- `requests`: total / completed / timed_out / http_errors / other_errors
+- `success`: query_pass (все параметры верны) / failed / errors / pass-rate среди tool_called
+- `latency`: total / avg / p50 / p95 / max + per-tool avg (у каждого запроса в `results` — `latency_seconds`, `status_code`, `error_type`, `tool_calls_count`)
+- `tool_calls`: tool_called (есть TOOL ARGS) / no_tool_call / total_tool_calls / распределение вызовов на запрос
+- `categories`: PASS, ERROR(timeout|http|other), NO_TOOL_ARGS, WRONG_TOOL, PARAM_MISMATCH, PARAMS_OK_FAIL
+- `params`: per-param top-level + per-tool; `field_accuracy` (по полям); `comparison_statuses` (MISMATCH/NO_MATCH/...)
+- `near_miss`: запросы ровно с 1 ошибочным параметром
+- `top_errors`: топ строк ошибок
+
+Скрипт остаётся обратно совместимым (только аддитивные ключи) — `analyze_results.py`
+и `--resume` продолжают работать.
+
+### Повтор 6-запросного дамп-прогона
+
+Точная команда, соответствующая дамп-прогону (subset 3 → **6 запросов**: 3 на лист,
+A001–A003 + T001–T003):
+
+```sh
+# 1. Сервер. Для дампа LLM-сообщений нужен DEBUG=true в .env.
+python3 src/aigw_service/__main__.py 2>&1 | tee server.log
+
+# 2. Прогон (в другом терминале). ВАЖНО: --subset N = N на лист → 2N запросов.
+#    subset 3 = 6 запросов.
+python scripts/run_tool_queries.py --url http://localhost:8080 --log server.log \
+    --upload models/model.xlsx --subset 3 --catalog test_output/catalog.txt \
+    --output test_output/prompt_dump.json 2>&1 | tee run.log
+```
+
+Для полного прогона (600 запросов): `--subset 0` (или не указывать) без `--catalog`
+— baseline, с `--catalog` — каталог-инъекция. При прерывании продолжить:
+`--resume test_output/ab_catalog.json` — resume засеивает уже собранные `results`,
+`tool_stats` и `csv_entries` из чекпоинта, поэтому итоговый файл всегда полный
+(пропущенные ранее запросы не теряются, статистика считается по всем).
+
 **Результат A/B (GigaChat, subset=20):**
 
 | Метрика | Baseline (40) | + Каталог (40) | Δ |

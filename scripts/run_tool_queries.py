@@ -20,6 +20,7 @@ import json
 import sys
 import time
 import uuid
+from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -545,6 +546,199 @@ def _calc_expected_checks(expected: dict, tool: str) -> int:
     return 1 + len(exp_in) + len(exp_out)
 
 
+# ---------------------------------------------------------------------------
+# Full statistics
+# ---------------------------------------------------------------------------
+def _categorize_query(r: dict) -> str:
+    """Classify a single query result into a status category (mirrors analyze_results.py)."""
+    status = r.get("status")
+    ps = r.get("param_stats", {})
+    diffs = str(r.get("diffs", []))
+    if status == "PASS":
+        return "PASS"
+    if status == "ERROR":
+        et = r.get("error_type")
+        if et == "timeout":
+            return "ERROR (timeout)"
+        if et == "http_error":
+            return "ERROR (http)"
+        return "ERROR (other)"
+    if not ps:
+        if "No TOOL ARGS" in diffs:
+            return "NO_TOOL_ARGS"
+        if "Wrong tool" in diffs:
+            return "WRONG_TOOL"
+        return "OTHER"
+    if ps.get("failed", 0) == 0:
+        return "PARAMS_OK_FAIL"
+    return "PARAM_MISMATCH"
+
+
+def _compute_stats(results: list[dict], tool_stats: dict) -> dict:
+    """Aggregate full statistics from the collected results."""
+    total = len(results)
+    errs = [r for r in results if r.get("status") == "ERROR"]
+    passed = sum(1 for r in results if r.get("status") == "PASS")
+    failed = sum(1 for r in results if r.get("status") == "FAIL")
+    timed_out = sum(1 for r in errs if r.get("error_type") == "timeout")
+    http_errors = sum(1 for r in errs if r.get("error_type") == "http_error")
+    other_errors = len(errs) - timed_out - http_errors
+    completed = total - len(errs)
+
+    lat = [r.get("latency_seconds", 0.0) for r in results if r.get("latency_seconds") is not None]
+    lat_sorted = sorted(lat)
+    n_lat = len(lat_sorted)
+
+    def _pct(p: float) -> float:
+        return lat_sorted[min(n_lat - 1, int(p * n_lat))] if n_lat else 0.0
+
+    per_tool_lat = {}
+    for tk in tool_stats:
+        lats = [
+            r.get("latency_seconds", 0.0)
+            for r in results
+            if r.get("tool") == tk and r.get("latency_seconds") is not None
+        ]
+        per_tool_lat[tk] = round(sum(lats) / len(lats), 2) if lats else None
+
+    tool_called = sum(1 for r in results if r.get("tool_calls_count", 0) > 0)
+    no_tool_call = total - tool_called
+    total_tool_calls = sum(r.get("tool_calls_count", 0) for r in results)
+    call_dist = dict(sorted(Counter(r.get("tool_calls_count", 0) for r in results).items()))
+
+    categories = Counter(_categorize_query(r) for r in results)
+
+    field_fail: Counter = Counter()
+    field_total: Counter = Counter()
+    status_counts: Counter = Counter()
+    for r in results:
+        for e in r.get("comparison", []):
+            status_counts[e["status"]] += 1
+            base = e["field"].split("[")[0]
+            field_total[base] += 1
+            if e["status"] != "OK":
+                field_fail[base] += 1
+    field_accuracy = {
+        k: {"checks": field_total[k], "failed": field_fail[k], "passed": field_total[k] - field_fail[k]}
+        for k in sorted(field_total)
+    }
+
+    near_miss = sum(
+        1
+        for r in results
+        if r.get("status") == "FAIL" and r.get("param_stats") and r["param_stats"].get("failed", 0) == 1
+    )
+    per_tool_near_miss = {}
+    for tk in tool_stats:
+        per_tool_near_miss[tk] = sum(
+            1
+            for r in results
+            if r.get("tool") == tk
+            and r.get("status") == "FAIL"
+            and r.get("param_stats")
+            and r["param_stats"].get("failed", 0) == 1
+        )
+
+    top_errors = Counter(r.get("error", "")[:200] for r in errs)
+
+    params_total = sum(ts["params_total"] for ts in tool_stats.values())
+    params_passed = sum(ts["params_passed"] for ts in tool_stats.values())
+
+    return {
+        "requests": {
+            "total": total,
+            "completed": completed,
+            "timed_out": timed_out,
+            "http_errors": http_errors,
+            "other_errors": other_errors,
+        },
+        "success": {
+            "query_pass": passed,
+            "failed": failed,
+            "errors": len(errs),
+            "pass_rate_among_tool_called_pct": round(passed / tool_called * 100, 1) if tool_called else None,
+        },
+        "latency": {
+            "count": n_lat,
+            "total_seconds": round(sum(lat_sorted), 2),
+            "avg_seconds": round(sum(lat_sorted) / n_lat, 2) if n_lat else 0.0,
+            "p50_seconds": round(_pct(0.5), 2),
+            "p95_seconds": round(_pct(0.95), 2),
+            "max_seconds": round(lat_sorted[-1], 2) if n_lat else 0.0,
+            "per_tool_avg_seconds": per_tool_lat,
+        },
+        "tool_calls": {
+            "tool_called": tool_called,
+            "no_tool_call": no_tool_call,
+            "total_tool_calls": total_tool_calls,
+            "distribution": call_dist,
+        },
+        "categories": dict(sorted(categories.items())),
+        "params": {
+            "total": params_total,
+            "passed": params_passed,
+            "accuracy_pct": round(params_passed / params_total * 100, 1) if params_total else None,
+            "per_tool": {
+                k: {"total": ts["params_total"], "passed": ts["params_passed"]}
+                for k, ts in tool_stats.items()
+            },
+        },
+        "field_accuracy": field_accuracy,
+        "comparison_statuses": dict(status_counts),
+        "near_miss": {"queries": near_miss, "per_tool": per_tool_near_miss},
+        "top_errors": top_errors.most_common(10),
+    }
+
+
+def _print_stats_report(stats: dict) -> None:
+    """Pretty-print the full statistics report to stdout."""
+    w = "=" * 60
+    print(w)
+    print("FULL STATISTICS")
+    print(w)
+
+    req = stats["requests"]
+    print(f"\n[Requests] total={req['total']} completed={req['completed']} "
+          f"timed_out={req['timed_out']} http_errors={req['http_errors']} other_errors={req['other_errors']}")
+
+    suc = stats["success"]
+    print(f"[Success] query_pass={suc['query_pass']} failed={suc['failed']} errors={suc['errors']} "
+          f"pass_rate_among_tool_called={suc['pass_rate_among_tool_called_pct']}%")
+
+    lat = stats["latency"]
+    print(f"[Latency] total={lat['total_seconds']}s avg={lat['avg_seconds']}s "
+          f"p50={lat['p50_seconds']}s p95={lat['p95_seconds']}s max={lat['max_seconds']}s (n={lat['count']})")
+    for tk, avg in lat["per_tool_avg_seconds"].items():
+        print(f"    {tk}: avg {avg}s" if avg is not None else f"    {tk}: no data")
+
+    tc = stats["tool_calls"]
+    print(f"[Tool calls] tool_called={tc['tool_called']} no_tool_call={tc['no_tool_call']} "
+          f"total_tool_calls={tc['total_tool_calls']}")
+    dist = ", ".join(f"{k} call(s): {v}" for k, v in tc["distribution"].items())
+    print(f"    distribution: {dist}")
+
+    print("[Categories]")
+    for cat, cnt in stats["categories"].items():
+        print(f"    {cat}: {cnt}")
+
+    prm = stats["params"]
+    print(f"[Params] {prm['passed']}/{prm['total']} correct ({prm['accuracy_pct']}%)")
+    for tk, ps in prm["per_tool"].items():
+        print(f"    {tk}: {ps['passed']}/{ps['total']}")
+    if stats["field_accuracy"]:
+        print("[Field accuracy]")
+        for fld, fa in stats["field_accuracy"].items():
+            print(f"    {fld}: {fa['passed']}/{fa['checks']} passed")
+    if stats["comparison_statuses"]:
+        print(f"[Comparison statuses] {stats['comparison_statuses']}")
+    nm = stats["near_miss"]
+    print(f"[Near-miss] queries with exactly 1 failed param: {nm['queries']} {nm['per_tool']}")
+    if stats["top_errors"]:
+        print("[Top errors]")
+        for err, cnt in stats["top_errors"]:
+            print(f"    {cnt}x  {err[:150]}")
+
+
 def main() -> int:
     args = parse_args()
     url = args.url.rstrip("/")
@@ -594,12 +788,13 @@ def main() -> int:
 
     # ---- Resume support ----
     completed_ids: set[str] = set()
+    saved_data: dict | None = None
     if args.resume:
         resume_path = Path(args.resume)
         if resume_path.exists():
             with open(resume_path) as f:
-                saved = json.load(f)
-            completed_ids = {r["id"] for r in saved.get("results", [])}
+                saved_data = json.load(f)
+            completed_ids = {r["id"] for r in saved_data.get("results", [])}
             print(f"  Resuming: {len(completed_ids)} already completed")
             queries = [q for q in queries if q["id"] not in completed_ids]
 
@@ -684,6 +879,23 @@ def main() -> int:
         },
     }
 
+    # ---- Seed previously completed data when resuming so the final file stays complete ----
+    if saved_data is not None:
+        results = list(saved_data.get("results", []))
+        saved_ts = saved_data.get("tool_stats")
+        if saved_ts:
+            for tk in tool_stats:
+                if tk in saved_ts:
+                    for k in tool_stats[tk]:
+                        if k in saved_ts[tk]:
+                            tool_stats[tk][k] = saved_ts[tk][k]
+        csv_entries = list(saved_data.get("csv_entries", []))
+        passed = sum(1 for r in results if r.get("status") == "PASS")
+        failed = sum(1 for r in results if r.get("status") == "FAIL")
+        errors = sum(1 for r in results if r.get("status") == "ERROR")
+        if results:
+            print(f"  Seeded {len(results)} prior results: {passed} PASS / {failed} FAIL / {errors} ERROR")
+
     for i, q in enumerate(queries):
         trace_id = str(uuid.uuid4())
         prog = f"[{i + 1:>3}/{len(queries)}]"
@@ -702,6 +914,7 @@ def main() -> int:
             "Content-Type": "application/json",
         }
 
+        t0 = time.monotonic()
         try:
             message = q["prompt"]
             if catalog_text:
@@ -712,7 +925,9 @@ def main() -> int:
                 headers=headers,
                 timeout=args.timeout,
             )
+            status_code = resp.status_code
             resp.raise_for_status()
+            latency = round(time.monotonic() - t0, 3)
 
             all_calls = extract_all_tool_calls(log_file_path, trace_id)
 
@@ -721,6 +936,9 @@ def main() -> int:
                 "tool": q["tool"],
                 "prompt": q["prompt"],
                 "expected": q["expected"],
+                "status_code": status_code,
+                "latency_seconds": latency,
+                "tool_calls_count": len(all_calls),
             }
 
             if not all_calls:
@@ -804,6 +1022,35 @@ def main() -> int:
 
             results.append(result_entry)
 
+        except httpx.TimeoutException as e:
+            print(f"ERROR (timeout): {e}")
+            errors += 1
+            results.append(
+                {
+                    "id": q["id"],
+                    "tool": q["tool"],
+                    "prompt": q["prompt"],
+                    "status": "ERROR",
+                    "error_type": "timeout",
+                    "error": str(e),
+                    "latency_seconds": round(time.monotonic() - t0, 3),
+                }
+            )
+        except httpx.HTTPStatusError as e:
+            print(f"ERROR (http {e.response.status_code}): {e}")
+            errors += 1
+            results.append(
+                {
+                    "id": q["id"],
+                    "tool": q["tool"],
+                    "prompt": q["prompt"],
+                    "status": "ERROR",
+                    "error_type": "http_error",
+                    "status_code": e.response.status_code,
+                    "error": str(e),
+                    "latency_seconds": round(time.monotonic() - t0, 3),
+                }
+            )
         except Exception as e:
             print(f"ERROR: {e}")
             errors += 1
@@ -813,7 +1060,9 @@ def main() -> int:
                     "tool": q["tool"],
                     "prompt": q["prompt"],
                     "status": "ERROR",
+                    "error_type": "other",
                     "error": str(e),
+                    "latency_seconds": round(time.monotonic() - t0, 3),
                 }
             )
 
@@ -835,7 +1084,9 @@ def main() -> int:
                         "errors": errors,
                     },
                     "tool_stats": tool_stats,
+                    "stats": _compute_stats(results, tool_stats),
                     "results": results,
+                    "csv_entries": csv_entries,
                 },
                 f,
                 indent=2,
@@ -883,6 +1134,8 @@ def main() -> int:
     if all_params_total > 0:
         all_pct = all_params_passed / all_params_total * 100
         print(f"  Params: {all_params_passed}/{all_params_total} correct ({all_pct:.1f}%)")
+
+    _print_stats_report(_compute_stats(results, tool_stats))
 
     print(f"Saved to {out_file}")
 
