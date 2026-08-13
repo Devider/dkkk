@@ -26,6 +26,16 @@ pytest tests/test_tools_performance.py -v -s --no-header --no-cov  # ~25 s (no -
 
 # tool query validation (requires running server)
 python scripts/run_tool_queries.py --url http://localhost:8080 --log server.log [--subset N]
+python scripts/run_tool_queries.py --url http://localhost:8080 --log server.log --subset 20 --catalog test_output/catalog.txt --output test_output/ab_catalog.json   # catalog injection A/B
+
+# catalog (список доступных имён для каталог-инъекции; файл правится вручную)
+python scripts/make_catalog.py --model models/model.xlsx -o test_output/catalog.txt
+
+# offline bench резолверов (jaccard | embeddings | hybrid), тест-сеты xlsx | live | both
+python scripts/bench_resolution.py --method embeddings --testset both --emb-backend ollama
+
+# full prompt dump (требует DEBUG=true в .env)
+#   services.py analyze_step логирует LLM MESSAGES SENT / LLM TOKEN USAGE на debug
 
 # deps
 poetry install
@@ -39,7 +49,7 @@ poetry update            # after pyproject.toml changes
 - **App init**: `api/__init__.py` creates FastAPI, mounts: service (health), metric, v1 (`/api/v1`).
 - **Config**: `config/__init__.py:Secrets` bundles settings classes. `BaseAppSettings.local` (`LOCAL` env) switches protocol (http/https) and cert injection. Default `LOCAL=false` → no cert validation needed.
 - **AppContext** (`context.py`): singleton holding loguru logger, LLM, agent memory. Created at import time.
-- **Model backend**: `MODEL_TO_USE=OLLAMA` or `GIGACHAT` (env var). Default Ollama with `qwen2.5:7b` (docker.env).
+- **Model backend**: `MODEL_TO_USE=OLLAMA`, `GIGACHAT` or `GIGACHAT_TOKEN` (env var). Default Ollama with `qwen2.5:7b` (docker.env). Ollama client создаётся без `num_ctx` — контекст модели из Ollama (`qwen3.6:35b-a3b` = 262K).
 - **Store backend**: `STORE_TO_USE=MEMORY` or `PANGOLIN` (env var). Default `MEMORY`.
 - **Agent**: LangGraph state machine in `api/v1/services.py` — init → analyze → execute_tool → analyze (loop) → END. Tools in `api/v1/tools.py`.
 - **Excel backend**: `api/v1/excel_handler.py` — cross-platform using **openpyxl** (I/O) + **formualizer** 0.8.1 (Rust/calamine in-memory formula evaluation, PyO3).
@@ -54,6 +64,9 @@ poetry update            # after pyproject.toml changes
   - **Кросс-язычная проблема**: Jaccard = 0 на разных алфавитах. Английский алиас "copper (LME)" не пересекается с русским "Медь (London Metals Exchange)". Единственный оверлап — через общие английские фрагменты в скобках (LME, USD), что ведёт к ложным матчам ("Платина (LME)" побеждает — самое короткое имя).
   - **Строки-заголовки секций**: строки Outputs с пустым `values` dict (нет формулы) могут быть выбраны Jaccard, что вызывает `Unreachable output-targets` в `get_compiled_func()`. Плановый фикс: фильтр `if not info.get("values"): continue`.
   - **Текущие метрики** (60-query sample): 55% per-param accuracy, ~1% query pass. Математически консистентно: 0.55^8 ≈ 0.8% при 8 параметрах на запрос.
+  - **Каталог-инъекция (рабочий обходной путь, R&D)**: полный список доступных имён (503 шт., `test_output/catalog.txt`) препендится к промпту (`run_tool_queries.py --catalog`). A/B на GigaChat: 54.4 → 79.3% per-param, query-pass 0 → 42.5%. Измеренные альтернативы: эмбеддинги (bge-m3) ~71%, oracle-потолок резолвера ~89%. См. `scripts/README.md`, `docs/NameResolution.md`.
+  - **Debug-дамп промптов**: `DEBUG=true` в `.env` + debug-логи `LLM MESSAGES SENT`/`LLM TOKEN USAGE` в `services.py:analyze_step` — видно точный массив, уходящий в LLM (системный промпт + tool_calls + результаты). GigaChat кэширует длинный префикс (`precached_prompt_tokens`).
+  - **`max_length` сообщения**: `schemas.py:CopilotAgentRequest.message` поднят 2000 → 60000 (каталог ~41KB иначе → 422).
 - **Agent examples**: `api/v1/agent_examples/` — reference LangGraph agents (react, memorizer, graph).
 - **All deps from public PyPI** — both private repos (`sberosc`, `nexus-release`) were removed.
 
@@ -67,7 +80,7 @@ poetry update            # after pyproject.toml changes
 - Test env vars in `[tool.pytest.ini_options.env]` — `GIGACHAT_HOST` and `GIGACHAT_PORT` required.
 - Integration tests expect 5 headers (validated in `api/v1/utils.py`): `x-trace-id` (UUID), `x-client-id` (2 letters + 8 digits), `x-request-time` (RFC-3339), `x-session-id` (UUID, optional), `x-user-id` (≤8 chars, needed for upload).
 - Do NOT edit: `api/os_router.py`, `api/metric_router.py` — marked `!!!!!! НЕ РЕДАКТИРОВАТЬ !!!!!!`.
-- **Tool query tests** (`scripts/run_tool_queries.py`): тестирует LLM + resolution через production-сервер. Читает 600 промптов из `.xlsx`, ловит `TOOL ARGS` в server.log по `x-trace-id`, резолвит имена через тот же Jaccard-пайплайн. Флаги: `--subset`, `--resume`, `--timeout`.
+- **Tool query tests** (`scripts/run_tool_queries.py`): тестирует LLM + resolution через production-сервер. Читает 600 промптов из `.xlsx`, ловит `TOOL ARGS` в server.log по `x-trace-id`, резолвит имена через тот же Jaccard-пайплайн. Флаги: `--subset`, `--resume`, `--timeout`, `--catalog` (препенд каталога к сообщению).
 - **Анализ результатов**: `scripts/analyze_results.py` принимает JSON из `run_tool_queries.py` и выводит 11 секций: Summary, Query Status Breakdown, Effective Comparison Analysis, Error Type Distribution, Field-Level Accuracy, Near-Miss Analysis, Confusion Matrix, NO_MATCH Aliases, Resolution Errors, Similarity Distribution, Input Count vs Accuracy.
   ```sh
   python scripts/analyze_results.py test_output/tool_query_results.json --top-n 25 --csv analysis.csv

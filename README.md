@@ -251,4 +251,6 @@ docker compose down -v          # с удалением томов (Ollama мо�
    docker compose restart app
    ```
 
-4. **Качество резолвинга имён** — LLM передаёт английские алиасы ("copper (LME)", "net income"), канонические имена в Excel русские ("Медь (London Metals Exchange)", "Чистая прибыль"). Jaccard similarity = 0 на разных алфавитах. Текущая точность: ~55% per-param (тесты `run_tool_queries.py`). Пути решения: мультиязычные эмбеддинги, EN→RU словарь в `normalize_text`, LLM-перевод алиасов. См. анализ в `scripts/analyze_results.py`.
+4. **Качество резолвинга имён** — LLM передаёт английские алиасы ("copper (LME)", "net income"), канонические имена в Excel русские ("Медь (London Metals Exchange)", "Чистая прибыль"). Jaccard similarity = 0 на разных алфавитах. Текущая точность: ~55% per-param (тесты `run_tool_queries.py`).
+
+   Самое эффективное решение на данный момент — **каталог-инъекция**: полный список доступных имён (503 шт.) препендится к промпту (`run_tool_queries.py --catalog test_output/catalog.txt`). A/B на GigaChat: **54.4% → 79.3% per-param**, query-pass 0% → 42.5%. Требует подъёма `max_length` сообщения (сделан в `schemas.py`: 2000 → 60000). Подробности, измеренные альтернативы (эмбеддинги ~71%, oracle-потолок ~89%) и инструменты — в [scripts/README.md](scripts/README.md) и [docs/NameResolution.md](docs/NameResolution.md).

@@ -155,7 +155,7 @@ class CopilotAgentRequest(BaseModel):
     message: str = Field(
         description="Запрос пользователя",
         min_length=1,
-        max_length=2000,
+        max_length=60000,
         example="Покажи значения debt/ebitda в 2025-2027 годах в модели, вызови инструмент get_output_info",
     )
 

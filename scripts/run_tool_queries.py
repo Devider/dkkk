@@ -92,6 +92,12 @@ def parse_args():
         help="Upload this .xlsx file to the server before running tests",
     )
     parser.add_argument(
+        "--catalog",
+        type=str,
+        default=None,
+        help="Path to candidate catalog .txt — prepended to each prompt",
+    )
+    parser.add_argument(
         "--delay",
         type=float,
         default=0,
@@ -555,6 +561,15 @@ def main() -> int:
             print(f"ERROR: {label} file not found: {fpath}")
             return 1
 
+    catalog_text: str | None = None
+    if args.catalog:
+        catalog_path = Path(args.catalog)
+        if not catalog_path.exists():
+            print(f"ERROR: catalog file not found: {catalog_path}")
+            return 1
+        catalog_text = catalog_path.read_text(encoding="utf-8")
+        print(f"Catalog loaded: {catalog_path} ({len(catalog_text.splitlines())} lines)")
+
     # ---- Build name-resolution mappings ----
     print(f"Building mappings from {model_file}...")
     try:
@@ -688,9 +703,12 @@ def main() -> int:
         }
 
         try:
+            message = q["prompt"]
+            if catalog_text:
+                message = catalog_text + "\n\nЗапрос пользователя: " + q["prompt"]
             resp = httpx.post(
                 f"{url}/api/v1/invoke-agent",
-                json={"message": q["prompt"]},
+                json={"message": message},
                 headers=headers,
                 timeout=args.timeout,
             )

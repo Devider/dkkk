@@ -464,11 +464,20 @@ class Agent:
             # self.logger.info("Invoking LLM...")
 
             try:
-                # Add debug logging for messages
-                # self._log(f"Messages being sent to LLM: {[msg.content for msg in llm_messages]}", "debug")
+                # Dump the exact messages array sent to the LLM (system + history)
+                _dump = [
+                    {
+                        "role": type(m).__name__,
+                        "content": m.content,
+                        "tool_calls": getattr(m, "tool_calls", None) or getattr(m, "additional_kwargs", {}).get("tool_calls"),
+                    }
+                    for m in llm_messages
+                ]
+                self.logger.debug("LLM MESSAGES SENT: {}", _dump)
 
                 response = self.llm.invoke(llm_messages, config=config)
                 token_usage = response.response_metadata.get("token_usage", {})
+                self.logger.debug("LLM TOKEN USAGE: {}", token_usage)
                 # self.logger.info(f"""
                 #     Prompt tokens: {token_usage.get('prompt_tokens')}
                 #     Completion tokens: {token_usage.get('completion_tokens')}

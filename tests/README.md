@@ -60,6 +60,7 @@ python scripts/run_tool_queries.py --resume test_output/results.json
 | `--verbose` | Детальный вывод alias/resolved/expected по каждому полю |
 | `--csv FILE` | Записать CSV с деталями сравнения |
 | `--upload FILE` | Загрузить .xlsx на сервер перед тестами |
+| `--catalog FILE` | Препендировать каталог доступных имён к каждому сообщению (`message = catalog + "\n\nЗапрос пользователя: " + prompt`). Каталог генерируется `scripts/make_catalog.py`; см. `scripts/README.md` |
 | `--delay SEC` | Задержка между запросами в секундах (по умолч. 0) |
 
 ### Формат вывода

@@ -9,17 +9,27 @@ Methods
 -------
 jaccard     — current production pipeline (create_input_mapping /
               find_matching_cell / find_matching_outputs) verbatim.
-embeddings  — GigaChat Embeddings + cosine similarity over the canonical
-              names (section-header rows with empty values are skipped).
+embeddings  — embedding encoder (Ollama bge-m3 by default) + cosine
+              similarity over the canonical names; `--filter-headers`
+              optionally drops section-header rows (empty values dict).
 hybrid      — embeddings first, GigaChat LLM fallback for ambiguous cases
               (top1 < theta_high OR small margin); reject if top1 < theta_low.
+
+Testsets
+--------
+xlsx        — curated alias columns from Methanex_tool_test_queries.xlsx.
+live        — real aliases as the live GigaChat agent parsed them, extracted
+              from a run_tool_queries.py checkpoint (scripts/extract_live_aliases.py).
+both        — run both and write two reports.
 
 Usage
 -----
     python scripts/bench_resolution.py --method jaccard                    # baseline
-    python scripts/bench_resolution.py --method embeddings
+    python scripts/bench_resolution.py --method embeddings                 # ollama bge-m3
+    python scripts/bench_resolution.py --method embeddings --emb-backend gigachat
     python scripts/bench_resolution.py --method hybrid
-    python scripts/bench_resolution.py --method hybrid --subset 20 --verbose
+    python scripts/bench_resolution.py --method embeddings --testset both
+    python scripts/bench_resolution.py --method embeddings --filter-headers
     python scripts/bench_resolution.py --compare jac.json emb.json hyb.json
 
 Intentionally does NOT touch production code — mappings and the Jaccard
@@ -48,6 +58,21 @@ from aigw_service.api.v1.tools import (
 )
 
 SHEETS = ("analyze_excel_model", "analyze_model_inputs_for_target")
+
+_YEAR_RE = re.compile(r"\b20\d{2}\b")
+
+
+def _clean_alias(alias: str) -> str:
+    """Strip years from an alias before embedding (mirrors Jaccard's year handling)."""
+    return _YEAR_RE.sub(" ", alias or "").strip()
+
+
+def _query_aliases(q: dict) -> list[str]:
+    aliases = list(q.get("input_aliases", []))
+    aliases += list(q.get("output_aliases", []))
+    if q.get("output_alias"):
+        aliases.append(q["output_alias"])
+    return aliases
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +116,8 @@ def read_queries(path: str, subset_per_sheet: int = 0) -> list[dict]:
             if sheet_name == "analyze_excel_model":
                 q["output_aliases"] = _parse_list(row[col_map["output_aliases (в запросе)"]])
             else:
-                raw = row[col_map.get("output_alias (в запросе)")]
+                out_col = col_map.get("output_alias (в запросе)")
+                raw = row[out_col] if out_col is not None else None
                 q["output_alias"] = str(raw).strip() if raw is not None and str(raw).strip() else None
             sheet_queries.append(q)
         if subset_per_sheet > 0:
@@ -145,41 +171,94 @@ class JaccardResolver:
 
 
 class EmbeddingResolver:
-    """GigaChat Embeddings + cosine similarity over the canonical names.
+    """Embedding encoder + cosine similarity over the canonical names.
 
-    Section-header rows (a canonical row with an empty ``values`` dict) are
-    skipped — the AGENTS.md planned fix — applied only inside this method so
-    the Jaccard baseline stays untouched.
+    Backend-agnostic: any object with ``embed_documents`` / ``embed_query``
+    (OllamaEmbeddings, GigaChatEmbeddings, ...) works — the vector dimension
+    is inferred from the encoder output, never hardcoded.
+
+    Canonical vectors and unique-alias vectors are cached on disk
+    (``cache_dir``, keyed by content hash) so repeated runs re-embed nothing.
+    Years are stripped from aliases before embedding (``_clean_alias``).
+
+    ``filter_headers=True`` drops section-header rows (empty ``values`` dict)
+    from the candidate space — the planned production fix (AGENTS.md).
     """
 
     method_name = "embed"
 
-    def __init__(self, embeddings, input_mapping: dict, output_mapping: dict, chunk_size: int = 64):
+    def __init__(
+        self,
+        embeddings,
+        input_mapping: dict,
+        output_mapping: dict,
+        chunk_size: int = 64,
+        cache_dir: str | None = None,
+        filter_headers: bool = False,
+    ):
         if embeddings is None:
-            raise RuntimeError("GigaChat embeddings client is None — check GIGACHAT_* env vars.")
+            raise RuntimeError("Embeddings client is None — check backend config.")
         self._emb = embeddings
         self._chunk_size = chunk_size
-        self._input_names = self._canonical_names(input_mapping, "row_mapping")
-        self._output_names = self._canonical_names(output_mapping, "output_mapping")
+        self._filter_headers = filter_headers
+        self._cache_dir = Path(cache_dir) if cache_dir else None
+        self._input_names = self._canonical_names(input_mapping, "row_mapping", self._filter_headers)
+        self._output_names = self._canonical_names(output_mapping, "output_mapping", self._filter_headers)
+        tag = "headers filtered" if filter_headers else "all named rows"
         print(
             f"  canonical inputs: {len(self._input_names)}"
-            f", outputs: {len(self._output_names)} (all named rows — same space as baseline)"
+            f", outputs: {len(self._output_names)} ({tag})"
         )
-        self._input_vecs = self._embed_all(self._input_names)
-        self._output_vecs = self._embed_all(self._output_names)
+        self._input_vecs = self._embed_cached("names_input", self._input_names)
+        self._output_vecs = self._embed_cached("names_output", self._output_names)
         self._cache: dict[tuple, object] = {}
 
     @staticmethod
-    def _canonical_names(mapping: dict, key: str) -> list[str]:
-        # All named rows, same candidate space as the Jaccard baseline — the
-        # benchmark must isolate the resolution METHOD, not candidate filtering.
-        # (Dead template rows stay in the list; cosine ranks them near zero.)
+    def _canonical_names(mapping: dict, key: str, filter_headers: bool = False) -> list[str]:
         seen: dict[str, None] = {}
         for info in mapping[key].values():
+            if filter_headers and not info.get("values"):
+                continue
             name = info["original"]
             if name and name not in seen:
                 seen[name] = None
         return sorted(seen, key=str.lower)
+
+    def _cache_key(self, kind: str, names: list[str]) -> str:
+        import hashlib
+
+        h = hashlib.sha256()
+        for n in names:
+            h.update(n.encode("utf-8"))
+        return f"emb_{type(self._emb).__name__.lower()}_{kind}_{h.hexdigest()[:16]}"
+
+    def _embed_cached(self, kind: str, names: list[str]) -> dict[str, np.ndarray]:
+        """Embed a list of texts; load from / save to the on-disk cache.
+
+        Cache key covers the backend class name + content hash, so changing
+        the encoder, model file or alias set invalidates automatically.
+        """
+        npz_path = meta_path = None
+        if self._cache_dir:
+            base = self._cache_dir / self._cache_key(kind, names)
+            npz_path, meta_path = base.with_suffix(".npz"), base.with_suffix(".json")
+            if npz_path.exists() and meta_path.exists():
+                try:
+                    meta = json.loads(meta_path.read_text())
+                    arr = np.load(npz_path)["vecs"]
+                    if meta["names"] == names and arr.ndim == 2 and arr.shape[0] == len(names):
+                        print(f"  cache hit  : {npz_path.name} ({arr.shape[0]}x{arr.shape[1]})")
+                        return {n: arr[i] for i, n in enumerate(names)}
+                except (OSError, KeyError, ValueError):
+                    pass
+        vecs = self._embed_all(names)
+        if self._cache_dir:
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            arr = np.stack([vecs[n] for n in names])
+            np.savez_compressed(npz_path, vecs=arr)
+            meta_path.write_text(json.dumps({"names": names, "dim": int(arr.shape[1])}))
+            print(f"  cache write: {npz_path.name} ({arr.shape[0]}x{arr.shape[1]}, dim={arr.shape[1]})")
+        return vecs
 
     def _embed_all(self, names: list[str]) -> dict[str, np.ndarray]:
         vecs: dict[str, np.ndarray] = {}
@@ -189,11 +268,25 @@ class EmbeddingResolver:
                 vecs[name] = np.asarray(vec, dtype=np.float64)
         return vecs
 
+    def warmup_aliases(self, aliases: list[str]) -> None:
+        """Batch pre-embed the unique cleaned aliases (one encoder pass each)."""
+        uniq = sorted({_clean_alias(a) for a in aliases if _clean_alias(a)})
+        if not uniq:
+            return
+        fresh = 0
+        vecs = self._embed_cached("aliases", uniq) if self._cache_dir else self._embed_all(uniq)
+        for k, v in vecs.items():
+            if ("vec", k) not in self._cache:
+                self._cache[("vec", k)] = v
+                fresh += 1
+        print(f"  warmup aliases: {len(uniq)} unique ({fresh} fresh, {len(uniq) - fresh} cached)")
+
     def _alias_vec(self, alias: str) -> np.ndarray:
-        cached = self._cache.get(("vec", alias))
+        clean = _clean_alias(alias)
+        cached = self._cache.get(("vec", clean))
         if cached is None:
-            cached = np.asarray(self._emb.embed_query(alias), dtype=np.float64)
-            self._cache[("vec", alias)] = cached
+            cached = np.asarray(self._emb.embed_query(clean), dtype=np.float64)
+            self._cache[("vec", clean)] = cached
         return cached
 
     @staticmethod
@@ -207,7 +300,8 @@ class EmbeddingResolver:
         return out
 
     def _ranked(self, kind: str, alias: str) -> list[tuple[str, float]]:
-        key = ("ranked", kind, alias)
+        clean = _clean_alias(alias)
+        key = ("ranked", kind, clean)
         cached = self._cache.get(key)
         if cached is None:
             name_vecs = self._input_vecs if kind == "input" else self._output_vecs
@@ -246,8 +340,10 @@ class HybridResolver(EmbeddingResolver):
         k: int = 5,
         chunk_size: int = 64,
         max_llm_calls: int = 500,
+        cache_dir: str | None = None,
+        filter_headers: bool = False,
     ):
-        super().__init__(embeddings, input_mapping, output_mapping, chunk_size)
+        super().__init__(embeddings, input_mapping, output_mapping, chunk_size, cache_dir, filter_headers)
         if llm is None:
             raise RuntimeError("GigaChat LLM is None — hybrid mode requires create_llm() to succeed.")
         self._llm = llm
@@ -261,7 +357,7 @@ class HybridResolver(EmbeddingResolver):
         self._fallback_cache: dict[tuple[str, str], str | None] = {}
 
     def _decide(self, kind: str, alias: str) -> tuple[str | None, float, str]:
-        cache_key = ("resolved", kind, alias)
+        cache_key = ("resolved", kind, _clean_alias(alias))
         cached = self._cache.get(cache_key)
         if cached is not None:
             return cached
@@ -291,7 +387,7 @@ class HybridResolver(EmbeddingResolver):
         return result
 
     def _llm_pick_cached(self, kind: str, alias: str, cands: list[tuple[str, float]]) -> str | None:
-        key = (kind, alias)
+        key = (kind, _clean_alias(alias))
         if key not in self._fallback_cache:
             self._fallback_cache[key] = self._llm_pick(alias, cands)
         return self._fallback_cache[key]
@@ -439,6 +535,8 @@ def run_benchmark(queries, resolver) -> dict:
     no_match_aliases: Counter = Counter()
     sim_bins: Counter = Counter()
     all_entries: list[dict] = []
+    alias_stats: Counter = Counter()
+    alias_fail: Counter = Counter()
     query_rows: list[dict] = []
     queries_passed = 0
     total_expected = 0
@@ -461,6 +559,10 @@ def run_benchmark(queries, resolver) -> dict:
                 by_field[e["field"]] = bucket
             bucket["params"] += 1
             bucket["statuses"][e["status"]] += 1
+            if e["alias"]:
+                alias_stats[e["alias"]] += 1
+                if e["status"] != "PASS":
+                    alias_fail[e["alias"]] += 1
             if e["status"] == "PASS":
                 bucket["matched"] += 1
                 total_matched += 1
@@ -497,6 +599,10 @@ def run_benchmark(queries, resolver) -> dict:
         "similarity_hist": {f"{field}|{st}|{bin_id}": c for (field, bin_id, st), c in sorted(sim_bins.items())},
         "llm_calls": getattr(resolver, "llm_calls", 0),
         "method_breakdown": dict(getattr(resolver, "method_counts", Counter())),
+        "worst_aliases": [
+            [a, alias_fail[a], alias_stats[a]]
+            for a in sorted(alias_fail, key=lambda x: (-alias_fail[x], -alias_stats[x]))
+        ][:20],
         "queries": query_rows,
         "entries": all_entries,
     }
@@ -537,6 +643,10 @@ def print_report(r: dict) -> None:
         print("\n-- no_match top --")
         for a, e, c in r["no_match"]:
             print(f"  {c:3d}  {a!r}  (expected {e!r})")
+    if r.get("worst_aliases"):
+        print("\n-- worst aliases (fail/total) --")
+        for a, f, t in r["worst_aliases"]:
+            print(f"  {f:3d}/{t:<3d}  {a!r}")
 
 
 def _compare_row(label: str, getter, results: list[tuple[str, dict]], widths: int) -> None:
@@ -595,12 +705,14 @@ def compare_mode(paths: list[str]) -> int:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-def _build_resolver(method, args, input_mapping, output_mapping):
-    from aigw_service.context import APP_CTX
+def _make_embeddings(args):
+    if args.emb_backend == "ollama":
+        from langchain_ollama import OllamaEmbeddings
 
-    if method == "jaccard":
-        print("  resolver: Jaccard (production pipeline, verbatim)")
-        return JaccardResolver(input_mapping, output_mapping)
+        print(f"  embeddings: OllamaEmbeddings({args.ollama_model}) @ {args.ollama_base_url}")
+        return OllamaEmbeddings(model=args.ollama_model, base_url=args.ollama_base_url)
+
+    from aigw_service.context import APP_CTX
 
     embeddings = APP_CTX.get_gigachat_embeddings()
     if embeddings is None:
@@ -616,35 +728,97 @@ def _build_resolver(method, args, input_mapping, output_mapping):
         embeddings = GigaChatEmbeddings(**base)
     else:
         print("  using APP_CTX.get_gigachat_embeddings()")
+    return embeddings
+
+
+def _build_resolver(method, args, input_mapping, output_mapping, queries=None):
+    if method == "jaccard":
+        print("  resolver: Jaccard (production pipeline, verbatim)")
+        return JaccardResolver(input_mapping, output_mapping)
+
+    embeddings = _make_embeddings(args)
 
     if method == "embeddings":
-        print("  resolver: GigaChat Embeddings + cosine")
-        return EmbeddingResolver(embeddings, input_mapping, output_mapping, chunk_size=args.chunk_size)
+        print("  resolver: embeddings + cosine")
+        resolver = EmbeddingResolver(
+            embeddings,
+            input_mapping,
+            output_mapping,
+            chunk_size=args.chunk_size,
+            cache_dir=args.cache_dir,
+            filter_headers=args.filter_headers,
+        )
+    else:
+        print(f"  resolver: hybrid (embeddings + {args.llm_backend} LLM fallback)")
+        if args.llm_backend == "ollama":
+            from langchain_ollama import ChatOllama
 
-    print("  resolver: hybrid (embeddings + GigaChat LLM fallback)")
-    llm = APP_CTX.create_llm(model_name=args.llm_model)
-    return HybridResolver(
-        embeddings,
-        llm,
-        input_mapping,
-        output_mapping,
-        theta_high=args.theta_high,
-        theta_low=args.theta_low,
-        margin=args.margin,
-        k=args.k,
-        chunk_size=args.chunk_size,
-        max_llm_calls=args.max_llm_calls,
-    )
+            llm = ChatOllama(
+                model=args.ollama_llm_model,
+                base_url=args.ollama_base_url,
+                temperature=0.000001,
+            )
+        else:
+            from aigw_service.context import APP_CTX
+
+            llm = APP_CTX.create_llm(model_name=args.llm_model)
+        resolver = HybridResolver(
+            embeddings,
+            llm,
+            input_mapping,
+            output_mapping,
+            theta_high=args.theta_high,
+            theta_low=args.theta_low,
+            margin=args.margin,
+            k=args.k,
+            chunk_size=args.chunk_size,
+            max_llm_calls=args.max_llm_calls,
+            cache_dir=args.cache_dir,
+            filter_headers=args.filter_headers,
+        )
+
+    if queries:
+        resolver.warmup_aliases([a for q in queries for a in _query_aliases(q)])
+    return resolver
+
+
+def load_queries(path: str, subset: int = 0) -> list[dict]:
+    """Load a testset: .xlsx (curated aliases) or JSON (live aliases from a
+    run_tool_queries.py checkpoint, see scripts/extract_live_aliases.py)."""
+    if not path.endswith(".xlsx"):
+        with open(path) as f:
+            payload = json.load(f)
+        queries = list(payload["queries"])
+        if subset > 0:
+            by_tool: dict[str, list[dict]] = {}
+            for q in queries:
+                by_tool.setdefault(q["tool"], []).append(q)
+            queries = [q for tl in by_tool.values() for q in tl[:subset]]
+        return queries
+    return read_queries(path, subset)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Benchmark name resolution (standalone, no prod changes)")
     parser.add_argument("--method", choices=["jaccard", "embeddings", "hybrid"], default="hybrid")
-    parser.add_argument("--queries", default="tests/data/Methanex_tool_test_queries.xlsx")
+    parser.add_argument(
+        "--testset",
+        choices=["xlsx", "live", "both"],
+        default="xlsx",
+        help="testset: curated xlsx aliases, live aliases from checkpoint JSON, or both",
+    )
+    parser.add_argument("--queries", default=None, help=".xlsx or live-aliases JSON (default per --testset)")
     parser.add_argument("--model", default="models/model.xlsx")
     parser.add_argument("--subset", type=int, default=0, help="first N queries per sheet (default: all)")
     parser.add_argument("--out", default=None, help="output JSON path")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--emb-backend", choices=["ollama", "gigachat"], default="ollama")
+    parser.add_argument("--ollama-model", default="bge-m3")
+    parser.add_argument("--ollama-base-url", default="http://localhost:11434")
+    parser.add_argument("--llm-backend", choices=["ollama", "gigachat"], default="ollama")
+    parser.add_argument("--ollama-llm-model", default="qwen3:32b")
+    parser.add_argument("--cache-dir", default="test_output/bench/cache")
+    parser.add_argument("--filter-headers", action="store_true", help="drop rows with empty values from candidates")
     parser.add_argument("--theta-high", type=float, default=0.78)
     parser.add_argument("--theta-low", type=float, default=0.45)
     parser.add_argument("--margin", type=float, default=0.05)
@@ -658,43 +832,69 @@ def main() -> int:
     if args.compare:
         return compare_mode(args.compare)
 
-    out = args.out or f"test_output/bench_{args.method}.json"
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    from loguru import logger as _loguru
 
-    print(f"==> bench {args.method}  (subset={args.subset or 'all'})")
-    queries = read_queries(args.queries, args.subset)
-    print(f"  queries loaded   : {len(queries)}")
+    _loguru.remove()  # quiet the aigw_service logging during mapping build
+
+    default_queries = {"xlsx": "tests/data/Methanex_tool_test_queries.xlsx", "live": "test_output/live_aliases.json"}
+    testsets = ["xlsx", "live"] if args.testset == "both" else [args.testset]
+    if args.queries and args.testset != "both":
+        default_queries[args.testset] = args.queries
+
     print("  building mappings from model...")
     input_mapping, output_mapping = build_mappings(args.model)
 
-    try:
-        resolver = _build_resolver(args.method, args, input_mapping, output_mapping)
-        report = run_benchmark(queries, resolver)
-    except Exception as e:
-        print(f"\nERROR: {type(e).__name__}: {e}", file=sys.stderr)
-        print(
-            "  Hint: GigaChat API недоступен? Проверьте GIGACHAT_HOST/GIGACHAT_PORT"
-            " в .env и доступность сервиса (curl https://<host>:<port>/v1/models).",
-            file=sys.stderr,
-        )
-        return 2
+    exit_code = 0
+    for ts in testsets:
+        qpath = args.queries or default_queries[ts]
+        if args.testset == "both" and args.queries:
+            print(f"  (--queries ignored in both mode; using default for {ts})")
+        print(f"==> bench {args.method}  [testset={ts}]  (subset={args.subset or 'all'})")
+        queries = load_queries(qpath, args.subset)
+        print(f"  queries loaded   : {len(queries)}  from {qpath}")
 
-    report["method"] = args.method
-    report["params"] = {
-        "theta_high": args.theta_high,
-        "theta_low": args.theta_low,
-        "margin": args.margin,
-        "k": args.k,
-        "max_llm_calls": args.max_llm_calls,
-        "chunk_size": args.chunk_size,
-        "llm_model": args.llm_model,
-        "subset": args.subset,
-    }
-    with open(out, "w") as f:
-        json.dump(report, f, ensure_ascii=False, indent=1)
-    print(f"  wrote -> {out}")
-    print_report(report)
-    return 0
+        if args.testset == "both":
+            base = (args.out or f"test_output/bench_{args.method}").removesuffix(".json")
+            out = f"{base}_{ts}.json"
+        else:
+            out = args.out or f"test_output/bench_{args.method}.json"
+
+        try:
+            resolver = _build_resolver(args.method, args, input_mapping, output_mapping, queries)
+            report = run_benchmark(queries, resolver)
+        except Exception as e:
+            print(f"\nERROR: {type(e).__name__}: {e}", file=sys.stderr)
+            print(
+                "  Hint: Ollama/GigaChat недоступен? Проверьте ollama serve, GIGACHAT_HOST/GIGACHAT_PORT"
+                " в .env и доступность API.",
+                file=sys.stderr,
+            )
+            exit_code = 2
+            continue
+
+        report["method"] = args.method
+        report["testset"] = ts
+        report["params"] = {
+            "theta_high": args.theta_high,
+            "theta_low": args.theta_low,
+            "margin": args.margin,
+            "k": args.k,
+            "max_llm_calls": args.max_llm_calls,
+            "chunk_size": args.chunk_size,
+            "llm_model": args.llm_model,
+            "llm_backend": args.llm_backend,
+            "emb_backend": args.emb_backend if (args.emb_backend or args.method != "jaccard") else None,
+            "filter_headers": args.filter_headers,
+            "testset": ts,
+            "subset": args.subset,
+        }
+        Path(out).parent.mkdir(parents=True, exist_ok=True)
+        with open(out, "w") as f:
+            json.dump(report, f, ensure_ascii=False, indent=1)
+        print(f"  wrote -> {out}")
+        print_report(report)
+
+    return exit_code
 
 
 if __name__ == "__main__":
