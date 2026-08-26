@@ -3,14 +3,14 @@ from datetime import UTC, datetime
 
 import httpx
 import pytz
+from aigw_modules.ai_agents.memory import AsyncAgentMemory
+from aigw_modules.base import BaseAsyncInterface
+from aigw_modules.hub_services.pangolin import AsyncPangolinClient
 from gigachat.exceptions import AuthenticationError, ForbiddenError
 from httpx import RequestError
 from langchain_gigachat import GigaChat, GigaChatEmbeddings
 from langgraph.store.memory import InMemoryStore
 
-from aigw_modules.ai_agents.memory import AsyncAgentMemory
-from aigw_modules.base import BaseAsyncInterface
-from aigw_modules.hub_services.pangolin import AsyncPangolinClient
 from aigw_service.base import Singleton
 from aigw_service.config import APP_CONFIG, Secrets
 from aigw_service.exceptions import StopEventError
@@ -141,11 +141,22 @@ class AppContext(metaclass=Singleton):
             )
             self._client_registry = (self.pangolin,)
 
+        # Tracing (LangFuse or AEF) — ленивый импорт, т.к. aef_tracing может отсутствовать
+        self.tracing: object | None = None
+        if secrets.aef_tracing.enabled:
+            from aigw_service.core.tracing.tracing import TracingManager
+
+            self.tracing = TracingManager(
+                logger=self.logger,
+                secrets=secrets,
+            ).get_tracing()
+
         # Agent memory
         self.agent_memory: AsyncAgentMemory = AsyncAgentMemory(logger=self.logger)
         # Устанавливаем хранилище (по умолчанию InMemoryStore)
         self.agent_memory.store = self.agent_store
 
+        self.__secrets = secrets
         self.logger.info("App context initialized.")
 
     def get_logger(self):
@@ -216,6 +227,10 @@ class AppContext(metaclass=Singleton):
 
         return _wrap_llm_with_stop_event(llm, self.logger)
 
+    def get_tracing_cb_handler(self):
+        """Возвращает хендлер трейсинга для калбэков агента."""
+        return self.tracing
+
     async def _check_llm_connection(self):
         if self._model_to_use in ("GIGACHAT", "GIGACHAT_TOKEN"):
             await self._check_gigachat_connection()
@@ -252,7 +267,7 @@ class AppContext(metaclass=Singleton):
             self.logger.info(f"Attempt to connect to Ollama at {url}.")
             async with httpx.AsyncClient(timeout=10) as client:
                 resp = await client.get(url)
-                resp.raise_for_status()
+                resp.raise_if_error()
                 data = resp.json()
                 models = [m["name"] for m in data.get("models", [])]
                 if self.debug_mode:
@@ -275,6 +290,10 @@ class AppContext(metaclass=Singleton):
         for client in self._client_registry:
             await client.on_startup()
 
+        # Запускаем AEF Tracing
+        if self.tracing:
+            self.tracing.on_startup()
+
         # Инициализируем память в агенте после подключения к БД
         # Если используется Pangolin, подключаем его пул к agent_memory
         if self.pangolin and self.pangolin.pool:
@@ -291,6 +310,10 @@ class AppContext(metaclass=Singleton):
         # Останавливаем клиентов
         for client in self._client_registry:
             await client.on_shutdown()
+
+        # Останавливаем tracing
+        if self.tracing:
+            self.tracing.on_shutdown()
 
         self._logger_manager.remove_logger_handlers()
 

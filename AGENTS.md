@@ -42,13 +42,14 @@ poetry update            # after pyproject.toml changes
 - **Model backend**: `MODEL_TO_USE=OLLAMA` or `GIGACHAT` (env var). Default Ollama with `qwen2.5:7b` (docker.env).
 - **Store backend**: `STORE_TO_USE=MEMORY` or `PANGOLIN` (env var). Default `MEMORY`.
 - **Agent**: LangGraph state machine in `api/v1/services.py` — init → analyze → execute_tool → analyze (loop) → END. Tools in `api/v1/tools.py`.
-- **Excel backend**: `api/v1/excel_handler.py` — cross-platform using **openpyxl** (I/O) + **formualizer** 0.8.1 (Rust/calamine in-memory formula evaluation, PyO3).
-  - **Two-workbook pattern**: `self._wb` (data_only=False, formulas) for edits + saves; `self._wbv` (data_only=True, values) for reads. **Critical** — `save()` on a `data_only=True` workbook strips formulas.
-  - **`calculate()`**: `formualizer` `evaluate_all()` — инкрементальный пересчёт dirty-подграфа (~5 мс на реальной модели; холодный первый прогон ~0.13 с). Загрузка модели `load_workbook()` ~0.44 с (formulas: ~35 с) — кэш моделей НЕ нужен и опасен (Workbook мутабельный, per-instance).
-  - **`get_compiled_func()`**: closure, который `set_value()` по input-refs → `evaluate_all()` → список нативных значений по output-refs (~6 мс/call на тёплой). Ref'ы `'[fname]SHEET'!A1` парсятся в `(sheet, row, col)` через `_parse_ref()`; имена листов резолвятся case-insensitive (formualizer `get_value`/`set_value` регистрозависимы, в отличие от `sheet()`).
-  - **Патчи функций**: `api/v1/formualizer_ext.py` регистрирует 6 оверрайдов (HYPERLINK, CELL, SHEET + `_XLFN.SHEET`, TODAY, XNPV, XIRR) через `register_patches()`. TRANSPOSE нативен с 0.8.1.
-  - **Нормализация значений**: `to_native()` — `ExcelError` → `"ERROR: <kind>"`, `datetime.date` → Excel serial float, numpy-скаляры → `.item()` перед `set_value`.
-  - **`model_seed_path` удалён** — загрузка копии напрямую (0.44 с).
+- **Excel backend**: `api/v1/excel_handler.py` — **LibreOffice Calc via UNO** (pyuno bridge). Каждый `ExcelWorkbook` поднимает свой headless `soffice` на свободном порту с throwaway user profile и открывает книгу **ReadOnly** (`lo_backend.py`). Документы меняются in-memory и НЕ сохраняются (`save()` удалён — файл клиенту не отдаётся).
+  - **`lo_backend.py`**: `LibreOfficeSession` (spawn/connect/stop) + `CalcBook` (set_value/get_value/calculate_all/read_block через `getDataArray`/`_scalar`). Один `ExcelWorkbook` = один `soffice`-процесс; `close()` убивает процесс и чистит профиль — нет утечек, нет общего мутабельного состояния.
+  - **`URE_BOOTSTRAP` критичен**: без него мост умирает с «Binary URP bridge disposed during call». Устанавливается на импорте модуля `lo_backend` (до `import uno`) и через `ENV URE_BOOTSTRAP` в Dockerfile. Деб-путь: `vnd.sun.star.pathname:/usr/lib/libreoffice/program/fundamentalrc`.
+  - **`calculate()`**: `doc.calculateAll()` (~23 мс на реальной модели). Повторные вызовы идемпотентны.
+  - **`get_compiled_func()`**: closure: `set_value()` по input-refs → `calculateAll()` → bulk `getDataArray()` выходов (группировка по листу), ~30–40 мс/call. Ref'ы `'[fname]SHEET'!A1` парсятся в `(sheet, row, col)` через `_parse_ref()`; имена листов резолвятся case-insensitive.
+  - **ReadOnly-открытие** обязательно: два LO-процесса на один файл без ReadOnly конфликтуют по lock (второй получает None). Конкурентные запросы одного юзера безопасны.
+  - **Патчи функций не нужны**: LibreOffice Calc нативно реализует HYPERLINK/CELL/SHEET/TODAY/XNPV/XIRR (патчи formualizer были для другого benchmark-проекта). `formualizer_ext.py` удалён.
+  - **Совместимость значений**: LO-вычисления совпадают с formualizer (проверено тестами: 450→1.97/1.156/7.598, EBITDA 2026→1312.86).
 - **Private dep stub**: `sber-aigw` replaced with local stubs in `src/aigw_modules/`. Only 3 imports used (all in `context.py`). No auth needed.
 - **Name resolution pipeline**: `tools.py:find_matching_cell` / `find_matching_outputs` используют `jaccard_similarity` + `normalize_text` (RussianStemmer) для fuzzy-маппинга английских алиасов из запроса → канонические русские имена из листа Inputs/Outputs.
   - **Кросс-язычная проблема**: Jaccard = 0 на разных алфавитах. Английский алиас "copper (LME)" не пересекается с русским "Медь (London Metals Exchange)". Единственный оверлап — через общие английские фрагменты в скобках (LME, USD), что ведёт к ложным матчам ("Платина (LME)" побеждает — самое короткое имя).
@@ -59,9 +60,9 @@ poetry update            # after pyproject.toml changes
 
 ## Key quirks
 
-- **Engine cache отсутствует**: `excel_handler` грузит свежий `formualizer.Workbook` на каждый `ExcelWorkbook` (0.44 с) — кэшировать НЕЛЬЗЯ: Workbook мутабельный (`set_value`), общий инстанс сломал бы параллельные запросы. `loads().finish()` из `formulas` (34 с) больше не используется.
-- **`_dirty`-флаг**: `set_cell()` ставит `self._dirty = True`; `get_cell()` при dirty вызывает `evaluate_all()` один раз и сбрасывает. `calculate(outputs=...)` тоже один `evaluate_all()` (аргумент outputs игнорируется). Повторные `get_cell()` — из кэша движка, без пересчёта.
-- **Analysis cache**: `analyze_excel_model` results are cached (LRU, max 10 entries) keyed by `(file_path, input_names, output_names, output_years, ranges, steps, user_id)`.
+- **Engine cache отсутствует**: каждый `ExcelWorkbook` поднимает собственный `soffice` (spawn ~1 с, open+calc ~0.6 с) и грузит книгу ReadOnly — кэшировать процессы НЕЛЬЗЯ (общий LO-документ сломал бы параллельные запросы; с одиночным процессом утечки памяти). Переиспользование daemon'а — возможная future-оптимизация.
+- **Compiled-closure живёт только с воркбуком**: `func()` из `get_compiled_func()` недействителен после `xl.close()` (мост убит) — закрывать воркбук только после всех вызовов func.
+- **Analysis cache**: `analyze_excel_model` и `analyze_model_inputs_for_target` кэшируются (LRU, max 10) по ключу `(file_path, ...параметры... user_id)` — LLM часто повторяют одинаковые запросы.
 - Tests use `httpx.AsyncClient` with `app=app_main` (ASGI transport, no real server). Integration conftest calls `APP_CTX.on_startup()`.
 - `asyncio_mode = auto` in pytest config — no `@pytest.mark.asyncio` needed.
 - Test env vars in `[tool.pytest.ini_options.env]` — `GIGACHAT_HOST` and `GIGACHAT_PORT` required.
@@ -81,7 +82,7 @@ poetry update            # after pyproject.toml changes
   - `Found output cell for` — резолвинг output (analyze_excel_model), показывает alias → canonical → cell_ref → value
   - `OUTPUT RESOLVED (modify)` — резолвинг output (modify_excel_input_value), до `calculate()`
   - `returned None` — WARNING: ячейка существует, но нет формулы (section header)
-  - **`Unreachable output-targets`** — старый ERROR `get_compiled_func()` из formulas; на formualizer не возникает (per-cell evaluate больше не компилируется)
+  - **`Unreachable output-targets`** — старый ERROR `get_compiled_func()` из formulas; на LO не возникает (Calc оценивает всю модель, а не per-cell)
 
 ## Docker workflow (primary deployment)
 

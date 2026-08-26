@@ -826,27 +826,6 @@ unicode = ["unicodedata2 (>=17.0.0) ; python_version <= \"3.14\""]
 woff = ["brotli (>=1.0.1) ; platform_python_implementation == \"CPython\"", "brotlicffi (>=0.8.0) ; platform_python_implementation != \"CPython\"", "zopfli (>=0.1.4)"]
 
 [[package]]
-name = "formualizer"
-version = "0.8.1"
-description = "Embeddable spreadsheet engine — parse, evaluate & mutate Excel workbooks at native speed"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "formualizer-0.8.1-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:b79560ef7c06882bab0a6ad42de002445606fd4399f8dbfa66103e90403481fe"},
-    {file = "formualizer-0.8.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:97f1d11e60a2a3bc4c56a9c612b3581dcc9f18072112e882c1adc3835cf2c67f"},
-    {file = "formualizer-0.8.1-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4915d66672349e48610bf9253a186893194879741fe38983d8a8ad2ac93b0716"},
-    {file = "formualizer-0.8.1-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d99ca9620d0c423afbbad49b3a01c63afe1ba550bb4fe9b80430378eaacfe2ec"},
-    {file = "formualizer-0.8.1-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:6886340e48a5674f8959bc20926931f673f70a40f0133decab997508dd7710f0"},
-    {file = "formualizer-0.8.1-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:a485b4ac6bba8351034c220607fc04bdb8bad41293c525378e8435f778ad9629"},
-    {file = "formualizer-0.8.1-cp310-abi3-win_amd64.whl", hash = "sha256:59dff6f8f89758c3d6482792951f294ccb1eff7ee52855a8fb7eaf06eb604b3d"},
-    {file = "formualizer-0.8.1.tar.gz", hash = "sha256:9e528a97007a917a5020d716cdb250ddee1a45926913bb9a68204b0baa3aec39"},
-]
-
-[package.extras]
-dev = ["mypy (>=1.0)", "openpyxl", "pytest (>=9.0.3)", "pytest-cov (>=4.0)", "ruff (>=0.1.0)"]
-
-[[package]]
 name = "frozenlist"
 version = "1.8.0"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -4153,4 +4132,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "8a7b65e9a06e950064e69e2b01eb63dab2d2826d9365292eb04c4dc58094d1bf"
+content-hash = "5cdf5133e97ab7095dd56ce1f5a3238198dbd7f56e1d61b7af68c67e4654a98e"

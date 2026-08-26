@@ -12,18 +12,30 @@ class PangolinSettings(BaseAppSettings):
     Настройки Pangolin.
     """
 
-    host: str = Field(validation_alias="PG_HOST")
-    port: str = Field(validation_alias="PG_PORT")
-    user: str = Field(validation_alias="PG_USER")
-    password: str = Field(validation_alias="PG_PASSWORD")
-    database: str = Field(validation_alias="PG_DATABASE")
-    ca_bundle_filepath: Optional[str] = Field(validation_alias="PG_CA_BUNDLE_FILEPATH", default="")
-    tls_cert_filepath: Optional[str] = Field(validation_alias="PG_TLS_CERT_FILEPATH", default="")
-    key_filepath: Optional[str] = Field(validation_alias="PG_KEY_FILEPATH", default="")
+    enabled: bool = Field(validation_alias="DB_ENABLED", default=False)
+    host: Optional[str] = Field(validation_alias="DB_HOST", default=None)
+    port: Optional[str] = Field(validation_alias="DB_PORT", default=None)
+    user: Optional[str] = Field(validation_alias="DB_USER", default=None)
+    password: Optional[str] = Field(validation_alias="DB_PASS", default=None)
+    database: Optional[str] = Field(validation_alias="DB_DATABASE", default=None)
+    ca_bundle_filepath: Optional[str] = Field(validation_alias="DB_CA_BUNDLE_FILEPATH", default="")
+    tls_cert_filepath: Optional[str] = Field(validation_alias="DB_TLS_CERT_FILEPATH", default="")
+    key_filepath: Optional[str] = Field(validation_alias="DB_KEY_FILEPATH", default="")
+
+    @model_validator(mode="after")
+    def validate_required_when_enabled(self):
+        if self.enabled:
+            missing = []
+            for field_name in ("host", "port", "user", "password", "database"):
+                if getattr(self, field_name) is None:
+                    missing.append(field_name)
+            if missing:
+                raise ValueError(f"DB_ENABLED=True, но не заданы: {', '.join(missing)}")
+        return self
 
     @model_validator(mode="after")
     def validate_file_path(self):
-        if self.local:
+        if self.local and self.enabled:
             for cert_file in (
                 self.tls_cert_filepath,
                 self.ca_bundle_filepath,

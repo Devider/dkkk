@@ -13,6 +13,9 @@ class AppSettings(BaseAppSettings):
     kube_net_name: str = Field(validation_alias="PROJECT_NAME", default="AIGATEWAY")
     timezone: str = Field(validation_alias="TIMEZONE", default="Europe/Moscow")
     openapi_version: str = Field(validation_alias="OPENAPI_VERSION", default="3.0.2")
+    preview_model_check: bool = Field(validation_alias="ENABLE_PREVIEW_MODEL_CHECK", default=False)
+    preview_model_check_percent: float = Field(validation_alias="PREVIEW_MODEL_CHECK_PERCENT", default=0.05)
+    model_call_max_depth: int = Field(validation_alias="MODEL_CALL_MAX_DEPTH", default=10)
 
     @property
     def metadata(self) -> dict:

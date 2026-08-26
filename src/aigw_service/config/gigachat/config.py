@@ -11,9 +11,10 @@ class GigaChatSettings(BaseAppSettings):
     Настройки GigaChat.
     """
 
-    host: str = Field(validation_alias="GIGACHAT_HOST")
-    port: str = Field(validation_alias="GIGACHAT_PORT")
+    host: str = Field(validation_alias="GIGACHAT_HOST", default="localhost")
+    port: str = Field(validation_alias="GIGACHAT_PORT", default="8080")
     endpoint: str = Field(validation_alias="GIGACHAT_ENDPOINT", default="/v1")
+    model: str = Field(validation_alias="GIGACHAT_MODEL_NAME", default="GigaChat-2")
     tls_cert_filepath: Optional[str] = Field(validation_alias="GIGACHAT_TLS_CERT_FILEPATH", default="")
     key_filepath: Optional[str] = Field(validation_alias="GIGACHAT_KEY_FILEPATH", default="")
     ca_bundle_filepath: Optional[str] = Field(validation_alias="GIGACHAT_CA_BUNDLE_FILEPATH", default="")
@@ -23,12 +24,20 @@ class GigaChatSettings(BaseAppSettings):
     temperature: ClassVar[float] = 0.000001
     max_tokens: ClassVar[int] = 8192
 
+    @model_validator(mode="before")
+    @classmethod
+    def check_enabled(cls, values):
+        if values.get("enabled") is False:
+            # Оставляем только enabled, остальные поля игнорируем
+            return {"enabled": False}
+        return values
+
     @model_validator(mode="after")
     def validate_file_path(self):
         if self.local:
             for cert_file in (
                 self.tls_cert_filepath,
-                self.ca_bundle_filepath,
+                # self.ca_bundle_filepath,
                 self.key_filepath,
             ):
                 if cert_file:

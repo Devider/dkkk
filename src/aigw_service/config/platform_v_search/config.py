@@ -11,10 +11,11 @@ class PlatformVSearchSettings(BaseAppSettings):
     Настройки Platform V Search.
     """
 
-    host: str = Field(validation_alias="PVS_HOST")
-    port: str = Field(validation_alias="PVS_PORT")
-    login: str = Field(validation_alias="PVS_LOGIN")
-    password: str = Field(validation_alias="PVS_PASSWORD")
+    enabled: bool = Field(validation_alias="PVS_ENABLED", default=False)
+    host: str = Field(validation_alias="PVS_HOST", default="")
+    port: str = Field(validation_alias="PVS_PORT", default="")
+    login: str = Field(validation_alias="PVS_LOGIN", default="")
+    password: str = Field(validation_alias="PVS_PASSWORD", default="")
     index_name: Optional[str] = Field(validation_alias="PVS_INDEX_NAME", default=None)
     ca_bundle_filepath: Optional[str] = Field(validation_alias="PVS_CA_BUNDLE_FILEPATH", default="")
     tls_cert_filepath: Optional[str] = Field(validation_alias="PVS_TLS_CERT_FILEPATH", default="")
@@ -22,7 +23,7 @@ class PlatformVSearchSettings(BaseAppSettings):
 
     @model_validator(mode="after")
     def validate_file_path(self):
-        if self.local:
+        if self.local and self.enabled:
             for cert_file in (
                 self.tls_cert_filepath,
                 self.ca_bundle_filepath,
@@ -30,6 +31,14 @@ class PlatformVSearchSettings(BaseAppSettings):
             ):
                 filepath_from_env_validator(cert_file)
         return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_enabled(cls, values):
+        if values.get("enabled") is False:
+            # Оставляем только enabled, остальные поля игнорируем
+            return {"enabled": False}
+        return values
 
     @property
     def hosts(self) -> list[str]:

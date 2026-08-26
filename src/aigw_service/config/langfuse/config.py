@@ -11,7 +11,7 @@ class LangfuseSettings(BaseAppSettings):
     Настройки Langfuse.
     """
 
-    tracing_enabled: bool = Field(validation_alias="LANGFUSE_TRACING_ENABLED", default=True)
+    enabled: bool = Field(validation_alias="LANGFUSE_TRACING_ENABLED", default=False)
     host: str = Field(validation_alias="LANGFUSE_HOST")
     port: str = Field(validation_alias="LANGFUSE_PORT", default="")
     endpoint: str = Field(validation_alias="LANGFUSE_ENDPOINT", default="/langfuse")
@@ -23,7 +23,7 @@ class LangfuseSettings(BaseAppSettings):
 
     @model_validator(mode="after")
     def validate_file_path(self):
-        if self.local:
+        if self.local and self.enabled:
             for cert_file in [
                 self.ca_bundle_filepath,
                 self.tls_cert_filepath,
@@ -53,7 +53,7 @@ class LangfuseSettings(BaseAppSettings):
         _certs = {}
         if self.local:
             _certs["ca_bundle"] = self.ca_bundle_filepath
-            if self.tls_cert_filepath:
+            if self.tls_cert_filepath and self.key_filepath:
                 _certs["certs"] = (self.tls_cert_filepath, self.key_filepath)
         return _certs
 

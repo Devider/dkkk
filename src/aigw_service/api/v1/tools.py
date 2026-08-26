@@ -209,6 +209,22 @@ def analyze_model_inputs_for_target(
         if not os.path.exists(file_path):
             return ModelInputAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
+        # Cache (LLMs often repeat identical target queries — the LO backend is slow)
+        cache_key = (
+            file_path,
+            output_name,
+            output_year,
+            target_value,
+            tuple(input_names),
+            tolerance,
+            max_scenarios,
+            user_id,
+        )
+        cached = _ANALYSIS_CACHE.get(cache_key)
+        if cached is not None:
+            logger.info("Cache hit for analyze_model_inputs_for_target — returning cached result")
+            return cached
+
         start_time = time.perf_counter()
         with ExcelWorkbook(file_path) as xl:
             input_mapping = create_input_mapping(xl.get_all_data("Inputs"))
@@ -273,7 +289,7 @@ def analyze_model_inputs_for_target(
                 input_cells=input_cells, current_values=current_values, max_scenarios=max_scenarios
             )
 
-            # Compile a formualizer function for fast repeated evaluation
+            # Compile a LibreOffice function for fast repeated evaluation
             fname = os.path.basename(file_path)
             input_refs = [f"'[{fname}]INPUTS'!{input_cells[n]['cell_ref']}" for n in input_names]
             output_ref = f"'[{fname}]OUTPUTS'!{output_cell_ref}"
@@ -359,9 +375,18 @@ def analyze_model_inputs_for_target(
                 processing_time=results["processing_time"],
             )
 
-            return ModelInputAnalysisToolResult(
+            result = ModelInputAnalysisToolResult(
                 status="OK" if results["matching_scenarios"] else "WARNING", result=message, content=final_results
             )
+
+            # Cache successful result
+            _ANALYSIS_CACHE[cache_key] = result
+            _ANALYSIS_CACHE_ORDER.append(cache_key)
+            if len(_ANALYSIS_CACHE) > _ANALYSIS_CACHE_MAXSIZE:
+                oldest = _ANALYSIS_CACHE_ORDER.pop(0)
+                _ANALYSIS_CACHE.pop(oldest, None)
+
+            return result
 
     except Exception as e:
         logger.opt(exception=True).error("Ошибка при анализе: {}", str(e))
@@ -402,7 +427,7 @@ def generate_scenarios(input_cells: dict, current_values: dict, max_scenarios: i
 
 
 def _formula_scalar(val) -> float:
-    """Extract a scalar float from a formualizer return value."""
+    """Extract a scalar float from a compiled-function return value."""
     if isinstance(val, (list, tuple)):
         val = val[0] if val else None
     if val is None:
@@ -411,7 +436,7 @@ def _formula_scalar(val) -> float:
 
 
 def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_value: float, tolerance: float) -> dict:
-    """Test scenarios using a compiled formualizer function and collect results."""
+    """Test scenarios using a compiled LibreOffice function and collect results."""
     matching_scenarios = []
     all_scenarios = []
     start_time = time.perf_counter()
@@ -469,7 +494,7 @@ def optimize_with_regression(
     input_names: list,
     target_value: float,
 ) -> dict:
-    """Optimize inputs using scipy minimize with the compiled formualizer function."""
+    """Optimize inputs using scipy minimize with the compiled LibreOffice function."""
     try:
         from scipy.optimize import minimize
 
@@ -590,7 +615,7 @@ def analyze_excel_model(
 ) -> ExcelAnalysisToolResult:
     """
     ГЛАВНЫЙ инструмент для сценарного анализа «что-если».
-    Изменяет входные параметры (Inputs), пересчитывает модель (formualizer),
+    Изменяет входные параметры (Inputs), пересчитывает модель (LibreOffice Calc),
     возвращает значения выходных показателей (Outputs) для каждого сценария.
     Пример: "Проанализируй модель при цене метанола от 450 до 500 с шагом 5 и инфляции USD CPI от 0.1 до 0.2 с шагом 0.1, покажи debt/ebitda 2025, net debt/ebitda (ltm) 2025 и icr corr (ltm) 2025"
 
@@ -732,11 +757,9 @@ def analyze_excel_model(
 
             results = {"inputs": [], "outputs": []}
             for values in combinations:
-                # Set input values (also needed for ExcelWorkbook state tracking)
-                for name, value in zip(input_names, values, strict=True):
-                    xl.set_cell("Inputs", input_cells[name]["cell_ref"], value)
-
-                # Evaluate via compiled function (all outputs at once)
+                # Evaluate via compiled function (all inputs are set inside, all
+                # outputs are returned at once). No separate set_cell: with the
+                # LibreOffice backend a redundant write doubles the IPC cost.
                 try:
                     raw = func(*values)
                     if not isinstance(raw, (list, tuple)):
@@ -1454,7 +1477,7 @@ def modify_excel_input_value(
                 content="Количество входных переменных должно совпадать с количеством выражений",
             )
 
-        # Создаём новый файл для изменений (копию оригинала)
+        # Создаём копию файла для изменений (оригинал не трогаем)
         modified_file = copy_to_temp(file_path, suffix="modified")
         logger.info(f"Created modified file: {modified_file}")
 
@@ -1567,11 +1590,7 @@ def modify_excel_input_value(
                     xl.set_cell("Inputs", cells_by_year[year]["cell_ref"], new_value)
                     changes_made.append(f"{input_name} {year}: {old_value} {new_value}")
 
-            # Сохраняем изменения
-            xl.save()
-            logger.info(f"Saved changes to {modified_file}")
-
-            # --- Batch calculate all output refs (one call instead of N) ---
+            # --- Пересчитываем модель в движке LibreOffice (in-memory, без save) ---
             fname = os.path.basename(modified_file)
             all_output_refs = []
             output_meta = []  # (output_name, year, cell_ref) for later reading
@@ -1685,7 +1704,7 @@ def modify_excel_input_value(
                 else:
                     result_message += f"\n{output_name}: {values}\n"
 
-            result_message += f"\nФайл с изменениями: {modified_file}"
+            result_message += "\nИзменения применены к копии файла (оригинал не изменён)."
 
             return ExcelInputModificationToolResult(
                 status="success", result="Модификация и пересчет output завершены", content=result_message
@@ -2412,6 +2431,11 @@ def describe_outputs_sheet(
             # thread_id=thread_id,
             # user_id=user_id,
         )
+
+
+def greet_user(name: str) -> str:
+    """Персонализированное приветствие пользователя."""
+    return f"Привет, {name}! Рад тебя видеть!"
 
 
 TOOLS = [

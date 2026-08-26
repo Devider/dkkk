@@ -9,8 +9,9 @@ from ..utils import filepath_from_env_validator
 
 
 class IDPSettings(BaseAppSettings):
-    host: str = Field(validation_alias="IDP_HOST")
-    port: str = Field(validation_alias="IDP_PORT")
+    enabled: bool = Field(validation_alias="IDP_ENABLED", default=False)
+    host: str = Field(validation_alias="IDP_HOST", default="")
+    port: str = Field(validation_alias="IDP_PORT", default="")
 
     source_uuid: Optional[str] = Field(validation_alias="IDP_SOURCE_UUID", default=None)
     index_id: Optional[str] = Field(validation_alias="IDP_INDEX_ID", default=None)
@@ -48,7 +49,7 @@ class IDPSettings(BaseAppSettings):
 
     @model_validator(mode="after")
     def validate_file_path(self):
-        if self.local:
+        if self.local and self.enabled:
             for cert_file in (
                 self.tls_cert_filepath,
                 self.ca_bundle_filepath,

@@ -3,12 +3,11 @@ import typing as tp
 
 from fastapi import FastAPI
 
+from aigw_service.api.metric_router import router as metric_router
+from aigw_service.api.middleware import log_requests
+from aigw_service.api.os_router import router as service_router
+from aigw_service.api.v1.router import router as main_router
 from aigw_service.context import APP_CTX
-
-from .metric_router import router as metric_router
-from .middleware import log_requests
-from .os_router import router as service_router
-from .v1 import router as v1_router
 
 
 @contextlib.asynccontextmanager
@@ -38,7 +37,7 @@ app_main.include_router(metric_router, tags=["Like/dislike metric aigw_service r
 # Согласно GenAI Ready версия в пути должна соответствовать major версии всего сервиса
 # Версия 1.x.y -> /v1
 # Версия 2.x.y -> /v2
-app_main.include_router(v1_router, prefix="/api/v1", tags=["Примеры GenAI Ready API эндпоинтов"])
+app_main.include_router(main_router, prefix="/api/v1", tags=["Эндпоинты вашего приложения"])
 
 __all__ = [
     "app_main",

@@ -7,7 +7,8 @@ from time import time
 import pytz
 from loguru import logger as loguru_logger
 
-from ..base import Singleton
+from aigw_service.base import Singleton
+
 from .context_vars import ContextVarsContainer
 from .models import ContextLog, Event, EventParam, Log, Metric, dataclass_as_json_str
 from .utils import mask_sensitive_data

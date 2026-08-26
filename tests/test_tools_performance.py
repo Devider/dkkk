@@ -53,21 +53,10 @@ class TestExcelWorkbookInit:
 
         xl = ExcelWorkbook(model_path)
         t_open = time.perf_counter()
-        assert xl._wb is not None
-        assert xl._wbv is not None
-        assert xl._model is None
-        print_timing("ExcelWorkbook.__init__ (open + headers)", t_open - t_total)
-
-        xl._ensure_model()
-        t_load = time.perf_counter()
-        assert xl._model is not None
-        print_timing("_ensure_model → loads().finish()", t_load - t_open)
-
-        xl.close()
+        print_timing("ExcelWorkbook.__init__ (soffice spawn + open + calc)", t_open - t_total)
 
         # compile time
         xl2, imap, omap, fname = discover_cells(model_path)
-        xl2._ensure_model()
 
         input_refs = [
             make_ref(fname, "INPUTS", "AH340"),
@@ -87,8 +76,11 @@ class TestExcelWorkbookInit:
         print_timing("  2nd evaluate (cached)", time.perf_counter() - t_comp)
         assert round(float(v[0]), 3) == 1.97
 
+        # Capture before closing — the compiled closure dies with the workbook
+        verified = [round(float(x), 3) for x in func(450, 0.1)]
         xl2.close()
-        print(f"\n  ✓ Compiled func verified: (450, 0.1) → {[round(float(v), 3) for v in func(450, 0.1)]}")
+        xl.close()
+        print(f"\n  ✓ Compiled func verified: (450, 0.1) → {verified}")
 
 
 # ---------------------------------------------------------------------------
@@ -148,9 +140,6 @@ class TestAnalyzeExcelModel:
         icells, irefs = _resolve_inputs(imap, ["цена метанола", "инфляция USD CPI"], 2025, fname)
         print_timing("resolve cells", time.perf_counter() - t0)
 
-        xl._ensure_model()
-        print_timing("_ensure_model", time.perf_counter() - t0)
-
         func = xl.get_compiled_func(irefs, orefs)
         print_timing("compile (2→3 outputs)", time.perf_counter() - t0)
 
@@ -171,17 +160,18 @@ class TestAnalyzeExcelModel:
                         errors.append(f"  ({meth}, {cpi}) [{j}]: got {got} != exp {exp}")
 
         print_timing(f"evaluate {len(combos)} scenarios", time.perf_counter() - t0)
+
+        # Microbenchmark compiled func (before close — closure dies with workbook)
+        t1 = time.perf_counter()
+        for _ in range(10):
+            func(480.0, 0.15)
+        avg = (time.perf_counter() - t1) / 10
+        print(f"  Compiled func: {avg * 1e3:.1f} ms/call (10-call avg)")
+
         xl.close()
 
         assert not errors, f"{len(errors)} value mismatches:\n" + "\n".join(errors[:10])
         print(f"  ✓ All {len(combos)} scenarios match (corner checks passed)")
-
-        # Microbenchmark compiled func
-        t1 = time.perf_counter()
-        for _ in range(100):
-            func(480.0, 0.15)
-        avg = (time.perf_counter() - t1) / 100
-        print(f"  Compiled func: {avg * 1e6:.1f} µs/call (100-call avg)")
 
 
 # ---------------------------------------------------------------------------
@@ -199,11 +189,7 @@ class TestAnalyzeModelInputsForTarget:
         xl, imap, omap, fname = discover_cells(model_path)
         t0 = time.perf_counter()
 
-        # Resolve EBITDA output
-        match = find_matching_outputs("ebitda 2026", omap)
-        assert match, "EBITDA not found"
-        actual_name = list(match.keys())[0]
-        oref = make_ref(fname, "OUTPUTS", get_output_cell_ref(omap, actual_name, self.year))
+        _, _, oref = _resolve_outputs(omap, ["ebitda 2026"], self.year, fname)
         print_timing("resolve EBITDA output", time.perf_counter() - t0)
 
         # Resolve inputs
@@ -214,10 +200,7 @@ class TestAnalyzeModelInputsForTarget:
             current_values[name] = float(v)
         print_timing("resolve inputs + read current", time.perf_counter() - t0)
 
-        xl._ensure_model()
-        print_timing("_ensure_model", time.perf_counter() - t0)
-
-        func = xl.get_compiled_func(irefs, [oref])
+        func = xl.get_compiled_func(irefs, oref)
         print_timing("compile (2→1 output)", time.perf_counter() - t0)
 
         # Generate scenarios
@@ -323,9 +306,8 @@ class TestModifyExcelInputValue:
                 f"EBITDA {y} changed: old={old_values[y]} new={new_values[y]}"
             )
 
-        xl.save()
         xl.close()
-        print(f"\n  ✓ All EBITDA values verified, saved to {modified}")
+        print("\n  ✓ All EBITDA values verified (in-memory, no save needed)")
 
 
 # ---------------------------------------------------------------------------
@@ -334,52 +316,33 @@ class TestModifyExcelInputValue:
 
 
 class TestGetCellRecalcCount:
-    """Verify batch calculate + cache: N individual get_cell → 0 extra model calls."""
+    """Verify batch calculate + cache: repeated get_cell → no extra model calls.
+
+    With the LibreOffice backend there is no separate engine cache; Calc keeps
+    results fresh after each calculateAll. The test checks that a single
+    calculate() followed by many get_cell() calls returns stable values and
+    that an extra calculate() does not change them.
+    """
 
     input_queries = ["цена метанола", "инфляция USD CPI"]
     expressions = ["x+100", "x+0.1"]
     year_range = [2025, 2026, 2027]
 
-    def test_recalc_count(self, model_path, mocker):
+    def test_recalc_count(self, model_path):
         modified = copy_to_temp(model_path, suffix="recalccount")
         xl, imap, omap, fname = discover_cells(modified)
-        xl._ensure_model()
-
-        # The Rust engine's evaluate_all() is read-only (cannot be spied on),
-        # so count engine re-evaluations via the _dirty flag: a get_cell that
-        # enters with _dirty=True triggers exactly one evaluate_all().
-        eval_count = [0]
-        orig_get_cell = xl.get_cell
-
-        def counting_get_cell(sheet, ref):
-            if xl._dirty:
-                eval_count[0] += 1
-            return orig_get_cell(sheet, ref)
-
-        xl.get_cell = counting_get_cell
-
-        orig_calculate = xl.calculate
-
-        def counting_calculate(outputs=None):
-            eval_count[0] += 1
-            return orig_calculate(outputs=outputs)
-
-        xl.calculate = counting_calculate
 
         # Resolve EBITDA output
         match = find_matching_outputs("ebitda", omap)
         actual_name = list(match.keys())[0]
 
-        # Set cells (each get_cell after first set_cell triggers an evaluate)
+        # Set cells
         for iname, expr in zip(self.input_queries, self.expressions, strict=True):
             for y in self.year_range:
                 cell, _ = find_matching_cell(f"{iname} {y}", imap, default_year=y)
                 cur = float(xl.get_cell("Inputs", cell))
                 new_val = eval(expr, {"np": np}, {"x": cur})
                 xl.set_cell("Inputs", cell, new_val)
-
-        calls_after_setup = eval_count[0]
-        print(f"  Set-loop evaluate calls: {calls_after_setup} (5 expected — 1 per get_cell after first set_cell)")
 
         # BATCH: single calculate call
         all_refs = []
@@ -388,23 +351,28 @@ class TestGetCellRecalcCount:
             all_refs.append(f"'[{fname}]OUTPUTS'!{ref}")
 
         xl.calculate(outputs=all_refs)
-        print(f"  Batch calculate calls: {eval_count[0] - calls_after_setup}")
 
-        # Read 15 EBITDA years — all should hit the engine cache
+        # Read 15 EBITDA years twice — values must be identical across reads
+        read1 = {}
         for y in range(2018, 2033):
             ref = get_output_cell_ref(omap, actual_name, y)
-            xl.get_cell("Outputs", ref)
+            read1[y] = xl.get_cell("Outputs", ref)
+
+        # Extra calculate must not change the already-computed values
+        xl.calculate()
+        read2 = {}
+        for y in range(2018, 2033):
+            ref = get_output_cell_ref(omap, actual_name, y)
+            read2[y] = xl.get_cell("Outputs", ref)
 
         xl.close()
-        total_calls = eval_count[0]
-        output_read_calls = total_calls - calls_after_setup - 1  # except the batch calculate
-        print(f"  Output-read evaluate calls (should be 0): {output_read_calls}")
-        print(f"  Total model evaluate calls: {total_calls}")
 
-        assert output_read_calls == 0, (
-            f"{output_read_calls} extra evaluate calls during output reads — batch calculate cache not working"
-        )
-        print("  ✓ Batch calculate cache hit: 0 extra calls during output reads")
+        for y in range(2018, 2033):
+            assert read2[y] == pytest.approx(read1[y], abs=1e-9), (
+                f"EBITDA {y} unstable across calculate: {read1[y]} vs {read2[y]}"
+            )
+        print("  ✓ Batch calculate stable: 0 extra value drift across 15 output reads")
+        print(f"  ✓ Sample 2026: {read1[2026]}")
 
 
 # ---------------------------------------------------------------------------
@@ -425,15 +393,12 @@ class TestFormulasModelStability:
 
     def test_formulas_model_loads(self, model_path):
         xl = ExcelWorkbook(model_path)
-        xl._ensure_model()
-        m = xl._model
-        assert m is not None
-        print(f"\n  ExcelModel type: {type(m).__name__}")
         # Evaluate via compiled function
         func = xl.get_compiled_func(["'[model.xlsx]INPUTS'!AH340"], ["'[model.xlsx]OUTPUTS'!O69"])
         print(f"  Compiled function type: {type(func).__name__}")
         v = func(450.0)
         print(f"  First output value: {v}")
+        assert v is not None
         xl.close()
 
 

@@ -20,6 +20,8 @@ class ContextVarsContainer:
         self.x_client_id_var = ContextVar("systemId", default=None)
         self.x_session_id_var = ContextVar("gwSessionId", default=None)
         self.x_user_id_var = ContextVar("userId", default=None)
+        # Для хранения Request объекта (используется в декораторах трейсинга)
+        self.request_var = ContextVar("_request", default=None)
 
     def set_context_vars(
         self,
@@ -35,6 +37,18 @@ class ContextVarsContainer:
         self.x_client_id_var.set(x_client_id)
         self.x_session_id_var.set(x_session_id)
         self.x_user_id_var.set(x_user_id)
+
+    def get_request(self):
+        """Получить Request объект из контекста (используется в декораторах)"""
+        return self.request_var.get()
+
+    def set_request(self, request):
+        """Установить Request объект в контекст (используется в middleware)"""
+        self.request_var.set(request)
+
+    def clear_request(self):
+        """Очистить Request из контекста"""
+        self.request_var.set(None)
 
     def get_context_vars(self):
         return (
