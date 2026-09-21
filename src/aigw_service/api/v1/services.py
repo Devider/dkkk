@@ -7,8 +7,6 @@ from typing import Annotated, Any, Optional, TypedDict
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 try:
     from langchain_gigachat import GigaChat
 except ImportError:  # pragma: no cover - optional dependency for tests
@@ -28,6 +26,8 @@ from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
 
 from .tools import TOOLS
+
+load_dotenv()
 
 
 class AgentState(TypedDict):

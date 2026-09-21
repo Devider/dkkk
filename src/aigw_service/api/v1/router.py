@@ -1,6 +1,5 @@
 import tempfile
 import zipfile
-from functools import cache
 from io import BytesIO
 from pathlib import Path
 
@@ -9,9 +8,10 @@ import gigachat.context as gc_ctx
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
+from langchain_core.messages import HumanMessage
 
-from aigw_service.api.v1.schemas import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
-from aigw_service.api.v1.services import Agent
+from aigw_service.api.v1.main_graph import AgentGraph
+from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
@@ -85,9 +85,7 @@ async def upload_file(
 
         logger.info(f"File saved to {file_location}, store: {store_items}")
 
-        return FileLoaderResponse(
-            content="Файл был успешно сохранен.", filename=str(filename), save_dir=str(save_dir)
-        )
+        return FileLoaderResponse(content="Файл был успешно сохранен.", filename=str(filename), save_dir=str(save_dir))
     except Exception as e:
         # pylint: disable=no-member
         logger.error(f"Request failed: {e}")
@@ -100,7 +98,6 @@ async def upload_file(
 # =====================================================================================================================
 # ВЫЗОВ АГЕНТА
 # =====================================================================================================================
-@cache
 def get_agent():
     try:
         logger = APP_CTX.get_logger()
@@ -109,7 +106,7 @@ def get_agent():
         raise
 
     try:
-        agent = Agent(logger=logger)
+        agent = AgentGraph()
         return agent
     except Exception as e:
         logger.error(f"Failed to create Agent instance: {e}")
@@ -147,7 +144,7 @@ def get_agent():
 async def invoke_agent(
     request: CopilotAgentRequest,
     headers: dict = Depends(common_headers),
-    agent: Agent = Depends(get_agent),
+    agent: AgentGraph = Depends(get_agent),
 ) -> StreamingResponse:
     logger = APP_CTX.get_logger()
     agent.logger = logger
@@ -157,6 +154,13 @@ async def invoke_agent(
     gc_ctx.trace_id_cvar.set(x_trace_id)
 
     try:
+        logger.info(
+            "Incoming user request: user_id={}, session={}, message={}...",
+            user_id,
+            thread_id,
+            request.message[:200] if request.message else "",
+        )
+
         config = {
             "configurable": {
                 "thread_id": thread_id,
@@ -165,8 +169,13 @@ async def invoke_agent(
         }
 
         logger.info(f"config before entering process message: {config}")
-        result = await agent.process_message(
-            {"messages": [{"role": "user", "content": request.message}]}, config=config
+        result = await agent.graph.ainvoke(
+            {
+                "messages": [HumanMessage(content=request.message)],
+                "thread_id": thread_id,
+                "user_id": user_id,
+            },
+            config=config,
         )
 
         logger.info(f"Invoking agent with thread_id={thread_id}, user_id={user_id} ")
