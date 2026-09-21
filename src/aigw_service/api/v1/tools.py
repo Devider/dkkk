@@ -204,10 +204,13 @@ def analyze_model_inputs_for_target(
         file_path = None
         if user_id:
             stored_name = get_store_file(user_id)
+            logger.info(f"Stored name: {stored_name}")
             if stored_name:
                 file_path = os.path.abspath(os.path.join(TEMP_DIR, stored_name))
+                logger.info(f"File path: {file_path}")
         if not file_path or not os.path.exists(file_path):
             file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
+            logger.info(f"Constructed file path: {file_path}")
         if not os.path.exists(file_path):
             return ModelInputAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
@@ -651,11 +654,15 @@ def analyze_excel_model(
         file_path = None
         if user_id:
             stored_name = get_store_file(user_id)
+            logger.info(f"Stored name: {stored_name}")
             if stored_name:
                 file_path = os.path.abspath(os.path.join(TEMP_DIR, stored_name))
+                logger.info(f"File path: {file_path}")
         if not file_path or not os.path.exists(file_path):
             file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
+            logger.info(f"Constructed file path: {file_path}")
         if not os.path.exists(file_path):
+            logger.error(f"Файл {file_name} не найден")
             return ExcelAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
         # Check analysis cache (LLMs often repeat identical queries)
