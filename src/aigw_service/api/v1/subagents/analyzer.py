@@ -34,7 +34,7 @@ class AnalyzerSubAgent:
         llm_output_schema: type,
         name: str,
         analyze_prompt_template: str,
-        lookup_prompt_template: str = "",
+        lookup_prompt_template: str,
     ):
         self._state_schema = state_schema
         self._input_schema = input_schema
@@ -163,7 +163,7 @@ class AnalyzerSubAgent:
         inputs_cat = _stringify_catalog(state.get("available_inputs"))
         lookup_str = self._stringify_lookup(lookup_list)
 
-        lookup_template = self.LOOKUP_PROMPT_TEMPLATE or "LOOKUP_MORE_PROMPT"
+        lookup_template = self.LOOKUP_PROMPT_TEMPLATE
         system_message = lookup_template.format(lookup=lookup_str, inputs=inputs_cat)
         prompt = [
             SystemMessage(content=system_message),

@@ -47,7 +47,6 @@ def dummy_query_ift() -> "QueryAnalysisIFT":
         output_name="",
         target_value=0.0,
         output_year=0,
-        file_name="",
     )
 
 
@@ -57,7 +56,6 @@ def dummy_query_ema() -> "QueryAnalysisEMA":
         mentioned_outputs=[],
         mentioned_inputs=[],
         year=0,
-        file_name="",
     )
 
 

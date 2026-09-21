@@ -58,7 +58,6 @@ class AgentInput(TypedDict):
     messages: Sequence[BaseMessage]
     thread_id: Optional[str]
     user_id: Optional[str]
-    file_path: Optional[str]
     available_inputs: Optional[dict[str, str]]
     available_outputs: Optional[dict[str, str]]
 
@@ -69,9 +68,9 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
     thread_id: Optional[str]
     user_id: Optional[str]
-    file_path: Optional[str]
+    # file_path: Optional[str]
     classification_result: Literal["analyze_model_inputs_for_target", "analyze_excel_model"]
-    filename: str
+    filename: str | None
     available_inputs: dict[str, str]
     available_outputs: dict[str, str]
     ift_resolved_inputs: list[str]
@@ -139,16 +138,17 @@ class AgentGraph:
         messages = state.get("messages", [])
         try:
             start_cls = _time()
-            next_agent = classify_user_query(self.llm, messages=messages)
-            if next_agent is None:
+            user_intent = classify_user_query(self.llm, messages=messages)
+            if user_intent is None:
                 raise ValueError("Classifier returned None response from LLM")
-            cls_result = next_agent.next_agent if hasattr(next_agent, "next_agent") else str(next_agent)
-            if cls_result not in ("analyze_model_inputs_for_target", "analyze_excel_model"):
-                raise ValueError(f"Classifier returned invalid agent: {cls_result}")
-            logger.info("Classifier completed: agent={}, elapsed={:.2f}s", cls_result, _time() - start_cls)
-            return {
-                "classification_result": cls_result,
-            }
+            next_agent = user_intent.next_agent if hasattr(user_intent, "next_agent") else str(user_intent)
+            if next_agent not in ("analyze_model_inputs_for_target", "analyze_excel_model"):
+                raise ValueError(f"Classifier returned invalid agent: {next_agent}")
+            logger.info("Classifier completed: agent={}, elapsed={:.2f}s", user_intent, _time() - start_cls)
+            file_name = user_intent.filename
+            if file_name is None:
+                logger.warning("User didn't mention any file!")
+            return {"classification_result": next_agent, "filename": file_name}
         except Exception as e:
             logger.opt(exception=True).error("Classifier failed: {}", str(e))
             raise
@@ -157,6 +157,7 @@ class AgentGraph:
         messages = state.get("messages", [])
         available_inputs = state.get("available_inputs")
         available_outputs = state.get("available_outputs")
+        file_name = state.get("filename")
         user_id = state.get("user_id")
         if (available_inputs is None) or (available_outputs is None):
             raise ValueError("Check 'available_inputs' and 'available_outputs'. They are empty")
@@ -177,8 +178,10 @@ class AgentGraph:
             "IFT analysis started: input_names={}, output={}, year={}", input_names, q.output_name, q.output_year
         )
 
+        logger.debug(f"IFT file_name: {file_name}")
+
         calc_result = calculate_model_inputs_for_target(
-            file_name=q.file_name,
+            file_name=file_name,
             output_name=q.output_name,
             output_year=q.output_year,
             target_value=q.target_value,
@@ -199,6 +202,7 @@ class AgentGraph:
         messages = state.get("messages", [])
         available_inputs = state.get("available_inputs")
         available_outputs = state.get("available_outputs")
+        file_name = state.get("filename")
         user_id = state.get("user_id")
         if (available_inputs is None) or (available_outputs is None):
             raise ValueError("Check 'available_inputs' and 'available_outputs'. They are empty")
@@ -253,8 +257,10 @@ class AgentGraph:
             q.year,
         )
 
+        logger.debug(f"EMA file_name: {file_name}")
+
         calc_res = calculate_excel_model(
-            file_name=q.file_name,
+            file_name=file_name,
             input_names=input_names,
             output_names=output_names,
             output_years=years,
@@ -319,17 +325,7 @@ class AgentGraph:
         return classification
 
     async def get_available_inputs_outputs(self, state: AgentState) -> AgentState:
-        # Если file_path передан напрямую (локальный запуск), используем его
-        direct_path = state.get("file_path")
-        if direct_path:
-            logger.info(f"Reading excel from direct file_path: {direct_path}")
-            inputs_catalog, outputs_catalog = _build_catalog_with_ids(direct_path)
-            return {
-                "available_inputs": inputs_catalog,
-                "available_outputs": outputs_catalog,
-            }
-
-        # Иначе берём имя файла из memory store (куда его положил upload-эндпоинт)
+        # # Иначе берём имя файла из memory store (куда его положил upload-эндпоинт)
         store = APP_CTX.agent_memory.store
         user_id = state.get("user_id")
         if not user_id:
@@ -347,4 +343,4 @@ class AgentGraph:
         file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
         logger.info(f"Reading excel from {file_path}")
         inputs_catalog, outputs_catalog = _build_catalog_with_ids(file_path)
-        return {"available_inputs": inputs_catalog, "available_outputs": outputs_catalog}
+        return {"available_inputs": inputs_catalog, "available_outputs": outputs_catalog, "filename": file_name}
