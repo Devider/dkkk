@@ -113,21 +113,19 @@ def flatten_comparisons(data: dict) -> list[dict]:
     flat = []
     for r in results:
         for e in r.get("comparison", []):
-            flat.append(
-                {
-                    "id": r["id"],
-                    "tool": r["tool"],
-                    "prompt": r.get("prompt", ""),
-                    "field": e.get("field", "?"),
-                    "status": e.get("status", "?"),
-                    "alias": e.get("alias"),
-                    "expected": e.get("expected"),
-                    "resolved": e.get("resolved"),
-                    "actual": e.get("actual"),
-                    "similarity": e.get("similarity"),
-                    "detail": e.get("detail"),
-                }
-            )
+            flat.append({
+                "id": r["id"],
+                "tool": r["tool"],
+                "prompt": r.get("prompt", ""),
+                "field": e.get("field", "?"),
+                "status": e.get("status", "?"),
+                "alias": e.get("alias"),
+                "expected": e.get("expected"),
+                "resolved": e.get("resolved"),
+                "actual": e.get("actual"),
+                "similarity": e.get("similarity"),
+                "detail": e.get("detail"),
+            })
     return flat
 
 
@@ -215,16 +213,18 @@ def confusion_matrix(flat: list[dict], tools: list[str], top_n: int):
     print_header(f"Confusion Matrix (top-{top_n})")
     for tool in tools:
         mismatches = [
-            e
-            for e in flat
-            if e["tool"] == tool and e["status"] == "MISMATCH" and e.get("expected") and e.get("resolved")
+            e for e in flat
+            if e["tool"] == tool
+            and e["status"] == "MISMATCH"
+            and e.get("expected")
+            and e.get("resolved")
         ]
         if not mismatches:
             continue
         pairs = Counter((e["expected"], e["resolved"]) for e in mismatches)
         print(f"\n  {tool} ({len(mismatches)} MISMATCH entries):")
         print(f"  {'Expected':<55s} {'→ Resolved':<45s} {'Count':>6s} {'%':>6s}")
-        print(f"  {'─' * 55} {'─' * 45} {'─' * 6} {'─' * 6}")
+        print(f"  {'─'*55} {'─'*45} {'─'*6} {'─'*6}")
         total_mismatches = len(mismatches)
         for (exp, res), cnt in pairs.most_common(top_n):
             pct = 100 * cnt / total_mismatches
@@ -234,13 +234,18 @@ def confusion_matrix(flat: list[dict], tools: list[str], top_n: int):
 def no_match_aliases(flat: list[dict], tools: list[str], top_n: int):
     print_header("NO_MATCH Aliases — Never Resolve")
     for tool in tools:
-        no_matches = [e for e in flat if e["tool"] == tool and e["status"] == "NO_MATCH" and e.get("alias")]
+        no_matches = [
+            e for e in flat
+            if e["tool"] == tool
+            and e["status"] == "NO_MATCH"
+            and e.get("alias")
+        ]
         if not no_matches:
             continue
         alias_counts = Counter(e["alias"] for e in no_matches)
         print(f"\n  {tool} ({len(no_matches)} NO_MATCH entries):")
         print(f"  {'Alias':<45s} {'Count':>6s}")
-        print(f"  {'─' * 45} {'─' * 6}")
+        print(f"  {'─'*45} {'─'*6}")
         for alias, cnt in alias_counts.most_common(top_n):
             print(f"  {alias:<45s} {cnt:>6d}")
 
@@ -248,7 +253,11 @@ def no_match_aliases(flat: list[dict], tools: list[str], top_n: int):
 def resolution_errors(flat: list[dict], tools: list[str], top_n: int):
     print_header("Resolution Errors — Server-Side Failures")
     for tool in tools:
-        res_errors = [e for e in flat if e["tool"] == tool and e["status"] == "RESOLUTION_ERROR"]
+        res_errors = [
+            e for e in flat
+            if e["tool"] == tool
+            and e["status"] == "RESOLUTION_ERROR"
+        ]
         if not res_errors:
             continue
         alias_counts = Counter(e.get("alias", "?") for e in res_errors)
@@ -267,16 +276,17 @@ def similarity_distribution(flat: list[dict], tools: list[str]):
     bins_def = [(0.0, 0.2), (0.2, 0.4), (0.4, 0.6), (0.6, 0.8), (0.8, 1.0)]
     for tool in tools:
         sims = [
-            e["similarity"]
-            for e in flat
-            if e["tool"] == tool and e["status"] == "MISMATCH" and e.get("similarity") is not None
+            e["similarity"] for e in flat
+            if e["tool"] == tool
+            and e["status"] == "MISMATCH"
+            and e.get("similarity") is not None
         ]
         if not sims:
             continue
         total = len(sims)
-        print(f"\n  {tool} ({total} entries, median={sorted(sims)[total // 2]:.3f}):")
+        print(f"\n  {tool} ({total} entries, median={sorted(sims)[total//2]:.3f}):")
         print(f"  {'Range':<12s} {'Count':>6s} {'%':>6s}  Bar")
-        print(f"  {'─' * 12} {'─' * 6} {'─' * 6}  {'─' * 30}")
+        print(f"  {'─'*12} {'─'*6} {'─'*6}  {'─'*30}")
         for lo, hi in bins_def:
             cnt = sum(1 for s in sims if lo <= s < hi)
             pct = 100 * cnt / total
@@ -305,7 +315,7 @@ def input_count_vs_accuracy(results: list[dict], tools: list[str]):
 
         print(f"\n  {tool}:")
         print(f"  {'Inputs':>8s} {'Queries':>8s} {'Params':>8s} {'Correct':>8s} {'Accuracy':>8s}")
-        print(f"  {'─' * 8} {'─' * 8} {'─' * 8} {'─' * 8} {'─' * 8}")
+        print(f"  {'─'*8} {'─'*8} {'─'*8} {'─'*8} {'─'*8}")
         for n in sorted(by_in):
             d = by_in[n]
             acc = 100 * d["passed"] / d["params"] if d["params"] else 0
@@ -388,8 +398,8 @@ def query_status_breakdown(results: list[dict], tools: list[str]):
 
         comparable = cats.get("PASS", 0) + cats.get("PARAM_MISMATCH", 0)
         if comparable and comparable != total:
-            print(f"    {'─' * 60}")
-            print(f"    {'Compared (PASS+MISMATCH)':<22s} {comparable:>5d}  ({100 * comparable / total:.1f}%)")
+            print(f"    {'─'*60}")
+            print(f"    {'Compared (PASS+MISMATCH)':<22s} {comparable:>5d}  ({100*comparable/total:.1f}%)")
         if split_in_mismatch:
             print(f"    {'  of which split':<22s} {split_in_mismatch:>5d}")
 
@@ -412,24 +422,20 @@ def effective_comparison_analysis(results: list[dict], tools: list[str]):
 
         per_param_acc = params_passed / params_total if params_total else 0
         avg_params = params_total / len(comparable) if comparable else 0
-        expected_rate = per_param_acc**avg_params if avg_params > 0 else 0
+        expected_rate = per_param_acc ** avg_params if avg_params > 0 else 0
         expected_pass = len(comparable) * expected_rate
 
         print(f"\n  {tool}:")
         print(f"    Comparable queries:   {len(comparable)} / {len(tool_results)}")
-        print(f"    Params total/passed:  {params_total} / {params_passed} ({100 * per_param_acc:.1f}%)")
+        print(f"    Params total/passed:  {params_total} / {params_passed} ({100*per_param_acc:.1f}%)")
         print(f"    Avg params/query:     {avg_params:.1f}")
-        print(f"    Expected query pass:  {100 * expected_rate:.2f}% → {expected_pass:.1f} queries")
+        print(f"    Expected query pass:  {100*expected_rate:.2f}% → {expected_pass:.1f} queries")
         print(f"    Actual query pass:    {actual_pass}")
 
         if expected_pass >= 0.1:
             if expected_pass < 5:
-                poisson_p = math.exp(-expected_pass) * (expected_pass**actual_pass) / math.factorial(actual_pass)
-                verdict = (
-                    f"CONSISTENT (P(actual)={poisson_p:.1%})"
-                    if poisson_p >= 0.05
-                    else f"ANOMALOUS (P(actual)={poisson_p:.1%})"
-                )
+                poisson_p = math.exp(-expected_pass) * (expected_pass ** actual_pass) / math.factorial(actual_pass)
+                verdict = f"CONSISTENT (P(actual)={poisson_p:.1%})" if poisson_p >= 0.05 else f"ANOMALOUS (P(actual)={poisson_p:.1%})"
             elif 0.3 <= (actual_pass / max(expected_pass, 0.1)) <= 3.0:
                 verdict = "CONSISTENT"
             else:
@@ -443,7 +449,11 @@ def effective_comparison_analysis(results: list[dict], tools: list[str]):
 def near_miss_analysis(results: list[dict], tools: list[str]):
     print_header("Near-Miss Analysis (queries failing by N params)")
     for tool in tools:
-        mismatches = [r for r in results if r["tool"] == tool and r.get("param_stats", {}).get("failed", 0) > 0]
+        mismatches = [
+            r for r in results
+            if r["tool"] == tool
+            and r.get("param_stats", {}).get("failed", 0) > 0
+        ]
         if not mismatches:
             print(f"\n  {tool}: no param mismatches")
             continue
@@ -454,7 +464,7 @@ def near_miss_analysis(results: list[dict], tools: list[str]):
 
         print(f"\n  {tool} ({total} PARAM_MISMATCH queries):")
         print(f"    {'Fails':>6s} {'Queries':>8s} {'%':>6s}  Bar")
-        print(f"    {'─' * 6} {'─' * 8} {'─' * 6}  {'─' * 30}")
+        print(f"    {'─'*6} {'─'*8} {'─'*6}  {'─'*30}")
         for n in range(1, max_fails + 1):
             cnt = fail_dist.get(n, 0)
             if cnt == 0:
@@ -464,7 +474,7 @@ def near_miss_analysis(results: list[dict], tools: list[str]):
             print(f"    {n:>6d} {cnt:>8d} {pct:>5.1f}%  {bar}")
 
         near_miss = fail_dist.get(1, 0)
-        print(f"\n    Near-miss (1 fail): {near_miss} queries ({100 * near_miss / total:.1f}%)")
+        print(f"\n    Near-miss (1 fail): {near_miss} queries ({100*near_miss/total:.1f}%)")
         if near_miss > 0:
             print(f"    → Fixing top confused aliases could flip ~{near_miss} queries to PASS")
 
