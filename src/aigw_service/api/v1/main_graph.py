@@ -20,6 +20,7 @@ from langgraph.graph import END, START, StateGraph, add_messages
 
 from aigw_service.api.v1.prompts.ema_analizer import EMA_ANALIZER_PROMPT
 from aigw_service.api.v1.prompts.ift_analizer import IFT_ANALIZER_PROMPT
+from aigw_service.api.v1.prompts.lookup_more import LOOKUP_MORE_PROMPT
 from aigw_service.api.v1.prompts.reviewer import REVIEWER_PROMPT
 from aigw_service.api.v1.schemas.llm_outputs import (
     InputItem,
@@ -94,6 +95,7 @@ class AgentGraph:
             llm_output_schema=QueryAnalysisIFT,
             name="ift_subagent",
             analyze_prompt_template=IFT_ANALIZER_PROMPT,
+            lookup_prompt_template=LOOKUP_MORE_PROMPT,
         )
         self.excel_mdl_agnt = AnalyzerSubAgent(
             state_schema=ExcelModelAnalizerState,
@@ -102,6 +104,7 @@ class AgentGraph:
             llm_output_schema=QueryAnalysisEMA,
             name="ema_subagent",
             analyze_prompt_template=EMA_ANALIZER_PROMPT,
+            lookup_prompt_template=LOOKUP_MORE_PROMPT,
         )
 
     def _build_graph(self):

@@ -3,21 +3,12 @@ from typing import Optional
 from langchain_core.messages import BaseMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
+from aigw_service.api.v1.prompts.classifier import CLASSIFIER_PROMPT
 from aigw_service.api.v1.schemas.llm_outputs import ClassifierOutput
 from aigw_service.api.v1.subagents.utils import build_diagnostic_data, get_tokens
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
-
-CLASSIFIER_PROMPT = """
-Your task is to determine user intent.
-You can achieve it to by following these steps:
-1. Analyze user question
-2. If user wants to calculate the inputs, by given output and date/year - return 'analyze_model_inputs_for_target'
-3. If user wants to make an analysis of the model and see the potential outputs by selectint
-diferent inputs and their ranges - select 'analyze_excel_model'
-4. Identify filename, which user mentioned to perform analysis'. Write it in 'filename'
-"""
 
 
 def classify_user_query(llm, messages: list[BaseMessage], config: Optional[RunnableConfig] = None) -> ClassifierOutput:
