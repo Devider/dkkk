@@ -32,6 +32,14 @@ class GigaChatSettings(BaseAppSettings):
             return {"enabled": False}
         return values
 
+    @model_validator(mode="before")
+    @classmethod
+    def check_enabled(cls, values):
+        if values.get("enabled") is False:
+            # Оставляем только enabled, остальные поля игнорируем
+            return {"enabled": False}
+        return values
+
     @model_validator(mode="after")
     def validate_file_path(self):
         if self.local:

@@ -11,6 +11,7 @@ from .idp import IDPSettings
 from .langfuse import LangfuseSettings
 from .logger import LogSettings
 from .pangolin import PangolinSettings
+from .platform_v_search import PlatformVSearchSettings
 
 
 class Secrets:
@@ -19,30 +20,13 @@ class Secrets:
     log: LogSettings = LogSettings()
     gigachat: GigaChatSettings = GigaChatSettings()
     ollama: OllamaSettings = OllamaSettings()
-    # platform_v_search: PlatformVSearchSettings = PlatformVSearchSettings()
+    platform_v_search: PlatformVSearchSettings = PlatformVSearchSettings()
     pangolin: PangolinSettings = PangolinSettings()
-    # Опциональные настройки — инициализируются лениво, чтобы не требовать env vars при импорте
-    _idp: ClassVar[IDPSettings | None] = None
-    _langfuse: ClassVar[LangfuseSettings | None] = None
-    _aef_tracing: ClassVar[AEFTracingSettings | None] = None
-
-    @property
-    def idp(self) -> IDPSettings:
-        if self._idp is None:
-            self._idp = IDPSettings()
-        return self._idp
-
-    @property
-    def langfuse(self) -> LangfuseSettings:
-        if self._langfuse is None:
-            self._langfuse = LangfuseSettings()
-        return self._langfuse
-
-    @property
-    def aef_tracing(self) -> AEFTracingSettings:
-        if self._aef_tracing is None:
-            self._aef_tracing = AEFTracingSettings()
-        return self._aef_tracing
+    idp: IDPSettings = IDPSettings()
+    langfuse: LangfuseSettings = LangfuseSettings()
+    # Если у вас агент-прототип, то используйте вместо AEFTracingSettings -> AEFTracingPrototypeSettings:
+    aef_tracing: AEFTracingPrototypeSettings = AEFTracingPrototypeSettings()
+    aef_tracing: AEFTracingSettings = AEFTracingSettings()
 
 
 APP_CONFIG = Secrets()
@@ -74,17 +58,6 @@ __all__ = [
     "APP_CONFIG",
     "DEFAULT_STORE",
     "PROJECT_PATH",
-    "AEFTracingPrototypeSettings",
-    "AEFTracingSettings",
-    "AgentSettings",
-    "AppSettings",
-    "BaseAppSettings",
-    "GigaChatSettings",
-    "IDPSettings",
-    "LangfuseSettings",
-    "LogSettings",
-    "OllamaSettings",
-    "PangolinSettings",
     "Secrets",
     "get_store",
 ]

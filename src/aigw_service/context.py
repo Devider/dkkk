@@ -1,19 +1,19 @@
-import logging
 from datetime import UTC, datetime
 
 import httpx
 import pytz
+from gigachat.exceptions import AuthenticationError, ForbiddenError
+from httpx import RequestError
+from langchain_gigachat import GigaChatEmbeddings
+
 from aigw_modules.ai_agents.memory import AsyncAgentMemory
 from aigw_modules.base import BaseAsyncInterface
 from aigw_modules.hub_services.pangolin import AsyncPangolinClient
-from gigachat.exceptions import AuthenticationError, ForbiddenError
-from httpx import RequestError
-from langchain_gigachat import GigaChat, GigaChatEmbeddings
-from langgraph.store.memory import InMemoryStore
-
 from aigw_service.base import Singleton
 from aigw_service.config import APP_CONFIG, Secrets
-from aigw_service.exceptions import StopEventError
+from aigw_service.config import get_store as _get_store
+from aigw_service.core.llm_executor import Agent
+from aigw_service.core.tracing.tracing import AEFTracingHandler, TracingManager
 from aigw_service.logger import ContextVarsContainer, LoggerConfigurator
 
 _STOP_EVENT_MARKER = b"temporarily unavailable due to technical reasons"
@@ -98,64 +98,54 @@ class AppContext(metaclass=Singleton):
             rotation=secrets.log.log_rotation,
         )
 
-        # ТН05 Rule 14: единый источник retry-параметров — config, а не хардкод
-        logging.getLogger("gigachat.retry").setLevel(logging.WARNING)
+        # Реестр клиентов следующих базовому асинхронному интерфейсу BaseAsyncInterface из aigw_modules.base
+        self._client_registry: list[BaseAsyncInterface] = []
 
-        # Модель
-        self._model_to_use = APP_CONFIG.app.model_to_use
-        self._gigachat_base_params = None
-        self._gigachat_credentials = None
-        self._gigachat_max_retries = secrets.gigachat.max_retries
-        self._gigachat_retry_backoff_factor = secrets.gigachat.retry_backoff_factor
-        self.gigachat_embeddings = None
-        self._ollama_kwargs = None
+        self._gigachat_base_params = secrets.gigachat.base_params
+        self.gigachat_embeddings = GigaChatEmbeddings(**self._gigachat_base_params)
+        self.llm = Agent(**self._gigachat_base_params, model=secrets.gigachat.model)
 
-        if self._model_to_use == "GIGACHAT":
-            self._gigachat_base_params = secrets.gigachat.base_params
-            self.gigachat_embeddings = GigaChatEmbeddings(**self._gigachat_base_params)
-        elif self._model_to_use == "GIGACHAT_TOKEN":
-            self._gigachat_credentials = secrets.gigachat.credentials
-        elif self._model_to_use == "OLLAMA":
-            self._ollama_kwargs = {
-                "base_url": secrets.ollama.base_url,
-                "model": secrets.ollama.model_name,
-                "temperature": secrets.ollama.temperature,
-                "timeout": secrets.ollama.timeout,
-            }
+        # Platform V Search if enabled
+        if secrets.platform_v_search.enabled:
+            self.platform_v_search: PlatformVSearch = PlatformVSearch(
+                logger=self.logger,
+                hosts=secrets.platform_v_search.hosts,
+                embedding=self.gigachat_embeddings,
+                **secrets.platform_v_search.connection_params,
+            )
+            self.pvs_vectorstore = self.platform_v_search.get_vectorstore(secrets.platform_v_search.index_name)
+            self._client_registry.append(self.platform_v_search)
 
-        # Хранилище для агента
-        self.agent_store: InMemoryStore = InMemoryStore()
-
-        # Pangolin (опционально)
-        self.pangolin: AsyncPangolinClient | None = None
-        self._client_registry: tuple[BaseAsyncInterface, ...] = ()
-
-        # Если используется Pangolin, инициализируем подключение
-        if APP_CONFIG.app.store_to_use == "PANGOLIN":
-            self.pangolin = AsyncPangolinClient(
+        # Pangolin if enabled
+        if secrets.pangolin.enabled:
+            self.pangolin: AsyncPangolinClient = AsyncPangolinClient(
                 logger=self.logger,
                 conninfo=secrets.pangolin.db_uri,
-                timeout=60,
-                min_connections=5,
-                max_connections=10,
             )
-            self._client_registry = (self.pangolin,)
+            self._client_registry.append(self.pangolin)
 
-        # Tracing (LangFuse or AEF) — ленивый импорт, т.к. aef_tracing может отсутствовать
-        self.tracing: object | None = None
-        if secrets.aef_tracing.enabled:
-            from aigw_service.core.tracing.tracing import TracingManager
-
-            self.tracing = TracingManager(
+        # IDP GigaSearch if enabled
+        if secrets.idp.enabled:
+            self.idp: IDPService = IDPService(
                 logger=self.logger,
-                secrets=secrets,
-            ).get_tracing()
+                url=secrets.idp.base_url,
+                source_uuid=secrets.idp.source_uuid,
+                index_id=secrets.idp.index_id,
+                retry_stop=secrets.idp.retry_stop,
+                retry_wait=secrets.idp.retry_wait,
+                request_timeout=secrets.idp.request_timeout,
+                **secrets.idp.certs,
+            )
+            self._client_registry.append(self.idp)
+
+        # LangFuse or AEF Tracing
+        self.tracing: AEFTracingHandler | LangfuseClient = TracingManager(
+            logger=self.logger,
+            secrets=secrets,
+        ).get_tracing()
 
         # Agent memory
         self.agent_memory: AsyncAgentMemory = AsyncAgentMemory(logger=self.logger)
-        # Устанавливаем хранилище (по умолчанию InMemoryStore)
-        self.agent_memory.store = self.agent_store
-
         self.__secrets = secrets
         self.logger.info("App context initialized.")
 
@@ -174,81 +164,11 @@ class AppContext(metaclass=Singleton):
     def get_gigachat_embeddings(self):
         return self.gigachat_embeddings
 
-    def get_ollama_kwargs(self):
-        return self._ollama_kwargs
-
-    def create_llm(self, model_name: str = "GigaChat-2-Pro", **kwargs):
-        """Создаёт LLM в зависимости от MODEL_TO_USE.
-
-        Retry-параметры (max_retries, retry_backoff_factor) читаются из config
-        для всех веток — ТН05 Rule 14 (без копипасты).
-        Обёрнут StopEvent-wrapper'ом — ТН08.
-        """
-        from langchain_gigachat import GigaChat
-
-        from aigw_service.api.v1.tools import TOOLS
-
-        function_ranker = {"enabled": True, "top_n": len(TOOLS)}
-
-        if self._model_to_use == "GIGACHAT":
-            llm = GigaChat(
-                **self._gigachat_base_params,
-                model=model_name,
-                timeout=kwargs.get("timeout", 60),
-                function_ranker=function_ranker,
-                top_p=1.0,
-                repetition_penalty=1.0,
-            )
-        elif self._model_to_use == "GIGACHAT_TOKEN":
-            llm = GigaChat(
-                credentials=self._gigachat_credentials,
-                verify_ssl_certs=False,
-                model=model_name,
-                timeout=kwargs.get("timeout", 60),
-                temperature=0.000001,
-                max_tokens=8192,
-                max_retries=self._gigachat_max_retries,
-                retry_backoff_factor=self._gigachat_retry_backoff_factor,
-                function_ranker=function_ranker,
-                top_p=1.0,
-                repetition_penalty=1.0,
-            )
-        elif self._model_to_use == "OLLAMA":
-            from langchain_ollama import ChatOllama
-
-            llm = ChatOllama(
-                base_url=self._ollama_kwargs["base_url"],
-                model=self._ollama_kwargs.get("model", kwargs.get("model", "llama3")),
-                temperature=self._ollama_kwargs.get("temperature", kwargs.get("temperature", 0.000001)),
-                timeout=self._ollama_kwargs.get("timeout", kwargs.get("timeout", 60)),
-            )
-        else:
-            raise ValueError(f"Unknown MODEL_TO_USE: {self._model_to_use}")
-
-        return _wrap_llm_with_stop_event(llm, self.logger)
-
     def get_tracing_cb_handler(self):
-        """Возвращает хендлер трейсинга для калбэков агента."""
         return self.tracing
 
-    async def _check_llm_connection(self):
-        if self._model_to_use in ("GIGACHAT", "GIGACHAT_TOKEN"):
-            await self._check_gigachat_connection()
-        elif self._model_to_use == "OLLAMA":
-            await self._check_ollama_connection()
-
     async def _check_gigachat_connection(self):
-        if self._model_to_use == "GIGACHAT":
-            gigachat = GigaChat(**self._gigachat_base_params)
-        elif self._model_to_use == "GIGACHAT_TOKEN":
-            gigachat = GigaChat(
-                credentials=self._gigachat_credentials,
-                verify_ssl_certs=False,
-                max_retries=self._gigachat_max_retries,
-                retry_backoff_factor=self._gigachat_retry_backoff_factor,
-            )
-        else:
-            return
+        gigachat = self.llm
         try:
             self.logger.info(f"Attempt to connect to GigaChat at host {gigachat.base_url}.")
             models = await gigachat.aget_models()
@@ -283,23 +203,28 @@ class AppContext(metaclass=Singleton):
     async def on_startup(self):
         self.logger.info("Application is starting up.")
 
-        # Проверяем соединение с моделью
-        await self._check_llm_connection()
+        # Запускаем фоновую задачу по проверке новой версии LLM
+        if self.__secrets.app.preview_model_check:
+            await self.llm.start_background_worker(self.logger)
+
+        # Проверяем соединение с GigaChat
+        await self._check_gigachat_connection()
 
         # Запускаем клиентов (Pangolin если используется)
         for client in self._client_registry:
             await client.on_startup()
 
-        # Запускаем AEF Tracing
-        if self.tracing:
+        # Запускаем Langfuse
+        if self.__secrets.langfuse.enabled:
             self.tracing.on_startup()
 
         # Инициализируем память в агенте после подключения к БД
-        # Если используется Pangolin, подключаем его пул к agent_memory
-        if self.pangolin and self.pangolin.pool:
+        if self.__secrets.pangolin.enabled and self.pangolin.pool:
             self.agent_memory.set_connection(self.pangolin.pool)
             self.logger.info("Pangolin connection established for agent memory.")
         else:
+            # Fallback to InMemoryStore when Pangolin is not available
+            self.agent_memory.store = _get_store()
             self.logger.info("Using InMemoryStore for agent memory (STORE_TO_USE=MEMORY).")
 
         self.logger.info("All connections checked. Application is up and ready.")
@@ -311,8 +236,12 @@ class AppContext(metaclass=Singleton):
         for client in self._client_registry:
             await client.on_shutdown()
 
-        # Останавливаем tracing
-        if self.tracing:
+        # Останавливаем фоновую задачу по проверке новой версии LLM
+        if self.__secrets.app.preview_model_check:
+            await self.llm.stop_background_worker()
+
+        # Останавливаем Langfuse
+        if self.__secrets.langfuse.enabled:
             self.tracing.on_shutdown()
 
         self._logger_manager.remove_logger_handlers()

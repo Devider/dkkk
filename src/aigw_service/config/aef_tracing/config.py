@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
@@ -10,14 +10,14 @@ class AEFTracingSettings(BaseAppSettings):
     Настройки AEF Tracing.
     """
 
-    enabled: bool = Field(validation_alias="AEF_TRACING_ENABLED", default=False)
+    enabled: bool = Field(validation_alias="AEF_TRACING_ENABLED", default=True)
     tracing_sender_type: str = Field(validation_alias="AEF_TRACING_SENDER_TYPE", default="console")
-    kafka_topic: Optional[str] = Field(validation_alias="AEF_TRACING_KAFKA_TOPIC", default=None)
-    kafka_hosts: Optional[str | list[str]] = Field(validation_alias="AEF_TRACING_KAFKA_HOSTS", default=None)
-    cluster_id: Optional[str] = Field(validation_alias="CLUSTER_NAME", default=None)
-    agent_id: Optional[str] = Field(validation_alias="AGENT_ID", default=None)
-    distributive: Optional[str] = Field(validation_alias="DISTRIB", default=None)
-    namespace: Optional[str] = Field(validation_alias="NAMESPACE", default=None)
+    kafka_topic: str = Field(validation_alias="AEF_TRACING_KAFKA_TOPIC")
+    kafka_hosts: str | list[str] = Field(validation_alias="AEF_TRACING_KAFKA_HOSTS")
+    cluster_id: str = Field(validation_alias="CLUSTER_NAME")
+    agent_id: str = Field(validation_alias="AGENT_ID")
+    distributive: str = Field(validation_alias="DISTRIB")
+    namespace: str = Field(validation_alias="NAMESPACE")
 
     @field_validator("kafka_hosts", mode="before")
     @classmethod
@@ -26,16 +26,13 @@ class AEFTracingSettings(BaseAppSettings):
             return value.replace(" ", "").split(",")
         return value
 
-    @model_validator(mode="after")
-    def validate_required_when_enabled(self):
-        if self.enabled:
-            missing = []
-            for field_name in ("kafka_topic", "kafka_hosts", "cluster_id", "agent_id", "distributive", "namespace"):
-                if getattr(self, field_name) is None:
-                    missing.append(field_name)
-            if missing:
-                raise ValueError(f"AEF_TRACING_ENABLED=True, но не заданы: {', '.join(missing)}")
-        return self
+    @model_validator(mode="before")
+    @classmethod
+    def check_enabled(cls, values):
+        if values.get("enabled") is False:
+            # Оставляем только enabled, остальные поля игнорируем
+            return {"enabled": False}
+        return values
 
 
 class AEFTracingPrototypeSettings(AEFTracingSettings):
