@@ -38,9 +38,9 @@ else:
 
 class Tracing(ABC):
     @abstractmethod
-    def get_tracing(self, secrets: Secrets, logger) -> object | None:
-        """Возвращает хендлер трейсинга или None."""
-        ...
+    def get_tracing(self, secrets: Secrets, logger):
+        pass
+
 
 
 class AEFTracing(Tracing):

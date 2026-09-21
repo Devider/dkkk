@@ -42,6 +42,8 @@ def _humanize_error(e: Exception) -> str:
 _ANALYSIS_CACHE: dict = {}
 _ANALYSIS_CACHE_ORDER: list = []
 _ANALYSIS_CACHE_MAXSIZE = 10
+# Максимальное количество сценариев для анализа одного вызова
+MAX_SCENARIOS = 100000
 # Result classes
 
 
@@ -164,7 +166,7 @@ class DescribeOutputsSheetToolArgs(BaseModel):
     user_id: str = Field(description="User_id")
 
 
-@tool(args_schema=ModelInputAnalysisToolArgs)
+# @tool(args_schema=ModelInputAnalysisToolArgs)
 def analyze_model_inputs_for_target(
     file_name: str,
     output_name: str,
@@ -202,10 +204,13 @@ def analyze_model_inputs_for_target(
         file_path = None
         if user_id:
             stored_name = get_store_file(user_id)
+            logger.info(f"Stored name: {stored_name}")
             if stored_name:
                 file_path = os.path.abspath(os.path.join(TEMP_DIR, stored_name))
+                logger.info(f"File path: {file_path}")
         if not file_path or not os.path.exists(file_path):
             file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
+            logger.info(f"Constructed file path: {file_path}")
         if not os.path.exists(file_path):
             return ModelInputAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
@@ -289,6 +294,14 @@ def analyze_model_inputs_for_target(
                 input_cells=input_cells, current_values=current_values, max_scenarios=max_scenarios
             )
 
+            logger.info(
+                "IFT calculation started: file={}, output={}, target={}, scenarios={}",
+                os.path.basename(file_path),
+                actual_output_name,
+                target_value,
+                len(scenarios),
+            )
+
             # Compile a LibreOffice function for fast repeated evaluation
             fname = os.path.basename(file_path)
             input_refs = [f"'[{fname}]INPUTS'!{input_cells[n]['cell_ref']}" for n in input_names]
@@ -359,11 +372,13 @@ def analyze_model_inputs_for_target(
             }
 
             # After scenario testing and before result generation
-            logger.info(f"Number of matching scenarios: {len(results['matching_scenarios'])}")
-            if results["matching_scenarios"]:
-                logger.info(f"First matching scenario: {results['matching_scenarios'][0]}")
-            else:
-                logger.info("No matching scenarios found.")
+            elapsed_total = round(time.perf_counter() - start_time, 2)
+            logger.info(
+                "IFT calculation completed: elapsed={}s, matching_scenarios={}, total_scenarios={}",
+                elapsed_total,
+                len(results["matching_scenarios"]),
+                len(scenarios),
+            )
 
             # Generate result message
             message = generate_result_message(
@@ -462,7 +477,12 @@ def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_va
 
             all_scenarios.append(scenario)
             logger.info(
-                f"Scenario {i}: output={output}, deviation={deviation}, deviation_percent={deviation_percent}, tolerance={tolerance}"
+                "Scenario {}: output={:.3f}, deviation={:.4f}, deviation_percent={:.2f}%, tolerance={}",
+                i,
+                output,
+                deviation,
+                deviation_percent,
+                tolerance,
             )
             if deviation_percent <= tolerance:
                 matching_scenarios.append(scenario)
@@ -532,7 +552,7 @@ def optimize_with_regression(
             "optimized": True,
         }
     except Exception as e:
-        logger.warning(f"Optimization failed: {str(e)}")
+        logger.opt(exception=True).warning("Optimization failed: {}", str(e))
         return None
 
 
@@ -602,7 +622,7 @@ def generate_result_message(
         )
 
 
-@tool(args_schema=ExcelAnalysisToolArgs)
+# @tool(args_schema=ExcelAnalysisToolArgs)
 def analyze_excel_model(
     file_name: str,
     input_names: list,
@@ -634,11 +654,15 @@ def analyze_excel_model(
         file_path = None
         if user_id:
             stored_name = get_store_file(user_id)
+            logger.info(f"Stored name: {stored_name}")
             if stored_name:
                 file_path = os.path.abspath(os.path.join(TEMP_DIR, stored_name))
+                logger.info(f"File path: {file_path}")
         if not file_path or not os.path.exists(file_path):
             file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
+            logger.info(f"Constructed file path: {file_path}")
         if not os.path.exists(file_path):
+            logger.error(f"Файл {file_name} не найден")
             return ExcelAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
         # Check analysis cache (LLMs often repeat identical queries)
@@ -745,9 +769,35 @@ def analyze_excel_model(
                 values = np.arange(start, end + 1e-10, step)
                 value_sets.append(values.tolist())
 
+            # Проверяем количество комбинаций до генерации
+            from math import prod as math_prod
+
+            n_combinations = math_prod(len(vs) for vs in value_sets)
+            if n_combinations > MAX_SCENARIOS:
+                n_per_input = {name: len(vs) for name, vs in zip(input_names, value_sets)}
+                return ExcelAnalysisToolResult(
+                    status="ERROR",
+                    result=(
+                        f"Диапазон слишком широкий: будет проанализировано {n_combinations:,} сценариев "
+                        f"(максимум {MAX_SCENARIOS:,}).\n\n"
+                        f"Комбинации на входные параметры:\n"
+                        + "\n".join(f"  - {name}: {n_vals} значений" for name, n_vals in n_per_input.items())
+                        + "\n\nУменьшите диапазон или увеличьте шаг."
+                    ),
+                    content={},
+                )
+
             # Generate all combinations
             combinations = list(product(*value_sets))
-            logger.info(f"Генерируем {len(combinations)} сценариев для анализа")
+            logger.info("Генерируем {} сценариев для анализа", len(combinations))
+
+            logger.info(
+                "Excel calculation started: file={}, inputs={}, outputs={}, scenarios={}",
+                os.path.basename(file_path),
+                len(input_names),
+                len(output_names),
+                len(combinations),
+            )
 
             # Test scenarios using compiled function (fast, no LibreOffice)
             fname = os.path.basename(file_path)
@@ -784,6 +834,12 @@ def analyze_excel_model(
                 results["outputs"].append(current_outputs)
 
             processing_time = time.perf_counter() - start_time
+
+            logger.info(
+                "Excel calculation completed: elapsed={}s, scenarios={}",
+                round(processing_time, 2),
+                len(combinations),
+            )
 
             # Convert results to DataFrame for easier handling
             df_outputs = pd.DataFrame(results["outputs"])
@@ -1427,7 +1483,7 @@ def create_scenario_matrix(inputs: pd.DataFrame, outputs: pd.DataFrame) -> str:
                     worksheet.set_column(idx + 1, idx + 1, 10)
 
             except Exception as e:
-                print(f"Ошибка в {output_col}: {str(e)}")
+                logger.error(f"Ошибка в {output_col}: {str(e)}")
     return filepath
 
 
@@ -2253,10 +2309,10 @@ def greeting_user(
     result = "Добрый день! Как у вас дела,???"
 
     if thread_id:
-        print(f"Greeting user in thread: {thread_id}")
+        logger.debug(f"Greeting user in thread: {thread_id}")
 
     if user_id:
-        print(f"User_id: {user_id}")
+        logger.debug(f"User_id: {user_id}")
 
     return GetOutputInfoToolResult(
         status="SUCCESS",

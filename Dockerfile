@@ -1,6 +1,6 @@
 FROM python:3.12-slim AS builder
 
-RUN pip install --no-cache-dir poetry~=2.2
+RUN pip install --no-cache-dir poetry==2.3.4
 WORKDIR /app
 
 COPY pyproject.toml poetry.lock ./

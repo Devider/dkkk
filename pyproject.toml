@@ -1,11 +1,12 @@
 [project]
 name = "aigw-rest-service"
-version = "1.4.0"
+version = "1.5.0"
 description = "Python AIGateWay шаблон для разработки GenAI Ready REST API микросервисов"
 authors = [
     { name = "Michael S2pac", email = "MVStupak@sberbank.ru" }
 ]
 maintainers = [
+    { name = "Valery Demyanov", email = "VLeDemyanov@sberbank.ru" },
     { name = "Vyacheslav Dulnev", email = "VVaDulnev@sberbank.ru" },
     { name = "Nickolay Evsin", email = "NOEvsin@sberbank.ru" },
     { name = "Grigory Elkin", email = "GVElkin@sberbank.ru" },
@@ -22,21 +23,22 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "pytz>=2025.1",
     "aiofiles>=24.1.0",
-    "ujson>=5.10.0",
+    "ujson>=5.12.0",
     "gigachat>=0.1.39.post1",
-    "langchain-gigachat>=0.3.12",
     "python-multipart (>=0.0.22,<0.0.23)",
     "pandas (>=3.0.0,<4.0.0)",
     "openpyxl (>=3.1.5,<4.0.0)",
     "tavily (>=1.1.0,<2.0.0)",
     "matplotlib (>=3.10.8,<4.0.0)",
     "graphviz (>=0.20.3,<1.0.0)",
-    "nltk (>=3.9.2,<4.0.0)",
+    "nltk (>=3.10.0,<4.0.0)",
     "scipy (>=1.17.1,<2.0.0)",
     "langgraph (>=1.2.4,<2.0.0)",
     "langchain (>=1.3.4,<2.0.0)",
     "langchain-ollama (>=1.1.0,<2.0.0)",
+    "langchain-gigachat==0.5.1",
     "xlsxwriter (>=3.2.9,<4.0.0)",
+    "ipython>=9.14.0",
 ]
 
 [dependency-groups]
@@ -49,7 +51,7 @@ dev = [
     "pytest-mock>=3.14.1",
     "ruff>=0.13.1",
     "isort>=6.0.1",
-    "black>=25.1.0",
+    "black>=26.3.1",
     "coverage==7.10.6",
     "pytest-cov==4.1.0",
 ]
@@ -65,6 +67,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
+requires-poetry = "2.3.4"
 packages = [{ include = "aigw_service", from = "src" }]
 
 # [[tool.poetry.source]]

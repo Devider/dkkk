@@ -15,6 +15,7 @@ Key facts (verified on python:3.12-slim + Debian python3-uno):
     ``ctx.ServiceManager.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)``
 """
 
+import math
 import os
 import shutil
 import socket
@@ -326,7 +327,7 @@ class CalcBook:
             if cell.getError():
                 return cell.getString()
             v = cell.getValue()
-            if v != v:
+            if math.isnan(v):
                 return cell.getString()
             return v
         return cell.getValue()

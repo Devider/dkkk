@@ -32,7 +32,11 @@ Q2='Скажи, при каких значениях цены метанола �
 
 Q3='В модели model.xlsx сделай прирост цены метанола с 2025 года на 100 каждый год и инфляция потребительских цен США на 0.1 каждый год. Покажи новые и старые значения ebitda в сводной таблице.'
 
-for i in 1 2 3; do
+Q4='Найди значения USD PPI, Eurozone CPI (EUR), urea FOB Yuzhny и average USD/RUB, при которых в Methanex_FinModel.xlsx revenue за 2027 равен 3650.'
+
+Q5='Подбери ECB policy rate, methanol price и year-end EUR/RUB в model.xlsx так, чтобы debt service за 2027 составил 140.'
+
+for i in 1 2 3 4 5; do
   qvar="Q$i"
   question="${!qvar}"
   zipfile="$TMPDIR/q$i.zip"
@@ -42,15 +46,21 @@ for i in 1 2 3; do
   echo "$question"
   echo
 
-  curl -s -X POST "$BASE_URL/api/v1/invoke-agent" \
+  http_code=$(curl -s -o "$zipfile" -w "%{http_code}" -X POST "$BASE_URL/api/v1/invoke-agent" \
     -H "Content-Type: application/json" \
     -d "{\"message\": $(printf '%s' "$question" | jq -Rs .)}" \
     -H "x-trace-id: $TRACE_ID" \
     -H "x-client-id: $CLIENT_ID" \
     -H "x-session-id: $SESSION_ID" \
     -H "x-user-id: $U" \
-    -H "x-request-time: $REQUEST_TIME" \
-    --output "$zipfile"
+    -H "x-request-time: $REQUEST_TIME")
+
+  if [ "$http_code" != "200" ]; then
+    echo "ERROR: HTTP $http_code"
+    cat "$zipfile"
+    echo
+    exit 1
+  fi
 
   answer=$(python3 -c "
 import sys, zipfile
