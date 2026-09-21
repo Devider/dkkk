@@ -8,6 +8,12 @@ from aigw_service.api.v1.tools import (
 )
 
 
+def save_graph_image(graph):
+    save_path = "graph.png"
+    with open(save_path, "wb") as f:
+        f.write(graph.get_graph(xray=True).draw_mermaid_png())
+
+
 def _build_catalog_with_ids(model_path: str) -> tuple[dict[str, str], dict[str, str]]:
     input_mapping, output_mapping = build_mappings(model_path)
     inputs_dict = {}
