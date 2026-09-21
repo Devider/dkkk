@@ -86,6 +86,7 @@ poetry update            # after pyproject.toml changes
 
 ## Docker workflow (primary deployment)
 
+
 ```sh
 docker compose up -d                 # starts app + ollama
 curl http://localhost:8888/health    # port from .env APP_PORT (default 8080)
