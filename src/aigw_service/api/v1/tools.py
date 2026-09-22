@@ -14,12 +14,12 @@ import numpy as np
 import openpyxl
 import pandas as pd
 from langchain.tools import tool
-from nltk.stem.snowball import RussianStemmer
 from openpyxl.formula.tokenizer import Tokenizer
 from pandas import ExcelWriter
 from pydantic import BaseModel, Field  # type: ignore
 
 from aigw_service.api.v1.excel_handler import ExcelWorkbook, copy_to_temp
+from aigw_service.api.v1.russian_stemmer import russian_stem
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
@@ -1056,9 +1056,6 @@ def normalize_text(text: str) -> str:
     Returns:
         str: Normalized text with stemmed Russian words
     """
-    # Initialize Russian stemmer
-    stemmer = RussianStemmer()
-
     # Convert to lowercase
     text = text.lower()
 
@@ -1067,7 +1064,7 @@ def normalize_text(text: str) -> str:
 
     # Stem each word
     words = text.split()
-    stemmed_words = [stemmer.stem(word) for word in words]
+    stemmed_words = [russian_stem(word) for word in words]
 
     # Join words back together
     text = " ".join(stemmed_words)
