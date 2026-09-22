@@ -20,6 +20,21 @@ curl http://localhost:8888/health
 
 Первый запуск скачает Ollama-образ и модель `qwen2.5:7b` (~5 ГБ). Модель загружается автоматически из `docker.env` (`OLLAMA_MODEL`).
 
+## Запуск через poetry (без Docker)
+
+Приложение сконфигурировано под Poetry: `pyproject.toml` описывает console-script `aigw-rest-service-sh` → `aigw_service.__main__:main`.
+
+```bash
+poetry install
+poetry run python -m aigw_service        # или
+poetry run aigw-rest-service-sh
+```
+
+Нюансы:
+- Нужен локально установленный LibreOffice с Python-мостом `python3-uno` — иначе не загрузится `lo_backend` (Excel-пересчёт работает через UNO).
+- Модель для агента берётся из `MODEL_TO_USE` (по умолчанию `OLLAMA` → локальный Ollama на `localhost:11434`, нужен запущенный сервис).
+- Порт по умолчанию — `8080` (настраивается в `.env` через `APP_PORT`), либо из переменных окружения.
+
 ## Port mapping
 
 Сервис внутри контейнера всегда слушает на `:8080`. Проброс порта наружу задаётся в `.env`:
