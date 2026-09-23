@@ -1,7 +1,9 @@
 import tempfile
 import zipfile
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
+from typing import Optional
 
 import aiofiles
 import gigachat.context as gc_ctx
@@ -9,6 +11,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from langchain_core.messages import HumanMessage
+from langfuse.langchain import CallbackHandler
 
 from aigw_service.api.v1.main_graph import AgentGraph
 from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
@@ -19,6 +22,10 @@ from aigw_service.exceptions import StopEventError
 router = APIRouter()
 logger = APP_CTX.get_logger()
 
+def _setup_request_headers(headers: dict)-> None:
+    """Сквозной проброс заголовка x-trace-id в GigaChat."""
+    x_trace_id = headers.get("x-trace-id")
+    gc_ctx.trace_id_cvar.set(x_trace_id)
 
 # =====================================================================================================================
 # ЗАГРУЗКА ФАЙЛА
@@ -51,12 +58,9 @@ async def upload_file(
     Загрузка файла с использованием multipart/form-data.
     """
 
-    logger.info(f"HEADERS: {headers}")
+    _setup_request_headers(headers=headers)
+    logger.info("HEADERS: {}", headers)
     logger.info("Graph agent endpoint called")
-
-    # Сквозной проброс заголовка "x-trace-id" в GigaChat
-    x_trace_id = headers.get("x-trace-id")
-    gc_ctx.trace_id_cvar.set(x_trace_id)
 
     excel_extentions = {"xlsx", "xls"}
 
@@ -83,12 +87,12 @@ async def upload_file(
         await store.aput(namespace, key, {"filename": filename})
         store_items = await store.aget(namespace, key)
 
-        logger.info(f"File saved to {file_location}, store: {store_items}")
+        logger.info("File saved to {}, store: {}", file_location, store_items)
 
         return FileLoaderResponse(content="Файл был успешно сохранен.", filename=str(filename), save_dir=str(save_dir))
     except Exception as e:
         # pylint: disable=no-member
-        logger.error(f"Request failed: {e}")
+        logger.opt(exeption=True).error("Upload failed: {}", str(e))
         return JSONResponse(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             content=FailedDependencyResponse(error_description=str(e)).model_dump(),
@@ -98,20 +102,26 @@ async def upload_file(
 # =====================================================================================================================
 # ВЫЗОВ АГЕНТА
 # =====================================================================================================================
+@lru_cache(maxsize=1)
 def get_agent():
-    try:
-        logger = APP_CTX.get_logger()
-    except Exception as e:
-        logger.error(f"Failed to import Agent: {e}")
-        raise
-
     try:
         agent = AgentGraph()
         return agent
     except Exception as e:
-        logger.error(f"Failed to create Agent instance: {e}")
+        logger.error("Failed to create Agent instance: {}", e)
         raise
 
+@lru_cache(maxsize=1)
+def get_cb_handler():
+    def get_or_create_cb_handler():
+        if APP_CTX.tracing is None:
+            logger.warning("Tracing is None - Langfuse not initialized, callbach will be skipped")
+            return None
+        if hasattr(APP_CTX.tracing, "callback_handler"):
+            return APP_CTX.tracing.callback_handler
+        return None
+
+    return get_or_create_cb_handler
 
 @router.post(
     "/invoke-agent",
@@ -145,13 +155,14 @@ async def invoke_agent(
     request: CopilotAgentRequest,
     headers: dict = Depends(common_headers),
     agent: AgentGraph = Depends(get_agent),
+    cb_handler: Optional[CallbackHandler] = Depends(get_cb_handler()),
 ) -> StreamingResponse:
-    logger = APP_CTX.get_logger()
+    _setup_request_headers(headers=headers)
     agent.logger = logger
     thread_id = headers.get("x-session-id")
     user_id = headers.get("x-user-id")
-    x_trace_id = headers.get("x-trace-id")
-    gc_ctx.trace_id_cvar.set(x_trace_id)
+    x_client_id = headers.get("x-client-id")
+
 
     try:
         logger.info(
@@ -165,10 +176,19 @@ async def invoke_agent(
             "configurable": {
                 "thread_id": thread_id,
                 "user_id": user_id,
+            }, 
+            "metadata": {
+                "lang_fuse_user_id": user_id,
+                "client_id": x_client_id,
+                "langfuse_session_id": thread_id,
+                "endpoint": "/invoke-agent",
             }
         }
-
-        logger.info(f"config before entering process message: {config}")
+        if cb_handler is not None:
+            config["callbacks"] = [cb_handler]
+        else:
+            logger.warning("cb_handler is None - LAngfuse tracing is disabled or unavailable, skipping callbacks")
+        logger.info("config before entering process message: {}", config)
         result = await agent.graph.ainvoke(
             {
                 "messages": [HumanMessage(content=request.message)],
@@ -178,10 +198,10 @@ async def invoke_agent(
             config=config,
         )
 
-        logger.info(f"Invoking agent with thread_id={thread_id}, user_id={user_id} ")
+        logger.info("Invoking agent with thread_id={}, user_id={}", thread_id, user_id)
         msg = result["messages"][-1]
         result_content = msg.content if hasattr(msg, "content") else str(msg)
-        logger.info(f"Content text: {result_content}")
+        logger.info("Content text: {}", result_content)
 
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -211,7 +231,7 @@ async def invoke_agent(
             content=FailedDependencyResponse(error_description=e.user_message).model_dump(),
         )
     except Exception as e:
-        logger.error(f"Agent invocation failed: {e}", exc_info=True)
+        logger.opt(exeption=True).error("Agent invocation failed: {}", str(e))
         return JSONResponse(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             content=FailedDependencyResponse(error_description=str(e)).model_dump(),
