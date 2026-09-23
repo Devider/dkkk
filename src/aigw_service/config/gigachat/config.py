@@ -1,3 +1,4 @@
+import ssl
 from enum import Enum
 from typing import ClassVar, Optional
 
@@ -35,28 +36,33 @@ class GigaChatSettings(BaseAppSettings):
     max_tokens: ClassVar[int] = 8192
 
     @property
-    def auth_mode(self) -> GigaChatAuthMode:
-        """Определяет способ аутентификации по заполненным переменным окружения."""
+    def auth_mode(self) -> Optional[GigaChatAuthMode]:
+        """LOCAL — жёсткий переключатель. True: ровно один из CREDENTIALS/CERTS
+        должен быть задан (иначе ошибка). False: ни один способ не используется
+        (как было до появления token-режима)."""
+        if not self.local:
+            return None
         has_token = bool(self.credentials)
         has_cert = bool(self.tls_cert_filepath or self.key_filepath)
         if has_token and has_cert:
             raise ValueError(
-                "GigaChat auth is ambiguous: both GIGACHAT_CREDENTIALS and "
-                "GIGACHAT_TLS_CERT_FILEPATH/GIGACHAT_KEY_FILEPATH are set. "
-                "Unset one of the two groups."
+                "GigaChat auth is ambiguous while LOCAL=True: both GIGACHAT_CREDENTIALS and "
+                "GIGACHAT_TLS_CERT_FILEPATH/GIGACHAT_KEY_FILEPATH are set. Set only one in .env."
             )
         if has_token:
             return GigaChatAuthMode.TOKEN
         if has_cert:
             return GigaChatAuthMode.CERTIFICATE
         raise ValueError(
-            "GigaChat auth is not configured: set either GIGACHAT_CREDENTIALS (token mode) "
-            "or GIGACHAT_TLS_CERT_FILEPATH + GIGACHAT_KEY_FILEPATH (certificate mode)."
+            "GigaChat auth is not configured: while LOCAL=True, set either GIGACHAT_CREDENTIALS "
+            "(token mode) or GIGACHAT_TLS_CERT_FILEPATH + GIGACHAT_KEY_FILEPATH (certificate mode)."
         )
 
     @model_validator(mode="after")
     def validate_auth_mode(self) -> "GigaChatSettings":
-        mode = self.auth_mode  # raises ValueError for "both set" / "neither set"
+        if not self.local:
+            return self
+        mode = self.auth_mode  # raises ValueError if ambiguous or unconfigured
         if mode is GigaChatAuthMode.CERTIFICATE:
             if not (self.tls_cert_filepath and self.key_filepath):
                 raise ValueError(
@@ -72,20 +78,24 @@ class GigaChatSettings(BaseAppSettings):
     def base_url(self) -> str:
         """Базовый API URL."""
         port_segment = f":{self.port}" if self.port else ""
-        return f"{self.protocol}://{self.host}{port_segment}/{self.endpoint}"
+        endpoint = self.endpoint.lstrip("/")  # pylint: disable=no-member
+        return f"{self.protocol}://{self.host}{port_segment}/{endpoint}"
+
+    def _build_ssl_context(self) -> ssl.SSLContext:
+        """Собирает SSLContext из cert/key/ca-bundle вместо передачи путей в SDK."""
+        context = ssl.create_default_context(cafile=self.ca_bundle_filepath or None)
+        context.load_cert_chain(certfile=self.tls_cert_filepath, keyfile=self.key_filepath)
+        if not self.verify_ssl_certs:
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+        return context
 
     @property
     def certs(self) -> dict:
-        """Сертификаты для подключения."""
+        """Сертификаты для подключения (готовый SSLContext, а не пути к файлам)."""
         if self.auth_mode is not GigaChatAuthMode.CERTIFICATE:
             return {}
-        _certs = {
-            "cert_file": self.tls_cert_filepath,
-            "key_file": self.key_filepath,
-        }
-        if self.ca_bundle_filepath:
-            _certs["ca_bundle_file"] = self.ca_bundle_filepath
-        return _certs
+        return {"ssl_context": self._build_ssl_context()}
 
     @property
     def base_params(self) -> dict:
@@ -98,10 +108,11 @@ class GigaChatSettings(BaseAppSettings):
             "max_retries": self.max_retries,
             "retry_backoff_factor": self.retry_backoff_factor,
         }
-        if self.auth_mode is GigaChatAuthMode.TOKEN:
+        mode = self.auth_mode
+        if mode is GigaChatAuthMode.TOKEN:
             params["credentials"] = self.credentials
             params["scope"] = self.scope
-        else:
+        elif mode is GigaChatAuthMode.CERTIFICATE:
             params.update(self.certs)
         return params
 
