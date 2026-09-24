@@ -1,6 +1,6 @@
 import logging
 import ssl
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import urlparse
 
 from httpx import Client, HTTPError
@@ -114,6 +114,20 @@ class LangfuseClient(BaseSyncInterface):
 
     ENDPOINT_HEALTH_CHECK = "/api/public/health"
 
+    # LANGFUSE_HOST/base_url may arrive with no scheme (bare host[:port], typical of a
+    # local self-hosted Langfuse with no TLS termination) or with one already ("https://...",
+    # a real deployment behind TLS/mTLS). An explicit scheme is always respected as given;
+    # DEFAULT_SCHEME only fills in for the bare-host case - see _parse_host_uri.
+    DEFAULT_SCHEME = "http"
+
+    # base_url's scheme, coming from LangfuseSettings.base_url, is dictated by the shared
+    # LOCAL flag (BaseAppSettings.protocol: "https" if LOCAL else "http") - a heuristic built
+    # for GigaChat/IDP's real corporate TLS requirement, not for whether *this particular*
+    # Langfuse actually terminates TLS. This class is a local-dev-only stand-in (prod uses the
+    # real client from the private package instead), so it resolves the mismatch itself: if
+    # the given scheme doesn't work, on_startup() retries once with the other one.
+    _ALT_SCHEME: ClassVar[dict[str, str]] = {"http": "https", "https": "http"}
+
     def __init__(
         self,
         logger: logging.Logger,
@@ -122,7 +136,7 @@ class LangfuseClient(BaseSyncInterface):
         base_url: str,
         debug: bool = False,
         tracing_enabled: bool = True,
-        ca_bundle: str = None,
+        ca_bundle: str | None = None,
         certs: tuple[str, str] | None = None,
         tls_verify: bool = True,
         **langfuse_kwargs: Any,
@@ -178,6 +192,7 @@ class LangfuseClient(BaseSyncInterface):
         if not tls_verify:
             from opentelemetry.sdk.trace import TracerProvider
             from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
+
             langfuse_config["tracer_provider"] = TracerProvider(
                 span_processor=SimpleSpanProcessor(ConsoleSpanExporter())
             )
@@ -194,9 +209,15 @@ class LangfuseClient(BaseSyncInterface):
             self._callback_handler = self._get_callback_handler()
         return self._callback_handler
 
-    @staticmethod
-    def _parse_host_uri(host: str) -> tuple[str, str]:
-        """Парсит URI хоста и возвращает базовый URL и путь API."""
+    @classmethod
+    def _parse_host_uri(cls, host: str) -> tuple[str, str]:
+        """Парсит URI хоста и возвращает базовый URL и путь API.
+
+        Если в `host` нет схемы, добавляет DEFAULT_SCHEME - `urlparse` иначе трактует
+        голый "host:port" неоднозначно (принимает "host" за схему).
+        """
+        if "://" not in host:
+            host = f"{cls.DEFAULT_SCHEME}://{host}"
         try:
             uri = urlparse(host)
             if not uri.hostname:
@@ -235,14 +256,58 @@ class LangfuseClient(BaseSyncInterface):
         self.logger.info("Langfuse client initialization")
         self._langfuse = Langfuse(**self._kwargs)
 
+    def _probe_health(self, base_url: str) -> bool:
+        """Лёгкая (без создания настоящего Langfuse-клиента) проверка health-эндпоинта
+        по конкретному base_url - используется только для выбора схемы, см. _resolve_scheme.
+        """
+        try:
+            with Client(verify=self._ssl_ctx, timeout=5, **self._httpx_kwargs) as probe:
+                response = probe.get(base_url + self._api_path + self.ENDPOINT_HEALTH_CHECK)
+                response.raise_for_status()
+                return response.json().get("status") == "OK"
+        except Exception:
+            return False
+
+    def _resolve_scheme(self) -> None:
+        """Если исходная схема (http/https) не отвечает на health-check, переключается на
+        другую - см. комментарий у _ALT_SCHEME.
+
+        Делается ДО создания настоящего Langfuse-клиента: у Langfuse ресурсы кэшируются по
+        public_key (см. langfuse.LangfuseResourceManager), поэтому повторный init_client() с
+        тем же public_key не подхватил бы новый httpx_client/base_url - только пересборка
+        конфига перед первым (и единственным) init_client() работает надёжно.
+        """
+        if self._probe_health(self._base_url):
+            return
+        scheme = urlparse(self._base_url).scheme
+        alt_scheme = self._ALT_SCHEME.get(scheme)
+        if alt_scheme is None:
+            return
+        alt_base_url = f"{alt_scheme}://{urlparse(self._base_url).netloc}"
+        if not self._probe_health(alt_base_url):
+            return
+        self.logger.warning(
+            f"Langfuse at '{self._base_url}' didn't answer over '{scheme}'; switching to '{alt_scheme}'."
+        )
+        self._httpx_client.close()
+        self._base_url = alt_base_url
+        self._langfuse_base_url = self._base_url + self._api_path
+        self._httpx_client = Client(base_url=self._base_url, verify=self._ssl_ctx, **self._httpx_kwargs)
+        self._kwargs["httpx_client"] = self._httpx_client
+        self._kwargs["base_url"] = self._langfuse_base_url
+
     def on_startup(self) -> None:
         """
         Запускает клиента LangFuse с инициализацией и проверкой доступности сервера LangFuse.
+
+        Перед этим определяет рабочую схему (http/https) - см. _resolve_scheme и комментарий
+        у _ALT_SCHEME.
 
         Raises:
             RuntimeError: Если произошла если Langfuse не доступен.
             HealthCheckError: Если база данных Pangolin недоступна.
         """
+        self._resolve_scheme()
         self.logger.info(f"LangFuse client '{self._langfuse_base_url}' creating")
         try:
             self.init_client()
@@ -279,7 +344,8 @@ class LangfuseClient(BaseSyncInterface):
             status = response.json().get("status")
             if status != "OK":
                 raise HealthCheckError(
-                    f"The health check request to the endpoint {self.ENDPOINT_HEALTH_CHECK} returned status '{status}'"
+                    http_url=self._langfuse_base_url,
+                    exc=f"health endpoint {self.ENDPOINT_HEALTH_CHECK} returned status '{status}'",
                 )
             self._langfuse.auth_check()
             self.logger.info(f"LangFuse client '{self._langfuse_base_url}' was successfully created")
