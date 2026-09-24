@@ -160,7 +160,6 @@ async def invoke_agent(
 ) -> StreamingResponse:
     _setup_request_headers(headers=headers)
     agent.logger = logger
-    thread_id = headers.get("x-session-id")
     user_id = headers.get("x-user-id")
     x_client_id = headers.get("x-client-id")
     session_id = headers.get("x-session-id") or str(uuid4())
