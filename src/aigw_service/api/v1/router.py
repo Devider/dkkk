@@ -4,6 +4,7 @@ from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 import aiofiles
 import gigachat.context as gc_ctx
@@ -162,7 +163,11 @@ async def invoke_agent(
     thread_id = headers.get("x-session-id")
     user_id = headers.get("x-user-id")
     x_client_id = headers.get("x-client-id")
-
+    session_id = headers.get("x-session-id") or str(uuid4())
+    # Composite key: MemorySaver partitions purely by thread_id, with no notion of user_id, so
+    # two different users sharing (or both lacking) a session id would otherwise see each
+    # other's conversation history once the checkpointer is attached.
+    thread_id = f"{user_id}:{session_id}"
 
     try:
         logger.info(
