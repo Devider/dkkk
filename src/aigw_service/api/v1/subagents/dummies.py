@@ -10,7 +10,6 @@ from typing import Any, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from aigw_service.api.v1.schemas.llm_outputs import (
-    ClassifierOutput,
     QueryAnalysisEMA,
     QueryAnalysisIFT,
 )
@@ -33,10 +32,6 @@ T = TypeVar("T", bound=BaseModel)
 # ===================================================================
 # Dummy factories
 # ===================================================================
-
-
-def dummy_classifier() -> ClassifierOutput:
-    return ClassifierOutput(next_agent="analyze_excel_model", filename="")
 
 
 def dummy_query_ift() -> "QueryAnalysisIFT":
@@ -140,9 +135,8 @@ def retry_structured_llm(
         schema.__name__,
     )
     dummy_fn = {
-        ClassifierOutput: dummy_classifier,
         QueryAnalysisIFT: dummy_query_ift,
         QueryAnalysisEMA: dummy_query_ema,
-    }.get(schema, lambda: (schema(), False))  # type: ignore[dict-item]
+    }.get(schema, schema)  # type: ignore[dict-item]
 
     return dummy_fn(), False, None  # type: ignore[return-value]

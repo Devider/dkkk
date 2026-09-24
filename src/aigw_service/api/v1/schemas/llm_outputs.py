@@ -5,8 +5,6 @@ Pydantic-модели для структурированного вывода L
 Эти же модели инлайн-импортируются в TypedDict-стейты через поля.
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
 
@@ -126,12 +124,3 @@ class QueryAnalysisEMA(BaseModel):
     #     default=None,
     #     description="Название файла excel, который нужно использовать для расчета в упомянутый в запросе пользователя",
     # )
-
-
-class ClassifierOutput(BaseModel):
-    """Output schema for the classifier agent."""
-
-    next_agent: Literal["analyze_model_inputs_for_target", "analyze_excel_model"] = Field(
-        description="Next agent to call"
-    )
-    filename: str = Field(default="", description="Filename which user mentioned to analyze")
