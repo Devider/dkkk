@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /usr/local /usr/local
 WORKDIR /app
 COPY src/ ./src/
-COPY docker-entrypoint.sh ./
+COPY scripts/docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh && mkdir -p /var/log/aigw
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
