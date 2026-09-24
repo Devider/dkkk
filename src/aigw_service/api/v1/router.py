@@ -23,10 +23,12 @@ from aigw_service.exceptions import StopEventError
 router = APIRouter()
 logger = APP_CTX.get_logger()
 
-def _setup_request_headers(headers: dict)-> None:
+
+def _setup_request_headers(headers: dict) -> None:
     """Сквозной проброс заголовка x-trace-id в GigaChat."""
     x_trace_id = headers.get("x-trace-id")
     gc_ctx.trace_id_cvar.set(x_trace_id)
+
 
 # =====================================================================================================================
 # ЗАГРУЗКА ФАЙЛА
@@ -72,7 +74,7 @@ async def upload_file(
         if file_extension not in excel_extentions:
             raise HTTPException(status_code=400, detail="Файл должен быть с расширением Excel")
 
-        filename = f"user_file_{str(headers['x-user-id'])}.{file_extension}"
+        filename = f"user_file_{headers['x-user-id']!s}.{file_extension}"
         file_location = save_dir / filename
 
         user_id = headers["x-user-id"]
@@ -93,7 +95,7 @@ async def upload_file(
         return FileLoaderResponse(content="Файл был успешно сохранен.", filename=str(filename), save_dir=str(save_dir))
     except Exception as e:
         # pylint: disable=no-member
-        logger.opt(exeption=True).error("Upload failed: {}", str(e))
+        logger.opt(exception=True).error("Upload failed: {}", str(e))
         return JSONResponse(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             content=FailedDependencyResponse(error_description=str(e)).model_dump(),
@@ -112,6 +114,7 @@ def get_agent():
         logger.error("Failed to create Agent instance: {}", e)
         raise
 
+
 @lru_cache(maxsize=1)
 def get_cb_handler():
     def get_or_create_cb_handler():
@@ -123,6 +126,7 @@ def get_cb_handler():
         return None
 
     return get_or_create_cb_handler
+
 
 @router.post(
     "/invoke-agent",
@@ -180,13 +184,13 @@ async def invoke_agent(
             "configurable": {
                 "thread_id": thread_id,
                 "user_id": user_id,
-            }, 
+            },
             "metadata": {
                 "lang_fuse_user_id": user_id,
                 "client_id": x_client_id,
                 "langfuse_session_id": thread_id,
                 "endpoint": "/invoke-agent",
-            }
+            },
         }
         if cb_handler is not None:
             config["callbacks"] = [cb_handler]
@@ -220,7 +224,7 @@ async def invoke_agent(
         return StreamingResponse(
             zip_buffer,
             media_type="application/zip",
-            headers={"Content-Disposition": f"attachment; filename=agent_response_{thread_id}.zip"},
+            headers={"Content-Disposition": f"attachment; filename=agent_response_{session_id}.zip"},
         )
 
     except StopEventError as e:
@@ -235,7 +239,7 @@ async def invoke_agent(
             content=FailedDependencyResponse(error_description=e.user_message).model_dump(),
         )
     except Exception as e:
-        logger.opt(exeption=True).error("Agent invocation failed: {}", str(e))
+        logger.opt(exception=True).error("Agent invocation failed: {}", str(e))
         return JSONResponse(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             content=FailedDependencyResponse(error_description=str(e)).model_dump(),

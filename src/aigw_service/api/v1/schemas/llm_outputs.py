@@ -44,7 +44,7 @@ class InputItem(BaseModel):
             "Запиши так как дано в СТАНДАРТНОМ СПИСКЕ, не переводи, не расшифровывай"
         ),
     )
-    equivalent_input_id: str = Field( 
+    equivalent_input_id: str = Field(
         description="Идентификатор эквивалента входного параметра из СТАНДАРТНОГО СПИСКА в формате INid"
     )
     range_config: RangeConfig | None = Field(
@@ -81,9 +81,7 @@ class QueryAnalysisIFT(BaseModel):
     mentioned_output_name: str = Field(
         description="Извлечённый выходной показатель, упомянутый пользователем, как есть"
     )
-    mentioned_inputs: list[InputItem] = Field(
-        description="Список ВСЕХ входных параметров, упомянутых пользователем"
-    )
+    mentioned_inputs: list[InputItem] = Field(description="Список ВСЕХ входных параметров, упомянутых пользователем")
     output_name: str = Field(
         description=(
             "Подобранный аналог для упомянутого выходного показателя из "
@@ -96,10 +94,6 @@ class QueryAnalysisIFT(BaseModel):
     output_year: int = Field(
         description="Год, упомянутый пользователем, на который должен быть рассчитан целевой показатель"
     )
-    # file_name: str = Field(
-    #     default=None,
-    #     description="Название файла excel, который нужно использовать для расчета в упомянутый в запросе пользователя",
-    # )
 
 
 class QueryAnalysisEMA(BaseModel):
@@ -117,10 +111,4 @@ class QueryAnalysisEMA(BaseModel):
     mentioned_inputs: list[InputItem] = Field(
         description="Список ВСЕХ входных параметров, упомянутых пользователем, как есть"
     )
-    year: int = Field(
-        description="Год, упомянутый пользователем, на который должен быть рассчитан целевые показатели"
-    )
-    # file_name: str = Field(
-    #     default=None,
-    #     description="Название файла excel, который нужно использовать для расчета в упомянутый в запросе пользователя",
-    # )
+    year: int = Field(description="Год, упомянутый пользователем, на который должен быть рассчитан целевые показатели")
