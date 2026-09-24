@@ -7,5 +7,6 @@ class HealthCheckError(Exception):
         exc (Exception):  Исключение, возникшее во время проверки.
     """
 
-    def __init__(self, http_url, exc) -> None:
-        super().__init__(f"Health check for {http_url} wasn't successful: {exc}")
+    def __init__(self, http_url, exc=None) -> None:
+        suffix = f": {exc}" if exc is not None else ""
+        super().__init__(f"Health check for {http_url} wasn't successful{suffix}")
