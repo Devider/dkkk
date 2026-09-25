@@ -159,6 +159,12 @@ class AgentGraph:
         data = build_diagnostic_data("orchestrator", elapsed, tokens, extra={"tool_calls": tool_call_names})
         logger.info(json.dumps(data, ensure_ascii=False))
 
+        if not response.tool_calls:
+            # Orchestrator's own free text is a decision explanation, not the answer —
+            # synthesizer produces the real final message from the actual conversation
+            # history. Persisting this here would create two competing AIMessages per turn.
+            logger.debug("Orchestrator draft (not persisted): {}", response.content)
+            return {}
         return {"messages": [response]}
 
     def route_after_orchestrator(self, state: AgentState) -> str:
@@ -233,12 +239,15 @@ class AgentGraph:
         calc_results_text = self._format_tool_results(tool_results)
 
         system_message_content = SYNTHESIZER_PROMPT.format(calc_results=calc_results_text)
+        prompt = [SystemMessage(content=system_message_content), *messages]
         # GigaChat returns a degenerate, unparseable completion when the prompt's last message
-        # is an AIMessage (e.g. the orchestrator's own final reply after deciding no more tools
-        # are needed) — a trailing human turn keeps the request well-formed. Not persisted to
-        # state: only the actual answer below is added to `messages`.
-        finalize_instruction = HumanMessage(content="Сформулируй финальный ответ на основе истории выше.")
-        prompt = [SystemMessage(content=system_message_content), *messages, finalize_instruction]
+        # isn't a human turn — e.g. an AIMessage with unresolved tool_calls if the orchestrator
+        # iteration cap was hit. Only append the filler when needed: if the history already ends
+        # on the user's own question (no tool call was made this turn), that's already a
+        # well-formed prompt and a second, near-identical human turn would just confuse the
+        # model. Not persisted to state: only the actual answer below is added to `messages`.
+        if not messages or not isinstance(messages[-1], HumanMessage):
+            prompt.append(HumanMessage(content="Сформулируй финальный ответ на основе истории выше."))
 
         start = time.time()
         response = self.llm.invoke(prompt)

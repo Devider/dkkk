@@ -113,6 +113,18 @@ class OrchestratorTools:
         if q is None or resolved is None:
             return self._error_result("analyze_model_inputs_for_target", "Не удалось распознать параметры запроса")
 
+        missing_parts = []
+        if q.target_value is None:
+            missing_parts.append("целевое значение показателя")
+        if not q.output_year:
+            missing_parts.append("год расчёта")
+        if missing_parts:
+            return self._missing_params_result(
+                "analyze_model_inputs_for_target",
+                missing_parts,
+                example="какой должна быть цена меди, чтобы EBITDA в 2025 году составила 1000 млн",
+            )
+
         input_names = [inp.equivalent_input_name for inp in resolved]
         logger.info(
             "IFT dispatch: input_names={}, output={}, year={}, query={}",
@@ -149,17 +161,17 @@ class OrchestratorTools:
             return self._error_result("analyze_excel_model", "Не удалось распознать параметры запроса")
 
         missing_ranges, ranges, steps = self._split_ranges(resolved)
+        missing_parts = []
+        if not q.year:
+            missing_parts.append("год расчёта")
         if missing_ranges:
-            calc_result = ExcelAnalysisToolResult(
-                status="INFO",
-                result=(
-                    f"Не указаны числовые диапазоны для параметров: {', '.join(missing_ranges)}. "
-                    f"Пожалуйста, уточните диапазоны (min, max, шаг) для этих параметров.\n\n"
-                    f"Пример: 'цена метанола от 450 до 500 с шагом 5'"
-                ),
-                content={},
+            missing_parts.append(f"числовые диапазоны (min, max, шаг) для параметров: {', '.join(missing_ranges)}")
+        if missing_parts:
+            return self._missing_params_result(
+                "analyze_excel_model",
+                missing_parts,
+                example="посчитай FCFF и DSCR за 2025 при изменении цены метанола от 450 до 500 с шагом 5",
             )
-            return self._to_tool_result("analyze_excel_model", calc_result)
 
         output_names = [out.equivalent_output_name for out in q.mentioned_outputs]
         years = [q.year] * len(output_names)
@@ -235,6 +247,23 @@ class OrchestratorTools:
             tool_name=tool_name,
             task_description=TOOL_TASK_DESCRIPTIONS[tool_name],
             status="ERROR",
+            result_text=message,
+            content={},
+        )
+
+    @staticmethod
+    def _missing_params_result(tool_name: str, missing_parts: list[str], example: str) -> ToolCallResult:
+        """WARNING-результат для расчёта, которому не хватает обязательных данных.
+
+        Никогда не подставляем значения по умолчанию (0, текущий год и т.п.) вместо
+        реально не указанных пользователем данных — лучше спросить, чем считать на
+        придуманных цифрах.
+        """
+        message = f"Не указаны данные, необходимые для расчёта: {'; '.join(missing_parts)}.\n\nПример: '{example}'"
+        return ToolCallResult(
+            tool_name=tool_name,
+            task_description=TOOL_TASK_DESCRIPTIONS[tool_name],
+            status="WARNING",
             result_text=message,
             content={},
         )

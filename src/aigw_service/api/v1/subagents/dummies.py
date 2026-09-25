@@ -35,13 +35,16 @@ T = TypeVar("T", bound=BaseModel)
 
 
 def dummy_query_ift() -> "QueryAnalysisIFT":
+    # target_value/output_year stay None (not a fake 0) so a parse failure routes through
+    # OrchestratorTools' missing-parameter check and asks the user to clarify, instead of
+    # silently running the calc engine on a fabricated year/target.
     return QueryAnalysisIFT(
         analysis="Dummy: LLM failed to parse required fields after 3 retries",
         mentioned_output_name="",
         mentioned_inputs=[],
         output_name="",
-        target_value=0.0,
-        output_year=0,
+        target_value=None,
+        output_year=None,
     )
 
 
@@ -50,7 +53,7 @@ def dummy_query_ema() -> "QueryAnalysisEMA":
         analysis="Dummy: LLM failed to parse required fields after 3 retries",
         mentioned_outputs=[],
         mentioned_inputs=[],
-        year=0,
+        year=None,
     )
 
 
