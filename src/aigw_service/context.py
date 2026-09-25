@@ -6,9 +6,9 @@ from gigachat.exceptions import AuthenticationError, ForbiddenError
 from httpx import RequestError
 from langchain_gigachat import GigaChatEmbeddings
 
-from aigw_modules.ai_agents.memory import AsyncAgentMemory
 from aigw_modules.base import BaseAsyncInterface
 from aigw_modules.hub_services.pangolin import AsyncPangolinClient
+from aigw_modules_custom.ai_agents.memory import AsyncAgentMemory
 from aigw_service.base import Singleton
 from aigw_service.config import APP_CONFIG, Secrets
 from aigw_service.config import get_store as _get_store
