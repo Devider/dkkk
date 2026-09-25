@@ -5,8 +5,6 @@ Pydantic-модели для структурированного вывода L
 Эти же модели инлайн-импортируются в TypedDict-стейты через поля.
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
 
@@ -46,7 +44,7 @@ class InputItem(BaseModel):
             "Запиши так как дано в СТАНДАРТНОМ СПИСКЕ, не переводи, не расшифровывай"
         ),
     )
-    equivalent_input_id: str = Field( 
+    equivalent_input_id: str = Field(
         description="Идентификатор эквивалента входного параметра из СТАНДАРТНОГО СПИСКА в формате INid"
     )
     range_config: RangeConfig | None = Field(
@@ -83,25 +81,27 @@ class QueryAnalysisIFT(BaseModel):
     mentioned_output_name: str = Field(
         description="Извлечённый выходной показатель, упомянутый пользователем, как есть"
     )
-    mentioned_inputs: list[InputItem] = Field(
-        description="Список ВСЕХ входных параметров, упомянутых пользователем"
-    )
+    mentioned_inputs: list[InputItem] = Field(description="Список ВСЕХ входных параметров, упомянутых пользователем")
     output_name: str = Field(
         description=(
             "Подобранный аналог для упомянутого выходного показателя из "
             "СТАНДАРТНЫЙ СПИСОК ВЫХОДНЫХ ПОКАЗАТЕЛЕЙ (OUTPUTS)"
         ),
     )
-    target_value: float = Field(
-        description="Целевое значение для выходного параметра (без единиц измерения и суффиксов)"
+    target_value: float | None = Field(
+        default=None,
+        description=(
+            "Целевое значение для выходного параметра (без единиц измерения и суффиксов). "
+            "Запиши только если пользователь явно указал число — не придумывай его."
+        ),
     )
-    output_year: int = Field(
-        description="Год, упомянутый пользователем, на который должен быть рассчитан целевой показатель"
+    output_year: int | None = Field(
+        default=None,
+        description=(
+            "Год, упомянутый пользователем, на который должен быть рассчитан целевой показатель. "
+            "Запиши только если пользователь явно указал год — не придумывай его."
+        ),
     )
-    # file_name: str = Field(
-    #     default=None,
-    #     description="Название файла excel, который нужно использовать для расчета в упомянутый в запросе пользователя",
-    # )
 
 
 class QueryAnalysisEMA(BaseModel):
@@ -119,19 +119,10 @@ class QueryAnalysisEMA(BaseModel):
     mentioned_inputs: list[InputItem] = Field(
         description="Список ВСЕХ входных параметров, упомянутых пользователем, как есть"
     )
-    year: int = Field(
-        description="Год, упомянутый пользователем, на который должен быть рассчитан целевые показатели"
+    year: int | None = Field(
+        default=None,
+        description=(
+            "Год, упомянутый пользователем, на который должен быть рассчитан целевые показатели. "
+            "Запиши только если пользователь явно указал год — не придумывай его."
+        ),
     )
-    # file_name: str = Field(
-    #     default=None,
-    #     description="Название файла excel, который нужно использовать для расчета в упомянутый в запросе пользователя",
-    # )
-
-
-class ClassifierOutput(BaseModel):
-    """Output schema for the classifier agent."""
-
-    next_agent: Literal["analyze_model_inputs_for_target", "analyze_excel_model"] = Field(
-        description="Next agent to call"
-    )
-    filename: str = Field(default="", description="Filename which user mentioned to analyze")

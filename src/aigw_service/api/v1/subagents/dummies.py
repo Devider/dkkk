@@ -10,7 +10,6 @@ from typing import Any, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from aigw_service.api.v1.schemas.llm_outputs import (
-    ClassifierOutput,
     QueryAnalysisEMA,
     QueryAnalysisIFT,
 )
@@ -35,18 +34,17 @@ T = TypeVar("T", bound=BaseModel)
 # ===================================================================
 
 
-def dummy_classifier() -> ClassifierOutput:
-    return ClassifierOutput(next_agent="analyze_excel_model", filename="")
-
-
 def dummy_query_ift() -> "QueryAnalysisIFT":
+    # target_value/output_year stay None (not a fake 0) so a parse failure routes through
+    # OrchestratorTools' missing-parameter check and asks the user to clarify, instead of
+    # silently running the calc engine on a fabricated year/target.
     return QueryAnalysisIFT(
         analysis="Dummy: LLM failed to parse required fields after 3 retries",
         mentioned_output_name="",
         mentioned_inputs=[],
         output_name="",
-        target_value=0.0,
-        output_year=0,
+        target_value=None,
+        output_year=None,
     )
 
 
@@ -55,7 +53,7 @@ def dummy_query_ema() -> "QueryAnalysisEMA":
         analysis="Dummy: LLM failed to parse required fields after 3 retries",
         mentioned_outputs=[],
         mentioned_inputs=[],
-        year=0,
+        year=None,
     )
 
 
@@ -140,9 +138,8 @@ def retry_structured_llm(
         schema.__name__,
     )
     dummy_fn = {
-        ClassifierOutput: dummy_classifier,
         QueryAnalysisIFT: dummy_query_ift,
         QueryAnalysisEMA: dummy_query_ema,
-    }.get(schema, lambda: (schema(), False))  # type: ignore[dict-item]
+    }.get(schema, schema)  # type: ignore[dict-item]
 
     return dummy_fn(), False, None  # type: ignore[return-value]

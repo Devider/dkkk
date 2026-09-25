@@ -11,6 +11,7 @@ services:
       - APP_PORT=8080
     volumes:
       - app_tmp:/tmp
+      - ./certs:/app/certs:ro
 
 volumes:
   app_tmp:

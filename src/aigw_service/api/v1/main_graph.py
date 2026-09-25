@@ -1,33 +1,33 @@
 """
-Мультиагентный граф: classifier -> (subagent_1 | subagent_2) -> reviewer.
+Мультиагентный граф: extract_excel_data -> orchestrator <-> tool_executor -> synthesizer.
 
-Структура:
-    START -> classifier -> (условно) subagent_1 -> reviewer -> END
-                            \\-> (условно) subagent_2 -> reviewer -> END
+Узел `orchestrator` — единственная точка принятия решения: с помощью нативного tool-calling LLM
+сам решает, нужен ли для ответа расчёт, и если да — какой инструмент (или оба) вызвать.
+Узел `tool_executor` выполняет вызванные инструменты (через `OrchestratorTools`, который оборачивает
+существующие IFT/EMA сабагенты и функции расчёта) и возвращает управление оркестратору — цикл
+повторяется, пока LLM не перестанет запрашивать инструменты. `synthesizer` формирует финальный
+ответ на основе истории диалога и результатов расчётов этого хода (если они были).
 
-Узел `classifier` маршрутизирует запрос ровно в ОДИН из сабагентов.
-Оба сабагента передают управление финальному узлу `reviewer`.
-Все исполнители узлов - заглушки (PLACEHOLDER) для последующей реализации.
+Граф скомпилирован с чекпоинтером (`APP_CTX.agent_memory.checkpointer`), поэтому история
+сообщений сохраняется между запросами в рамках одного `thread_id`.
 """
 
+import json
 import os
 import tempfile
+import time
 from collections.abc import Sequence
-from typing import Annotated, Literal, Optional, TypedDict
+from typing import Annotated, TypedDict
 
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.graph import END, START, StateGraph, add_messages
 
 from aigw_service.api.v1.prompts.ema_analizer import EMA_ANALIZER_PROMPT
 from aigw_service.api.v1.prompts.ift_analizer import IFT_ANALIZER_PROMPT
 from aigw_service.api.v1.prompts.lookup_more import LOOKUP_MORE_PROMPT
-from aigw_service.api.v1.prompts.reviewer import REVIEWER_PROMPT
-from aigw_service.api.v1.schemas.llm_outputs import (
-    InputItem,
-    LookupResult,
-    QueryAnalysisEMA,
-    QueryAnalysisIFT,
-)
+from aigw_service.api.v1.prompts.orchestrator import ORCHESTRATOR_PROMPT
+from aigw_service.api.v1.prompts.synthesizer import SYNTHESIZER_PROMPT
+from aigw_service.api.v1.schemas.llm_outputs import QueryAnalysisEMA, QueryAnalysisIFT
 from aigw_service.api.v1.states.agents import (
     ExcelModelAnalizerInput,
     ExcelModelAnalizerOutput,
@@ -37,18 +37,8 @@ from aigw_service.api.v1.states.agents import (
     InputsForTargetAnalizerState,
 )
 from aigw_service.api.v1.subagents.analyzer import AnalyzerSubAgent
-from aigw_service.api.v1.subagents.classifier import classify_user_query
-from aigw_service.api.v1.subagents.utils import _build_catalog_with_ids, build_diagnostic_data
-from aigw_service.api.v1.tools import (
-    ExcelAnalysisToolResult,
-    ModelInputAnalysisToolResult,
-)
-from aigw_service.api.v1.tools import (
-    analyze_excel_model as calculate_excel_model,
-)
-from aigw_service.api.v1.tools import (
-    analyze_model_inputs_for_target as calculate_model_inputs_for_target,
-)
+from aigw_service.api.v1.subagents.orchestrator_tools import OrchestratorTools, ToolCallResult
+from aigw_service.api.v1.subagents.utils import _build_catalog_with_ids, build_diagnostic_data, get_tokens
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
@@ -56,36 +46,28 @@ logger = APP_CTX.get_logger()
 
 class AgentInput(TypedDict):
     messages: Sequence[BaseMessage]
-    thread_id: Optional[str]
-    user_id: Optional[str]
-    available_inputs: Optional[dict[str, str]]
-    available_outputs: Optional[dict[str, str]]
+    thread_id: str | None
+    user_id: str | None
 
 
 class AgentState(TypedDict):
     """Состояние агента."""
 
     messages: Annotated[Sequence[BaseMessage], add_messages]
-    thread_id: Optional[str]
-    user_id: Optional[str]
-    # file_path: Optional[str]
-    classification_result: Literal["analyze_model_inputs_for_target", "analyze_excel_model"]
+    thread_id: str | None
+    user_id: str | None
     filename: str | None
     available_inputs: dict[str, str]
     available_outputs: dict[str, str]
-    ift_resolved_inputs: list[str]
-    ift_analyzer_results: QueryAnalysisIFT
-    ift_lookup_results: LookupResult
-    ift_calc_results: ModelInputAnalysisToolResult
-    ema_analizer_results: QueryAnalysisEMA
-    ema_lookup_results: LookupResult
-    ema_resolved_inputs: list[InputItem]
-    ema_calc_results: ExcelAnalysisToolResult
+    tool_call_count: int
+    executed_tool_fingerprints: list[str]
+    tool_results: list[ToolCallResult]
 
 
 class AgentGraph:
+    MAX_ORCHESTRATOR_ITERATIONS = 4
+
     def __init__(self):
-        self.graph = self._build_graph()
         self.llm = APP_CTX.llm
         self.ift_agent = AnalyzerSubAgent(
             state_schema=InputsForTargetAnalizerState,
@@ -96,7 +78,7 @@ class AgentGraph:
             analyze_prompt_template=IFT_ANALIZER_PROMPT,
             lookup_prompt_template=LOOKUP_MORE_PROMPT,
         )
-        self.excel_mdl_agnt = AnalyzerSubAgent(
+        self.ema_agent = AnalyzerSubAgent(
             state_schema=ExcelModelAnalizerState,
             input_schema=ExcelModelAnalizerInput,
             output_schema=ExcelModelAnalizerOutput,
@@ -105,227 +87,38 @@ class AgentGraph:
             analyze_prompt_template=EMA_ANALIZER_PROMPT,
             lookup_prompt_template=LOOKUP_MORE_PROMPT,
         )
+        self.orchestrator_tools = OrchestratorTools(self.ift_agent, self.ema_agent)
+        self.llm_with_tools = self.llm.bind_tools(self.orchestrator_tools.TOOLS)
+        self.graph = self._build_graph()
 
     def _build_graph(self):
         """Создаёт и компилирует граф."""
         workflow = StateGraph(state_schema=AgentState, input_schema=AgentInput)
 
-        workflow.add_node("classifier", self.classifier)
         workflow.add_node("extract_excel_data", self.get_available_inputs_outputs)
-        workflow.add_node("analyze_model_inputs_for_target", self.analyze_model_inputs_for_target)
-        workflow.add_node("analyze_excel_model", self.analyze_excel_model)
-        workflow.add_node("reviewer", self.reviewer)
-        workflow.add_edge(START, "classifier")
-        workflow.add_edge("classifier", "extract_excel_data")
+        workflow.add_node("orchestrator", self.orchestrator)
+        workflow.add_node("tool_executor", self.tool_executor)
+        workflow.add_node("synthesizer", self.synthesizer)
+
+        workflow.add_edge(START, "extract_excel_data")
+        workflow.add_edge("extract_excel_data", "orchestrator")
         workflow.add_conditional_edges(
-            "extract_excel_data",
-            self.route,
-            {
-                "analyze_model_inputs_for_target": "analyze_model_inputs_for_target",
-                "analyze_excel_model": "analyze_excel_model",
-            },
+            "orchestrator",
+            self.route_after_orchestrator,
+            {"tool_executor": "tool_executor", "synthesizer": "synthesizer"},
         )
-        workflow.add_edge("analyze_excel_model", "reviewer")
-        workflow.add_edge("analyze_model_inputs_for_target", "reviewer")
-        workflow.add_edge("reviewer", END)
+        workflow.add_edge("tool_executor", "orchestrator")
+        workflow.add_edge("synthesizer", END)
 
-        return workflow.compile()
-
-    def classifier(self, state: AgentState) -> AgentState:
-        """Классифицирует запрос и определяет, какой сабагент его обработает"""
-        from time import time as _time
-
-        messages = state.get("messages", [])
-        try:
-            start_cls = _time()
-            user_intent = classify_user_query(self.llm, messages=messages)
-            if user_intent is None:
-                raise ValueError("Classifier returned None response from LLM")
-            next_agent = user_intent.next_agent if hasattr(user_intent, "next_agent") else str(user_intent)
-            if next_agent not in ("analyze_model_inputs_for_target", "analyze_excel_model"):
-                raise ValueError(f"Classifier returned invalid agent: {next_agent}")
-            logger.info("Classifier completed: agent={}, elapsed={:.2f}s", user_intent, _time() - start_cls)
-            file_name = user_intent.filename
-            if file_name is None:
-                logger.warning("User didn't mention any file!")
-            return {"classification_result": next_agent, "filename": file_name}
-        except Exception as e:
-            logger.opt(exception=True).error("Classifier failed: {}", str(e))
-            raise
-
-    def analyze_model_inputs_for_target(self, state: AgentState) -> AgentState:
-        messages = state.get("messages", [])
-        available_inputs = state.get("available_inputs")
-        available_outputs = state.get("available_outputs")
-        file_name = state.get("filename")
-        user_id = state.get("user_id")
-        if (available_inputs is None) or (available_outputs is None):
-            raise ValueError("Check 'available_inputs' and 'available_outputs'. They are empty")
-
-        # 1. Resolve names (subagent без calculate)
-        response = self.ift_agent.invoke(messages, available_inputs, available_outputs, user_id)
-        q = response.get("q_analysis")
-        resolved = response.get("resolved_inputs")  # list[InputItem] из mixin
-
-        if q is None or resolved is None:
-            raise ValueError("'q_analysis' or 'resolved_inputs' is None")
-
-        # 2. MAIN GRAPH: calculate (IFT)
-        # IFT нужен list[str], извлекаем имена из InputItem
-        input_names = [inp.equivalent_input_name for inp in resolved]
-
-        logger.info(
-            "IFT analysis started: input_names={}, output={}, year={}", input_names, q.output_name, q.output_year
-        )
-
-        logger.debug(f"IFT file_name: {file_name}")
-
-        calc_result = calculate_model_inputs_for_target(
-            file_name=file_name,
-            output_name=q.output_name,
-            output_year=q.output_year,
-            target_value=q.target_value,
-            input_names=input_names,
-            tolerance=0.1,
-            max_scenarios=1000,
-            user_id=user_id,
-        )
-
-        return {
-            "ift_calc_results": calc_result,
-            "ift_resolved_inputs": input_names,
-            "ift_analyzer_results": q,
-            "ift_lookup_results": response.get("lookup_results"),
-        }
-
-    def analyze_excel_model(self, state: AgentState) -> AgentState:
-        messages = state.get("messages", [])
-        available_inputs = state.get("available_inputs")
-        available_outputs = state.get("available_outputs")
-        file_name = state.get("filename")
-        user_id = state.get("user_id")
-        if (available_inputs is None) or (available_outputs is None):
-            raise ValueError("Check 'available_inputs' and 'available_outputs'. They are empty")
-
-        # 1. Resolve names (subagent без calculate)
-        response = self.excel_mdl_agnt.invoke(messages, available_inputs, available_outputs, user_id)
-        q = response.get("q_analysis")
-        resolved = response.get("resolved_inputs")  # list[InputItem]
-
-        if q is None or resolved is None:
-            raise ValueError("'q_analysis' or 'resolved_inputs' is None")
-
-        # 2. MAIN GRAPH: calculate (EMA)
-        missing_ranges = []
-        ranges: list[list[float]] = []
-        steps: list[float] = []
-        for inp in resolved:
-            rc = inp.range_config
-            if rc and rc.start_value is not None and rc.end_value is not None:
-                ranges.append([rc.start_value, rc.end_value])
-                steps.append(rc.step if rc.step else 0.5)
-            else:
-                missing_ranges.append(inp.equivalent_input_name)
-
-        if missing_ranges:
-            return {
-                "ema_calc_results": ExcelAnalysisToolResult(
-                    status="INFO",
-                    result=(
-                        f"Не указаны числовые диапазоны для параметров: "
-                        f"{', '.join(missing_ranges)}. "
-                        f"Пожалуйста, уточните диапазоны (min, max, шаг) для этих параметров.\n\n"
-                        f"Пример: 'цена метанола от 450 до 500 с шагом 5'"
-                    ),
-                    content={},
-                ),
-                "ema_resolved_inputs": resolved,
-                "ema_analizer_results": q,
-                "ema_lookup_results": response.get("lookup_results"),
-            }
-
-        output_names = [out.equivalent_output_name for out in q.mentioned_outputs]
-        years = [q.year] * len(output_names)
-        input_names = [inp.equivalent_input_name for inp in resolved]
-
-        logger.info(
-            "EMA analysis started: inputs={}, ranges={}, steps={}, outputs={}, year={}",
-            input_names,
-            ranges,
-            steps,
-            output_names,
-            q.year,
-        )
-
-        logger.debug(f"EMA file_name: {file_name}")
-
-        calc_res = calculate_excel_model(
-            file_name=file_name,
-            input_names=input_names,
-            output_names=output_names,
-            output_years=years,
-            ranges=ranges,
-            steps=steps,
-            user_id=user_id,
-        )
-
-        return {
-            "ema_calc_results": calc_res,
-            "ema_resolved_inputs": resolved,
-            "ema_analizer_results": q,
-            "ema_lookup_results": response.get("lookup_results"),
-        }
-
-    def reviewer(self, state: AgentState) -> AgentState:
-        """
-        Отвечает на вопрос пользовалея, на основании полученных расчетов
-        """
-        import json
-        from time import time as _time
-
-        from aigw_service.api.v1.subagents.utils import get_tokens
-
-        messages = state.get("messages", [])
-        cls_res = state.get("classification_result")
-        if cls_res == "analyze_model_inputs_for_target":
-            calc_results = state.get("ift_calc_results")
-            task = "Подобрать комбинацию входных параметров для целевого выхода для заданного года"
-        elif cls_res == "analyze_excel_model":
-            calc_results = state.get("ema_calc_results")
-            task = "Просчитать несколько сценариев для выбранных целевых покащателей по набору входных параметров в заданных промежутках"
-        system_message_content = REVIEWER_PROMPT.format(task=task, calc_results=calc_results)
-        prompt = [SystemMessage(content=system_message_content), *messages]
-        start = _time()
-        response = self.llm.invoke(prompt)
-        elapsed = _time() - start
-
-        tokens = get_tokens(response)
-        data = build_diagnostic_data("reviewer", elapsed, tokens)
-        logger.info(json.dumps(data, ensure_ascii=False))
-        logger.info(
-            "Review completed: classification={}, elapsed={:.2f}s, tokens={}",
-            cls_res,
-            elapsed,
-            tokens,
-        )
-        return {"messages": response}
-
-    def route(self, state: AgentState) -> str:
-        classification = state.get("classification_result")
-        logger.info(f"classification_result = {classification}")
-        if classification is None:
-            raise ValueError(
-                f"classification_result is None - classifier did not provide a valid result. State: {dict(state)}"
-            )
-        if classification not in ("analyze_model_inputs_for_target", "analyze_excel_model"):
-            raise ValueError(
-                f"route() got invalid classification: '{classification}'. "
-                f"Expected one of: 'analyze_model_inputs_for_target', 'analyze_excel_model'"
-            )
-        return classification
+        return workflow.compile(checkpointer=APP_CTX.agent_memory.checkpointer)
 
     async def get_available_inputs_outputs(self, state: AgentState) -> AgentState:
-        # # Иначе берём имя файла из memory store (куда его положил upload-эндпоинт)
+        """Загружает имя файла из memory store и строит каталог входов/выходов.
+
+        Выполняется в начале каждого хода — также сбрасывает счётчики цикла оркестратора,
+        которые иначе остались бы от предыдущего хода этой же сессии (чекпоинтер хранит их
+        между вызовами `ainvoke`, а не только `messages`).
+        """
         store = APP_CTX.agent_memory.store
         user_id = state.get("user_id")
         if not user_id:
@@ -339,8 +132,140 @@ class AgentGraph:
                 f"Файл не найден в store для user_id={user_id}. "
                 "Убедитесь, что файл был загружен через /upload перед вызовом агента."
             )
-        TEMP_DIR = tempfile.gettempdir()
-        file_path = os.path.abspath(os.path.join(TEMP_DIR, file_name))
-        logger.info(f"Reading excel from {file_path}")
+        temp_dir = tempfile.gettempdir()
+        file_path = os.path.abspath(os.path.join(temp_dir, file_name))
+        logger.info("Reading excel from {}", file_path)
         inputs_catalog, outputs_catalog = _build_catalog_with_ids(file_path)
-        return {"available_inputs": inputs_catalog, "available_outputs": outputs_catalog, "filename": file_name}
+        return {
+            "available_inputs": inputs_catalog,
+            "available_outputs": outputs_catalog,
+            "filename": file_name,
+            "tool_call_count": 0,
+            "executed_tool_fingerprints": [],
+            "tool_results": [],
+        }
+
+    def orchestrator(self, state: AgentState) -> AgentState:
+        """LLM с нативным tool-calling решает, вызывать ли инструмент(ы) или ответить сразу."""
+        messages = state.get("messages", [])
+        prompt = [SystemMessage(content=ORCHESTRATOR_PROMPT), *messages]
+
+        start = time.time()
+        response = self.llm_with_tools.invoke(prompt)
+        elapsed = time.time() - start
+
+        tokens = get_tokens(response)
+        tool_call_names = [call["name"] for call in (response.tool_calls or [])]
+        data = build_diagnostic_data("orchestrator", elapsed, tokens, extra={"tool_calls": tool_call_names})
+        logger.info(json.dumps(data, ensure_ascii=False))
+
+        if not response.tool_calls:
+            # Orchestrator's own free text is a decision explanation, not the answer —
+            # synthesizer produces the real final message from the actual conversation
+            # history. Persisting this here would create two competing AIMessages per turn.
+            logger.debug("Orchestrator draft (not persisted): {}", response.content)
+            return {}
+        return {"messages": [response]}
+
+    def route_after_orchestrator(self, state: AgentState) -> str:
+        last_message = state["messages"][-1]
+        tool_calls = getattr(last_message, "tool_calls", None)
+        if not tool_calls:
+            return "synthesizer"
+        if state.get("tool_call_count", 0) >= self.MAX_ORCHESTRATOR_ITERATIONS:
+            logger.warning(
+                "Orchestrator iteration cap ({}) reached, forcing synthesizer",
+                self.MAX_ORCHESTRATOR_ITERATIONS,
+            )
+            return "synthesizer"
+        return "tool_executor"
+
+    def tool_executor(self, state: AgentState) -> AgentState:
+        """Выполняет все tool_calls последнего сообщения оркестратора и возвращает ToolMessage'и."""
+        last_message = state["messages"][-1]
+        tool_calls = last_message.tool_calls or []
+
+        fingerprints = set(state.get("executed_tool_fingerprints", []))
+        tool_results = list(state.get("tool_results", []))
+        tool_messages = [self._execute_single_call(call, state, fingerprints, tool_results) for call in tool_calls]
+
+        return {
+            "messages": tool_messages,
+            "tool_results": tool_results,
+            "executed_tool_fingerprints": list(fingerprints),
+            "tool_call_count": state.get("tool_call_count", 0) + 1,
+        }
+
+    def _execute_single_call(
+        self,
+        call: dict,
+        state: AgentState,
+        fingerprints: set[str],
+        tool_results: list[ToolCallResult],
+    ) -> ToolMessage:
+        """Выполняет один tool_call, либо пропускает его, если это точный дубликат в рамках хода."""
+        fingerprint = self._fingerprint_call(call)
+        if fingerprint in fingerprints:
+            logger.info("Skipping duplicate tool call: {}", fingerprint)
+            return ToolMessage(
+                content="Этот вызов с такими же параметрами уже был выполнен в рамках этого ответа.",
+                tool_call_id=call["id"],
+                name=call["name"],
+            )
+
+        fingerprints.add(fingerprint)
+        args = call.get("args", {})
+        logger.info("TOOL ARGS: {} | {}", call["name"], args)
+
+        result = self.orchestrator_tools.dispatch(
+            tool_name=call["name"],
+            reformulated_query=args.get("reformulated_query", ""),
+            available_inputs=state.get("available_inputs") or {},
+            available_outputs=state.get("available_outputs") or {},
+            filename=state.get("filename"),
+            user_id=state.get("user_id"),
+        )
+        tool_results.append(result)
+        return ToolMessage(content=result["result_text"], tool_call_id=call["id"], name=call["name"])
+
+    @staticmethod
+    def _fingerprint_call(call: dict) -> str:
+        return f"{call['name']}:{json.dumps(call.get('args', {}), sort_keys=True, ensure_ascii=False)}"
+
+    def synthesizer(self, state: AgentState) -> AgentState:
+        """Формирует финальный ответ на основе истории диалога и результатов расчётов этого хода."""
+        messages = state.get("messages", [])
+        tool_results = state.get("tool_results", [])
+        calc_results_text = self._format_tool_results(tool_results)
+
+        system_message_content = SYNTHESIZER_PROMPT.format(calc_results=calc_results_text)
+        prompt = [SystemMessage(content=system_message_content), *messages]
+        # GigaChat returns a degenerate, unparseable completion when the prompt's last message
+        # isn't a human turn — e.g. an AIMessage with unresolved tool_calls if the orchestrator
+        # iteration cap was hit. Only append the filler when needed: if the history already ends
+        # on the user's own question (no tool call was made this turn), that's already a
+        # well-formed prompt and a second, near-identical human turn would just confuse the
+        # model. Not persisted to state: only the actual answer below is added to `messages`.
+        if not messages or not isinstance(messages[-1], HumanMessage):
+            prompt.append(HumanMessage(content="Сформулируй финальный ответ на основе истории выше."))
+
+        start = time.time()
+        response = self.llm.invoke(prompt)
+        elapsed = time.time() - start
+
+        tokens = get_tokens(response)
+        data = build_diagnostic_data("synthesizer", elapsed, tokens)
+        logger.info(json.dumps(data, ensure_ascii=False))
+
+        return {"messages": response}
+
+    @staticmethod
+    def _format_tool_results(tool_results: list[ToolCallResult]) -> str:
+        if not tool_results:
+            return "Расчёты не выполнялись в рамках этого ответа - отвечай на основе истории диалога."
+
+        blocks = [
+            f"ЗАДАЧА: {r['task_description']}\nСТАТУС: {r['status']}\nРЕЗУЛЬТАТ: {r['result_text']}"
+            for r in tool_results
+        ]
+        return "\n\n---\n\n".join(blocks)
