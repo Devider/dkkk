@@ -6,7 +6,10 @@ Wraps the existing IFT/EMA subagent flows (`AnalyzerSubAgent` + the calculation 
 the full chat history, only that one self-contained request.
 """
 
+import asyncio
+import concurrent.futures
 import json
+import multiprocessing
 from typing import Any, ClassVar, TypedDict
 
 from langchain_core.messages import HumanMessage
@@ -16,8 +19,6 @@ from pydantic import BaseModel, Field
 from aigw_service.api.v1.schemas.llm_outputs import InputItem
 from aigw_service.api.v1.subagents.analyzer import AnalyzerSubAgent
 from aigw_service.api.v1.tools import ExcelAnalysisToolResult, ModelInputAnalysisToolResult
-from aigw_service.api.v1.tools import analyze_excel_model as calculate_excel_model
-from aigw_service.api.v1.tools import analyze_model_inputs_for_target as calculate_model_inputs_for_target
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
@@ -31,6 +32,43 @@ TOOL_TASK_DESCRIPTIONS: dict[str, str] = {
         "входных параметров в заданных промежутках"
     ),
 }
+
+
+def _safe_content(content: dict[str, Any]) -> dict[str, Any]:
+    """Убрать из content значения, не сериализуемые через канал процессов.
+
+    ``analyze_excel_model`` кладёт в content сырой ``pandas.DataFrame`` (``result_df``),
+    который нельзя безопасно вернуть из отдельного процесса и который не нужен
+    потребителю — данные уже отданы в ``result``. Оставляем только то, что можно
+    ``json.dumps``.
+    """
+    safe: dict[str, Any] = {}
+    for key, value in content.items():
+        try:
+            json.dumps(value)
+        except TypeError:
+            continue
+        safe[key] = value
+    return safe
+
+
+def _run_lo_calc(func_name: str, kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Точка входа в отдельном процессе: выполняет LO-расчёт с собственным GIL.
+
+    Вызывается из ``ProcessPoolExecutor`` из ``OrchestratorTools``. Логируем/возвращаем
+    только сериализуемое (без ``DataFrame``). Кэш расчётов (``_ANALYSIS_CACHE`` в
+    ``tools.py``) живёт внутри worker-процесса и переиспользуется между вызовами
+    пула, поэтому повторные запросы не теряют преимуществ кэша.
+    """
+    from aigw_service.api.v1 import tools as _tools
+
+    func = getattr(_tools, func_name)
+    result = func(**kwargs)
+    return {
+        "status": result.status,
+        "result": result.result,
+        "content": _safe_content(result.content),
+    }
 
 
 class ToolCallResult(TypedDict):
@@ -82,8 +120,15 @@ class OrchestratorTools:
     def __init__(self, ift_agent: AnalyzerSubAgent, ema_agent: AnalyzerSubAgent):
         self.ift_agent = ift_agent
         self.ema_agent = ema_agent
+        # LO-расчёты выполняем в отдельном процессе (свой GIL), чтобы интенсивный
+        # Python-код (сценарии, scipy, openpyxl) не блокировал event loop и /health.
+        # spawn вместо fork: fork из worker-потока LangGraph опасен (дедлоки).
+        self._lo_pool = concurrent.futures.ProcessPoolExecutor(
+            max_workers=1,
+            mp_context=multiprocessing.get_context("spawn"),
+        )
 
-    def dispatch(
+    async def dispatch(
         self,
         tool_name: str,
         reformulated_query: str,
@@ -93,12 +138,12 @@ class OrchestratorTools:
         user_id: str | None,
     ) -> ToolCallResult:
         if tool_name == "analyze_model_inputs_for_target":
-            return self._run_ift(reformulated_query, available_inputs, available_outputs, filename, user_id)
+            return await self._run_ift(reformulated_query, available_inputs, available_outputs, filename, user_id)
         if tool_name == "analyze_excel_model":
-            return self._run_ema(reformulated_query, available_inputs, available_outputs, filename, user_id)
+            return await self._run_ema(reformulated_query, available_inputs, available_outputs, filename, user_id)
         raise ValueError(f"Unknown orchestrator tool: {tool_name}")
 
-    def _run_ift(
+    async def _run_ift(
         self,
         reformulated_query: str,
         available_inputs: dict[str, str],
@@ -107,7 +152,7 @@ class OrchestratorTools:
         user_id: str | None,
     ) -> ToolCallResult:
         messages = [HumanMessage(content=reformulated_query)]
-        response = self.ift_agent.invoke(messages, available_inputs, available_outputs, user_id)
+        response = await self.ift_agent.ainvoke(messages, available_inputs, available_outputs, user_id)
         q = response.get("q_analysis")
         resolved = response.get("resolved_inputs")
         if q is None or resolved is None:
@@ -133,19 +178,26 @@ class OrchestratorTools:
             q.output_year,
             reformulated_query,
         )
-        calc_result = calculate_model_inputs_for_target(
-            file_name=filename,
-            output_name=q.output_name,
-            output_year=q.output_year,
-            target_value=q.target_value,
-            input_names=input_names,
-            tolerance=0.1,
-            max_scenarios=1000,
-            user_id=user_id,
+        kwargs = {
+            "file_name": filename,
+            "output_name": q.output_name,
+            "output_year": q.output_year,
+            "target_value": q.target_value,
+            "input_names": input_names,
+            "tolerance": 0.1,
+            "max_scenarios": 1000,
+            "user_id": user_id,
+        }
+        # LO-расчёт выполняется в отдельном процессе (spawn, свой GIL), поэтому не
+        # блокирует event loop даже при интенсивном Python-коде. .result() блокирует
+        # только текущую (async) корутину, а не loop.
+        calc = await asyncio.to_thread(
+            self._lo_pool.submit(_run_lo_calc, "analyze_model_inputs_for_target", kwargs).result
         )
+        calc_result = ModelInputAnalysisToolResult(**calc)
         return self._to_tool_result("analyze_model_inputs_for_target", calc_result)
 
-    def _run_ema(
+    async def _run_ema(
         self,
         reformulated_query: str,
         available_inputs: dict[str, str],
@@ -154,7 +206,7 @@ class OrchestratorTools:
         user_id: str | None,
     ) -> ToolCallResult:
         messages = [HumanMessage(content=reformulated_query)]
-        response = self.ema_agent.invoke(messages, available_inputs, available_outputs, user_id)
+        response = await self.ema_agent.ainvoke(messages, available_inputs, available_outputs, user_id)
         q = response.get("q_analysis")
         resolved = response.get("resolved_inputs")
         if q is None or resolved is None:
@@ -186,15 +238,17 @@ class OrchestratorTools:
             q.year,
             reformulated_query,
         )
-        calc_result = calculate_excel_model(
-            file_name=filename,
-            input_names=input_names,
-            output_names=output_names,
-            output_years=years,
-            ranges=ranges,
-            steps=steps,
-            user_id=user_id,
-        )
+        kwargs = {
+            "file_name": filename,
+            "input_names": input_names,
+            "output_names": output_names,
+            "output_years": years,
+            "ranges": ranges,
+            "steps": steps,
+            "user_id": user_id,
+        }
+        calc = await asyncio.to_thread(self._lo_pool.submit(_run_lo_calc, "analyze_excel_model", kwargs).result)
+        calc_result = ExcelAnalysisToolResult(**calc)
         return self._to_tool_result("analyze_excel_model", calc_result)
 
     @staticmethod
@@ -220,26 +274,8 @@ class OrchestratorTools:
             task_description=TOOL_TASK_DESCRIPTIONS[tool_name],
             status=calc_result.status,
             result_text=calc_result.result,
-            content=OrchestratorTools._json_safe_content(calc_result.content),
+            content=_safe_content(calc_result.content),
         )
-
-    @staticmethod
-    def _json_safe_content(content: dict[str, Any]) -> dict[str, Any]:
-        """Drop values tools.py's ``content`` dict may carry that the checkpointer can't persist.
-
-        `analyze_excel_model` embeds a raw ``pandas.DataFrame`` alongside plain file-path strings —
-        harmless before a checkpointer existed, but MemorySaver needs every state value
-        serializable. The DataFrame's data already lives on disk via the sibling file-path
-        entries, so dropping it here loses nothing.
-        """
-        safe: dict[str, Any] = {}
-        for key, value in content.items():
-            try:
-                json.dumps(value)
-            except TypeError:
-                continue
-            safe[key] = value
-        return safe
 
     @staticmethod
     def _error_result(tool_name: str, message: str) -> ToolCallResult:

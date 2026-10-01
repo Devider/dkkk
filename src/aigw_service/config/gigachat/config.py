@@ -29,7 +29,7 @@ class GigaChatSettings(BaseAppSettings):
     ca_bundle_filepath: Optional[str] = Field(validation_alias="GIGACHAT_CA_BUNDLE_FILEPATH", default=None)
     credentials: Optional[str] = Field(None, validation_alias="GIGACHAT_CREDENTIALS")
     scope: str = Field(default="GIGACHAT_API_PERS", validation_alias="GIGACHAT_SCOPE")
-    verify_ssl_certs: bool = Field(default=False, validation_alias="GIGACHAT_VERIFY_SSL_CERTS")
+    verify_ssl_certs: bool = Field(default=True, validation_alias="GIGACHAT_VERIFY_SSL_CERTS")
     max_retries: int = Field(default=5, validation_alias="GIGACHAT_MAX_RETRIES")
     retry_backoff_factor: float = Field(default=0.5, validation_alias="GIGACHAT_RETRY_BACKOFF_FACTOR")
     temperature: ClassVar[float] = 0.000001

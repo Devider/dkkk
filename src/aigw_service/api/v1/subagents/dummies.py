@@ -143,3 +143,58 @@ def retry_structured_llm(
     }.get(schema, schema)  # type: ignore[dict-item]
 
     return dummy_fn(), False, None  # type: ignore[return-value]
+
+
+async def aretry_structured_llm(
+    llm,
+    schema: type[T],
+    prompt: list,
+    max_retries: int = 3,
+) -> tuple[T, bool, Any]:
+    """Async-версия ``retry_structured_llm`` (``ainvoke`` вместо ``invoke``).
+
+    Параллельна sync-реализации, но использует ``.ainvoke`` — async HTTP,
+    который не блокирует event loop (и /health). Промпт может быть большим
+    (16k токенов), поэтому sync ``invoke`` в worker-потоке всё равно держит
+    GIL на время тяжёлой обработки ответа.
+    """
+    from time import time as _time
+
+    structured_llm = llm.with_structured_output(schema, include_raw=True)
+
+    for attempt in range(1, max_retries + 1):
+        start = _time()
+        raw_response = await structured_llm.ainvoke(prompt)
+        elapsed = _time() - start
+        _get_logger().info(raw_response)
+        _get_logger().info(
+            "LLM structured call (attempt {}, {}, {:.2f}s)",
+            attempt,
+            max_retries,
+            elapsed,
+        )
+
+        parsed = raw_response["parsed"]
+
+        try:
+            validated = validate_structured_output(parsed, schema)
+            return validated, True, raw_response
+        except ValidationError:
+            _get_logger().warning(
+                "Validation attempt {}, {} failed",
+                attempt,
+                max_retries,
+            )
+
+    # All retries exhausted — fall back to dummy
+    _get_logger().warning(
+        "Max retries ({}) reached for schema {}, using dummy",
+        max_retries,
+        schema.__name__,
+    )
+    dummy_fn = {
+        QueryAnalysisIFT: dummy_query_ift,
+        QueryAnalysisEMA: dummy_query_ema,
+    }.get(schema, schema)  # type: ignore[dict-item]
+
+    return dummy_fn(), False, None  # type: ignore[return-value]

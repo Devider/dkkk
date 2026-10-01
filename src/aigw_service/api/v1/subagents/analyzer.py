@@ -68,14 +68,14 @@ class AnalyzerSubAgent:
 
         return workflow.compile()
 
-    def invoke(
+    async def ainvoke(
         self,
         messages: Sequence[BaseMessage] | list[BaseMessage],
         available_inputs: dict[str, str],
         available_outputs: dict[str, str],
         user_id: Optional[str] = None,
     ):
-        return self.graph.invoke(
+        return await self.graph.ainvoke(
             {
                 "messages": messages,
                 "available_inputs": available_inputs,
@@ -88,7 +88,7 @@ class AnalyzerSubAgent:
     # Node-методы (вызываются LangGraph)
     # ================================================================
 
-    def anlyze_query(self, state: dict) -> dict:
+    async def anlyze_query(self, state: dict) -> dict:
         """LLM анализирует запрос -> q_analysis.
 
         Использует retry-обёртку: при валидации LLM-ответа — до 3
@@ -97,7 +97,7 @@ class AnalyzerSubAgent:
         import json
         from time import time as _time
 
-        from aigw_service.api.v1.subagents.dummies import retry_structured_llm
+        from aigw_service.api.v1.subagents.dummies import aretry_structured_llm
         from aigw_service.api.v1.subagents.utils import get_tokens
 
         messages = state.get("messages", [])
@@ -108,7 +108,7 @@ class AnalyzerSubAgent:
         prompt = [SystemMessage(content=system_message), *messages]
 
         start = _time()
-        parsed, success, raw_response = retry_structured_llm(
+        parsed, success, raw_response = await aretry_structured_llm(
             self.llm,
             self.LLM_OUTPUT_SCHEMA,
             prompt,
@@ -141,7 +141,7 @@ class AnalyzerSubAgent:
         logger.info(f"Agent: {self.name}. All required names were detected")
         return "sufficient"
 
-    def lookup_more(self, state: dict) -> dict:
+    async def lookup_more(self, state: dict) -> dict:
         """Доп. LLM-вызов для неоднозначных имён.
 
         Использует retry-обёртку для валидации structured output.
@@ -149,7 +149,7 @@ class AnalyzerSubAgent:
         import json
         from time import time as _time
 
-        from aigw_service.api.v1.subagents.dummies import retry_structured_llm
+        from aigw_service.api.v1.subagents.dummies import aretry_structured_llm
         from aigw_service.api.v1.subagents.utils import get_tokens
 
         q_analysis = state.get("q_analysis")
@@ -171,7 +171,7 @@ class AnalyzerSubAgent:
         ]
 
         start = _time()
-        parsed, success, raw_response = retry_structured_llm(
+        parsed, success, raw_response = await aretry_structured_llm(
             self.llm,
             LookupResult,
             prompt,

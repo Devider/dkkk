@@ -25,7 +25,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     "ujson>=5.12.0",
     "gigachat>=0.1.39.post1",
-    "python-multipart (>=0.0.22,<0.0.23)",
+    "python-multipart (>=0.0.31,<0.0.32)",
     "pandas (>=3.0.0,<4.0.0)",
     "openpyxl (>=3.1.5,<4.0.0)",
     "tavily (>=1.1.0,<2.0.0)",
@@ -35,10 +35,13 @@ dependencies = [
     "langgraph (>=1.2.4,<2.0.0)",
     "langchain (>=1.3.4,<2.0.0)",
     "langchain-ollama (>=1.1.0,<2.0.0)",
-    "langchain-gigachat==0.5.1",
+    "langchain-gigachat>=0.5.1",
     "xlsxwriter (>=3.2.9,<4.0.0)",
     "ipython>=9.14.0",
     "langfuse>=3.11.2",
+    "tenacity (>=9.1.4,<10.0.0)",
+    "nltk (>=3.10.0,<4.0.0)",
+    "sqlalchemy>=2.1.0,<2.1.1",
 ]
 
 [dependency-groups]
@@ -68,7 +71,10 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 requires-poetry = "2.3.4"
-packages = [{ include = "aigw_service", from = "src" }]
+packages = [
+    { include = "aigw_service", from = "src" },
+    { include = "aigw_modules_custom", from = "src" },
+]
 
 # [[tool.poetry.source]]
 # name = "sberosc"
@@ -149,23 +155,19 @@ disable = """
 
 [tool.pytest.ini_options]
 pythonpath = [".", "src"]
-# Пути к тестам
 testpaths = ["tests"]
-# Автоматически определяет как запускать asyncio тесты
 asyncio_mode = "auto"
-# Параметры запуска тестов
 addopts = [
-    "-v", # подробный вывод тестов
-    "-s", # показывает вывод (print, logging) в консоль
-    "-W", "ignore::DeprecationWarning", # игнорировать DeprecationWarning
-    "--maxfail=1", # остановка после первой ошибки (лучше чем -x)
-    "--tb=short", # короткий traceback для CI
-    "--cov=src", # измерение покрытия
-    "--cov-report=xml:coverage.xml", # отчет для SonarQube
-    "--cov-report=term-missing", # вывод непокрытых строк
-    "--junitxml=test-results.xml", # отчет для Jenkins
+    "-v",
+    "-s",
+    "-W", "ignore::DeprecationWarning",
+    "--maxfail=1",
+    "--tb=short",
+    "--cov=src",
+    "--cov-report=xml:coverage.xml",
+    "--cov-report=term-missing",
+    "--junitxml=test-results.xml",
 ]
-# Переменные окружения
 env = [
     "GIGACHAT_HOST=gigachat-ift.sberdevices.delta.sbrf.ru",
     "GIGACHAT_PORT=443",

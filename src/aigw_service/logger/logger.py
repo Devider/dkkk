@@ -1,5 +1,6 @@
 import json
 import sys
+import traceback
 from dataclasses import asdict
 from logging import DEBUG
 from time import time
@@ -101,13 +102,31 @@ class LoguruPatcher:
                 )
                 args.update({"message": str(message), "headers": str(args["headers"])})
 
+            exc = record.get("exception")
+
+            # record["exception"] существует только когда вызов был с exc_info/exception=True
+            # (или exception=e): для loguru 0.7.x это RecordException с атрибутами
+            # type/value/traceback (для exception=BaseException — сам объект). Обычные логи
+            # без исключения получают None -> stackTrace остаётся None.
+            stacktrace_text = None
+            if exc is not None:
+                exc_type = getattr(exc, "type", None)
+                if exc_type is None:
+                    # exc — сам экземпляр BaseException
+                    tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
+                else:
+                    tb_lines = traceback.format_exception(
+                        exc_type, exc.value, exc.traceback
+                    )
+                stacktrace_text = "".join(tb_lines).strip()
+
             _log_record = Log(
                 levelName=str(record["level"].name),
                 asctime=_time_iso,
                 moduleName=str(record["name"]),
                 funcName=str(record["function"]),
                 message=str(record["message"]),
-                stackTrace=record["extra"].get("exception", None),
+                stackTrace=stacktrace_text,
                 rqUId=_context_log.rqUId,
                 rqTime=_context_log.rqTime,
                 systemId=_context_log.systemId,

@@ -12,6 +12,7 @@
 сообщений сохраняется между запросами в рамках одного `thread_id`.
 """
 
+import asyncio
 import json
 import os
 import tempfile
@@ -135,7 +136,10 @@ class AgentGraph:
         temp_dir = tempfile.gettempdir()
         file_path = os.path.abspath(os.path.join(temp_dir, file_name))
         logger.info("Reading excel from {}", file_path)
-        inputs_catalog, outputs_catalog = _build_catalog_with_ids(file_path)
+        # _build_catalog_with_ids делает синхронный openpyxl.load_workbook (может занять
+        # десятки секунд на большом файле). Узел — async, поэтому без выноса в поток
+        # этот вызов заблокировал бы event loop и /health перестал бы отвечать.
+        inputs_catalog, outputs_catalog = await asyncio.to_thread(_build_catalog_with_ids, file_path)
         return {
             "available_inputs": inputs_catalog,
             "available_outputs": outputs_catalog,
@@ -145,13 +149,13 @@ class AgentGraph:
             "tool_results": [],
         }
 
-    def orchestrator(self, state: AgentState) -> AgentState:
+    async def orchestrator(self, state: AgentState) -> AgentState:
         """LLM с нативным tool-calling решает, вызывать ли инструмент(ы) или ответить сразу."""
         messages = state.get("messages", [])
         prompt = [SystemMessage(content=ORCHESTRATOR_PROMPT), *messages]
 
         start = time.time()
-        response = self.llm_with_tools.invoke(prompt)
+        response = await self.llm_with_tools.ainvoke(prompt)
         elapsed = time.time() - start
 
         tokens = get_tokens(response)
@@ -180,14 +184,16 @@ class AgentGraph:
             return "synthesizer"
         return "tool_executor"
 
-    def tool_executor(self, state: AgentState) -> AgentState:
+    async def tool_executor(self, state: AgentState) -> AgentState:
         """Выполняет все tool_calls последнего сообщения оркестратора и возвращает ToolMessage'и."""
         last_message = state["messages"][-1]
         tool_calls = last_message.tool_calls or []
 
         fingerprints = set(state.get("executed_tool_fingerprints", []))
         tool_results = list(state.get("tool_results", []))
-        tool_messages = [self._execute_single_call(call, state, fingerprints, tool_results) for call in tool_calls]
+        tool_messages = [
+            await self._execute_single_call(call, state, fingerprints, tool_results) for call in tool_calls
+        ]
 
         return {
             "messages": tool_messages,
@@ -196,7 +202,7 @@ class AgentGraph:
             "tool_call_count": state.get("tool_call_count", 0) + 1,
         }
 
-    def _execute_single_call(
+    async def _execute_single_call(
         self,
         call: dict,
         state: AgentState,
@@ -217,7 +223,7 @@ class AgentGraph:
         args = call.get("args", {})
         logger.info("TOOL ARGS: {} | {}", call["name"], args)
 
-        result = self.orchestrator_tools.dispatch(
+        result = await self.orchestrator_tools.dispatch(
             tool_name=call["name"],
             reformulated_query=args.get("reformulated_query", ""),
             available_inputs=state.get("available_inputs") or {},
@@ -232,7 +238,7 @@ class AgentGraph:
     def _fingerprint_call(call: dict) -> str:
         return f"{call['name']}:{json.dumps(call.get('args', {}), sort_keys=True, ensure_ascii=False)}"
 
-    def synthesizer(self, state: AgentState) -> AgentState:
+    async def synthesizer(self, state: AgentState) -> AgentState:
         """Формирует финальный ответ на основе истории диалога и результатов расчётов этого хода."""
         messages = state.get("messages", [])
         tool_results = state.get("tool_results", [])
@@ -250,7 +256,7 @@ class AgentGraph:
             prompt.append(HumanMessage(content="Сформулируй финальный ответ на основе истории выше."))
 
         start = time.time()
-        response = self.llm.invoke(prompt)
+        response = await self.llm.ainvoke(prompt)
         elapsed = time.time() - start
 
         tokens = get_tokens(response)
