@@ -15,8 +15,10 @@ from langchain_core.messages import HumanMessage
 from langfuse.langchain import CallbackHandler
 
 from aigw_service.api.v1.main_graph import AgentGraph
+from aigw_service.api.v1.main_graph_deep import DeepAgentGraph
 from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
 from aigw_service.api.v1.utils import common_headers
+from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
 
@@ -106,10 +108,12 @@ async def upload_file(
 # ВЫЗОВ АГЕНТА
 # =====================================================================================================================
 @lru_cache(maxsize=1)
-def get_agent():
+def get_agent() -> "AgentGraph | DeepAgentGraph":
     try:
-        agent = AgentGraph()
-        return agent
+        if APP_CONFIG.app.agent_graph_impl == "DEEPAGENTS":
+            logger.info("AGENT_GRAPH_IMPL=DEEPAGENTS: using DeepAgentGraph")
+            return DeepAgentGraph()
+        return AgentGraph()
     except Exception as e:
         logger.error("Failed to create Agent instance: {}", e)
         raise
@@ -159,7 +163,7 @@ def get_cb_handler():
 async def invoke_agent(
     request: CopilotAgentRequest,
     headers: dict = Depends(common_headers),
-    agent: AgentGraph = Depends(get_agent),
+    agent: "AgentGraph | DeepAgentGraph" = Depends(get_agent),
     cb_handler: Optional[CallbackHandler] = Depends(get_cb_handler()),
 ) -> StreamingResponse:
     _setup_request_headers(headers=headers)
