@@ -171,3 +171,9 @@ cython_debug/
 
 # Test output artifacts
 test_output/
+.claude/tasks/
+.claude/debug/
+.claude/file-history/
+.claude/projects/
+.claude_history
+.claude/settings.local.json
