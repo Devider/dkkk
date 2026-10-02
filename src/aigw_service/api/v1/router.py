@@ -184,6 +184,11 @@ async def invoke_agent(
             request.message[:200] if request.message else "",
         )
 
+        # Distinguishes which graph implementation produced a trace (toggled via
+        # AGENT_GRAPH_IMPL) - read off the actual resolved instance rather than the raw env
+        # value so the label can't drift from what get_agent() actually constructed.
+        graph_impl = "deepagents" if isinstance(agent, DeepAgentGraph) else "langgraph"
+
         config = {
             "configurable": {
                 "thread_id": thread_id,
@@ -193,6 +198,8 @@ async def invoke_agent(
                 "lang_fuse_user_id": user_id,
                 "client_id": x_client_id,
                 "langfuse_session_id": thread_id,
+                "langfuse_tags": [f"graph_impl:{graph_impl}"],
+                "graph_impl": graph_impl,
                 "endpoint": "/invoke-agent",
             },
         }
