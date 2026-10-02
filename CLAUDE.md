@@ -9,6 +9,29 @@ scenario analysis. Python 3.12+, Poetry. This repo also has an `AGENTS.md` with 
 two disagree, trust this file and the code — the graph architecture and LLM backend changed since AGENTS.md
 was last updated (LibreOffice replaced `formualizer`, and GigaChat replaced Ollama as the active default).
 
+## Spec-driven development (OpenSpec)
+
+This repo plans and documents behavior changes with [OpenSpec](https://github.com/Fission-AI/OpenSpec)
+(`openspec/`, schema `spec-driven`). Use the `opsx:*` skills for anything that changes observable behavior:
+`opsx:explore` to think through an idea, `opsx:propose` to create `openspec/changes/<name>/`
+(proposal.md → specs/ → design.md → tasks.md), `opsx:apply` to work through `tasks.md`, `opsx:archive` to
+fold an approved change's deltas into `openspec/specs/` once shipped. `opsx:sync` updates main specs
+without archiving; `opsx:update` revises an in-flight change's own artifacts.
+
+- **`openspec/specs/` is currently empty** — no capability has been backfilled yet. Before, or as part of,
+  the first real feature proposal, write baseline specs for the capabilities it touches (e.g. `agent-graph`,
+  `excel-analysis`, `name-resolution`) so the delta has something to diff against; don't let the first
+  proposal silently assume behavior that was never captured.
+- Specs are behavior contracts (SHALL requirements + WHEN/THEN scenarios) for externally observable
+  behavior — not a restatement of this file. This file stays the place for implementation facts an agent
+  can rediscover by reading code (commands, module layout, backend quirks); don't duplicate that into spec
+  prose, and don't let specs leak internals like class/function names or library choices.
+- `openspec/config.yaml`'s `context:` field carries constraints that OpenSpec artifact generation needs
+  but can't discover from the code — keep it in sync with real constraints as they change. This file
+  remains the source of truth for everything that *is* discoverable from the code.
+- For a change with no spec-level behavior impact (pure refactor, tooling, docs, CI), set `skip_specs: true`
+  in that change's `.openspec.yaml` rather than inventing a requirement just to satisfy `openspec validate`.
+
 ## Commands
 
 ```sh
@@ -70,26 +93,45 @@ Both endpoints require the 5 headers validated in `api/v1/utils.py`: `x-trace-id
 
 `src/aigw_service/api/v1/main_graph.py:AgentGraph` is what `router.py` actually wires up. `services.py`
 is legacy/unused — nothing imports it; don't extend it, extend `main_graph.py` and `subagents/` instead.
+There is no upfront `classifier` node anymore — tool selection happens inside a bounded ReAct-style loop,
+not as a one-shot branch before the graph fans out.
 
 Graph shape:
 ```
-START -> classifier -> extract_excel_data -> (route) -> analyze_model_inputs_for_target -> reviewer -> END
-                                                       \-> analyze_excel_model             -> reviewer -> END
+START -> extract_excel_data -> orchestrator <--> tool_executor
+                                     |
+                                     v (no tool_calls, or MAX_ORCHESTRATOR_ITERATIONS=4 hit)
+                                 synthesizer -> END
 ```
 
-- **classifier** (`subagents/classifier.py`): LLM call that picks exactly one of the two tools
-  (`analyze_model_inputs_for_target` / `analyze_excel_model`) and extracts the filename the user meant.
-- **extract_excel_data**: loads the uploaded workbook's filename from the memory store (keyed by
-  `user_id`, namespace `("memories", user_id)`) and builds the input/output name catalog via
-  `subagents/utils.py:_build_catalog_with_ids`.
-- **analyze_model_inputs_for_target** / **analyze_excel_model**: each first runs an `AnalyzerSubAgent`
-  (`subagents/analyzer.py`) to resolve the user's free-text aliases against the catalog (LLM structured
-  output + a lookup-more retry step), then calls the real calculation tool
-  (`tools.py:analyze_model_inputs_for_target` / `analyze_excel_model`) with the resolved names.
-- **reviewer**: final LLM call that turns the calculation results into the natural-language answer.
+- **extract_excel_data** (`get_available_inputs_outputs`): loads the uploaded workbook's filename from
+  the memory store (keyed by `user_id`, namespace `("memories", user_id)`) and builds the input/output
+  name catalog via `subagents/utils.py:_build_catalog_with_ids`. Also resets the per-turn loop counters
+  (`tool_call_count`, `executed_tool_fingerprints`, `tool_results`) — the checkpointer persists state
+  across `ainvoke` calls within a `thread_id`, so without this reset they'd leak from the previous turn.
+- **orchestrator**: the single decision point. A tool-calling LLM (`llm.bind_tools(OrchestratorTools.TOOLS)`)
+  sees the full message history each iteration and either emits `tool_calls` (can be more than one per
+  turn) or doesn't. When it doesn't call a tool, its own draft text is deliberately **not** persisted to
+  `messages` — only `synthesizer` produces the real final answer, to avoid two competing AIMessages per turn.
+- **route_after_orchestrator**: `tool_executor` if the last AIMessage has `tool_calls` and
+  `tool_call_count < MAX_ORCHESTRATOR_ITERATIONS`; otherwise `synthesizer` (iteration cap hit is logged
+  as a warning and forces synthesis even with unresolved tool_calls).
+- **tool_executor**: runs every tool_call from the last AIMessage through `OrchestratorTools.dispatch`
+  (`subagents/orchestrator_tools.py`), which wraps the same IFT/EMA `AnalyzerSubAgent`s
+  (`subagents/analyzer.py`, LLM structured output + a lookup-more retry step to resolve free-text aliases
+  against the catalog) and the real calculation functions (`tools.py:analyze_model_inputs_for_target` /
+  `analyze_excel_model`) that the old fixed-branch nodes used. Identical tool calls within the same turn
+  are deduped by a fingerprint (`_fingerprint_call`) — a repeat gets a canned "already done" ToolMessage
+  instead of re-executing. Always loops back to `orchestrator`, never forward to `synthesizer` directly.
+- **synthesizer**: final LLM call that turns the accumulated `tool_results` plus message history into the
+  natural-language answer (same role the old `reviewer` node had). Appends a filler `HumanMessage` when
+  the history doesn't already end on one — e.g. the iteration cap forced synthesis mid-loop — because
+  GigaChat returns an unparseable completion when the prompt's last message is an AIMessage with
+  unresolved tool_calls.
 
 Structured LLM outputs (`QueryAnalysisIFT`, `QueryAnalysisEMA`, `LookupResult`, `InputItem`, ...) live in
-`api/v1/schemas/llm_outputs.py`; graph state TypedDicts live in `api/v1/states/agents.py`; prompts live in
+`api/v1/schemas/llm_outputs.py`; graph state TypedDicts live in `api/v1/states/agents.py`; prompts
+(`orchestrator.py`, `synthesizer.py`, `ift_analizer.py`, `ema_analizer.py`, `lookup_more.py`) live in
 `api/v1/prompts/`.
 
 ### Config / bootstrap
