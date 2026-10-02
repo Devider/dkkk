@@ -12,6 +12,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from aigw_service.api.v1 import main_graph_deep as mgd
+from aigw_service.api.v1.prompts.deep_agent import CAPABILITIES_ANSWER, DEEP_AGENT_SYSTEM_PROMPT
 
 FAKE_INPUTS = {"IN0": "Цена меди"}
 FAKE_OUTPUTS = {"OUT0": "EBITDA"}
@@ -224,3 +225,33 @@ class TestFullDeepAgentLoop:
         last = result["messages"][-1]
         assert isinstance(last, AIMessage)
         assert last.content == mgd.RECURSION_LIMIT_MESSAGE
+
+
+class TestCapabilitiesPrompt:
+    """Проверяет раздел «О СВОИХ ВОЗМОЖНОСТЯХ» и то, что канонический ответ пользователю
+    не содержит внутренних деталей реализации (в отличие от раздела с запретами, который
+    намеренно называет их, чтобы запретить — см. `CAPABILITIES_ANSWER` в `prompts/deep_agent.py`).
+    """
+
+    _INTERNAL_IDENTIFIERS = (
+        "task",
+        "subagent",
+        "analyze_model_inputs_for_target",
+        "analyze_excel_model",
+        "CompiledSubAgent",
+        "SKILL.md",
+        "deepagents",
+        "LangGraph",
+        "LangChain",
+    )
+
+    def test_capabilities_section_present_in_system_prompt(self):
+        assert "О СВОИХ ВОЗМОЖНОСТЯХ" in DEEP_AGENT_SYSTEM_PROMPT
+        assert CAPABILITIES_ANSWER in DEEP_AGENT_SYSTEM_PROMPT
+
+    def test_canonical_answer_does_not_leak_internal_identifiers(self):
+        lowered = CAPABILITIES_ANSWER.lower()
+        for identifier in self._INTERNAL_IDENTIFIERS:
+            assert identifier.lower() not in lowered, (
+                f"'{identifier}' is an internal identifier and must not appear in the user-facing capabilities answer"
+            )
