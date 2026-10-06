@@ -15,10 +15,8 @@ from langchain_core.messages import HumanMessage
 from langfuse.langchain import CallbackHandler
 
 from aigw_service.api.v1.main_graph import AgentGraph
-from aigw_service.api.v1.main_graph_deep import DeepAgentGraph
 from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
 from aigw_service.api.v1.utils import common_headers
-from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
 
@@ -108,11 +106,8 @@ async def upload_file(
 # ВЫЗОВ АГЕНТА
 # =====================================================================================================================
 @lru_cache(maxsize=1)
-def get_agent() -> "AgentGraph | DeepAgentGraph":
+def get_agent() -> AgentGraph:
     try:
-        if APP_CONFIG.app.agent_graph_impl == "DEEPAGENTS":
-            logger.info("AGENT_GRAPH_IMPL=DEEPAGENTS: using DeepAgentGraph")
-            return DeepAgentGraph()
         return AgentGraph()
     except Exception as e:
         logger.error("Failed to create Agent instance: {}", e)
@@ -163,7 +158,7 @@ def get_cb_handler():
 async def invoke_agent(
     request: CopilotAgentRequest,
     headers: dict = Depends(common_headers),
-    agent: "AgentGraph | DeepAgentGraph" = Depends(get_agent),
+    agent: AgentGraph = Depends(get_agent),
     cb_handler: Optional[CallbackHandler] = Depends(get_cb_handler()),
 ) -> StreamingResponse:
     _setup_request_headers(headers=headers)
@@ -184,10 +179,9 @@ async def invoke_agent(
             request.message[:200] if request.message else "",
         )
 
-        # Distinguishes which graph implementation produced a trace (toggled via
-        # AGENT_GRAPH_IMPL) - read off the actual resolved instance rather than the raw env
-        # value so the label can't drift from what get_agent() actually constructed.
-        graph_impl = "deepagents" if isinstance(agent, DeepAgentGraph) else "langgraph"
+        # /api/v1 is deterministically backed by the legacy orchestrator graph only (see
+        # get_agent() above) - the tag has no other value to take.
+        graph_impl = "langgraph"
 
         config = {
             "configurable": {

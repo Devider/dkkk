@@ -8,6 +8,7 @@ try:
         AEFKafkaSender,
         AEFProtobufSenderExporter,
     )
+
     _AEF_AVAILABLE = True
 except ImportError:
     AEFHandler = None  # type: ignore
@@ -19,11 +20,11 @@ except ImportError:
     _AEF_AVAILABLE = False
 
 from aigw_modules.hub_services.langfuse import LangfuseClient
-
 from aigw_service.config import Secrets
 from aigw_service.logger import ContextVarsContainer
 
 if _AEF_AVAILABLE:
+
     class AEFTracingHandler(AEFHandler):
         def on_startup(self):
             pass
@@ -32,6 +33,7 @@ else:
     class AEFTracingHandler:  # type: ignore[no-redef]
         def on_startup(self):
             pass
+
         def on_shutdown(self):
             pass
 
@@ -40,7 +42,6 @@ class Tracing(ABC):
     @abstractmethod
     def get_tracing(self, secrets: Secrets, logger):
         pass
-
 
 
 class AEFTracing(Tracing):

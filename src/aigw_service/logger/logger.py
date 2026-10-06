@@ -115,9 +115,7 @@ class LoguruPatcher:
                     # exc — сам экземпляр BaseException
                     tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
                 else:
-                    tb_lines = traceback.format_exception(
-                        exc_type, exc.value, exc.traceback
-                    )
+                    tb_lines = traceback.format_exception(exc_type, exc.value, exc.traceback)
                 stacktrace_text = "".join(tb_lines).strip()
 
             _log_record = Log(

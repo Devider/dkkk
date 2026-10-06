@@ -260,7 +260,7 @@ def analyze_model_inputs_for_target(
 
             except Exception as e:
                 return ModelInputAnalysisToolResult(
-                    status="ERROR", result=f"Ошибка при поиске выходного параметра: {str(e)}", content={}
+                    status="ERROR", result=f"Ошибка при поиске выходного параметра: {e!s}", content={}
                 )
 
             # Find and validate input cells (use output year as default if not found)
@@ -285,7 +285,7 @@ def analyze_model_inputs_for_target(
                 except ValueError as e:
                     return ModelInputAnalysisToolResult(
                         status="ERROR",
-                        result=f'Не удалось найти ячейку для параметра "{name}": {str(e)}',
+                        result=f'Не удалось найти ячейку для параметра "{name}": {e!s}',
                         content={},
                     )
 
@@ -734,7 +734,7 @@ def analyze_excel_model(
                 except Exception as e:
                     return ExcelAnalysisToolResult(
                         status="ERROR",
-                        result=f'Ошибка при поиске выходного параметра "{name}": {str(e)}',
+                        result=f'Ошибка при поиске выходного параметра "{name}": {e!s}',
                         content={},
                     )
 
@@ -756,7 +756,7 @@ def analyze_excel_model(
                 except ValueError as e:
                     return ExcelAnalysisToolResult(
                         status="ERROR",
-                        result=f'Не удалось найти ячейку для параметра "{name}": {str(e)}',
+                        result=f'Не удалось найти ячейку для параметра "{name}": {e!s}',
                         content={},
                     )
 
@@ -1024,7 +1024,7 @@ def save_analysis_results(
         return excel_file
 
     except Exception as e:
-        logger.warning(f"Ошибка при сохранении результатов в Excel: {str(e)}")
+        logger.warning(f"Ошибка при сохранении результатов в Excel: {e!s}")
         return None
 
 
@@ -1480,7 +1480,7 @@ def create_scenario_matrix(inputs: pd.DataFrame, outputs: pd.DataFrame) -> str:
                     worksheet.set_column(idx + 1, idx + 1, 10)
 
             except Exception as e:
-                logger.error(f"Ошибка в {output_col}: {str(e)}")
+                logger.error(f"Ошибка в {output_col}: {e!s}")
     return filepath
 
 
@@ -1852,12 +1852,12 @@ def build_dependency_graph(file_name: str, output_description: str) -> BuildDepe
         )
 
     except Exception as e:
-        logger.error(f"Error building dependency graph: {str(e)}")
+        logger.error(f"Error building dependency graph: {e!s}")
         return BuildDependencyGraphResult(
             status="ERROR",
-            result=f"Не удалось построить граф зависимостей: {str(e)}",
+            result=f"Не удалось построить граф зависимостей: {e!s}",
             image_path=file_name,
-            content=f"Произошла ошибка при построении графа зависимостей: {str(e)}",
+            content=f"Произошла ошибка при построении графа зависимостей: {e!s}",
         )
 
 
@@ -2475,12 +2475,12 @@ def describe_outputs_sheet(
         )
     except Exception as e:
         # raise ToolException(f"Произошла ошибка при анализе файла: {str(e)}")
-        print(f"Ошибка в describe_outputs_sheet: {str(e)}")
+        print(f"Ошибка в describe_outputs_sheet: {e!s}")
 
         return DescribeOutputsSheetToolResult(
             status="ERROR",
-            result=f"Произошла ошибка при анализе файла: {str(e)}",
-            content={"content": f"Произошла ошибка при анализе файла: {str(e)}"},
+            result=f"Произошла ошибка при анализе файла: {e!s}",
+            content={"content": f"Произошла ошибка при анализе файла: {e!s}"},
             # thread_id=thread_id,
             # user_id=user_id,
         )

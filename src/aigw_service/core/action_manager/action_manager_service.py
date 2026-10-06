@@ -59,7 +59,6 @@ class ActionManager(ActionManagerProtocol):
                 return result
         except Exception as e:
             logger.error(f"Error executing action {action.__class__}: {e}")
-            pass
 
     async def undo(self, action: BaseAction, *args, **kwargs):
         """
@@ -87,7 +86,6 @@ class ActionManager(ActionManagerProtocol):
                 return result
         except Exception as e:
             logger.error(f"Error undoing action {action.__class__.__name__}: {e}")
-            pass
 
     async def rollback_history(self):
         """

@@ -267,10 +267,10 @@ class Agent:
         except Exception as e:
             # If we haven't initialized state yet, use logger directly
             if not hasattr(self, "state"):
-                logger.info(f"Error initializing Agent: {str(e)}")
+                logger.info(f"Error initializing Agent: {e!s}")
             else:
-                self.logger.info(f"Error initializing Agent: {str(e)}")
-            raise Exception(f"Ошибка инициализации агента: {str(e)}") from e
+                self.logger.info(f"Error initializing Agent: {e!s}")
+            raise Exception(f"Ошибка инициализации агента: {e!s}") from e
 
     def _bind_tools_to_llm(self) -> None:
         """Bind configured tools to the current LLM instance."""
@@ -290,7 +290,7 @@ class Agent:
                 raise AttributeError("LLM instance does not support bind_functions or bind_tools")
 
         except Exception as e:
-            self.logger.error(f"Error binding tools: {str(e)}")
+            self.logger.error(f"Error binding tools: {e!s}")
             raise
 
     def _reset_state(self) -> AgentState:
@@ -388,7 +388,7 @@ class Agent:
 
             self.logger.info("Agent workflow graph created successfully")
         except Exception as e:
-            self.logger.info(f"Error creating agent workflow graph: {str(e)}")
+            self.logger.info(f"Error creating agent workflow graph: {e!s}")
             raise
 
     def init_node(self, state: AgentState, config: Optional[RunnableConfig] = None) -> AgentState:
@@ -750,7 +750,7 @@ class Agent:
                             self.logger.error("Error executing tool {}: {}\n{}", tool_name, e, tb)
                             state["messages"].append(
                                 ToolMessage(
-                                    content=f"Ошибка при выполнении {tool_name}: {str(e)}",
+                                    content=f"Ошибка при выполнении {tool_name}: {e!s}",
                                     name=tool_name,
                                     tool_call_id=tool_call.get("id"),
                                 )
@@ -766,7 +766,7 @@ class Agent:
             except StopEventError:
                 raise
             except Exception as e:
-                self.logger.error(f"Error processing tool call: {str(e)}", exc_info=True)
+                self.logger.error(f"Error processing tool call: {e!s}", exc_info=True)
                 state["messages"].append(AIMessage(content="Извините, произошла ошибка при обработке запроса."))
                 return state
 

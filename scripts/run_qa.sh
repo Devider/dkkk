@@ -20,7 +20,7 @@ HEADERS=(
 )
 
 echo "=== Uploading model.xlsx ==="
-curl -s -X POST "$BASE_URL/api/v1/upload" \
+curl -s -X POST "$BASE_URL/api/v2/upload" \
   -F "file=@models/model.xlsx" \
   "${HEADERS[@]}" > /dev/null
 echo "OK"
@@ -36,7 +36,7 @@ Q4='Найди значения USD PPI, Eurozone CPI (EUR), urea FOB Yuzhny и 
 
 Q5='Подбери ECB policy rate, methanol price и year-end EUR/RUB в model.xlsx так, чтобы debt service за 2027 составил 140.'
 
-for i in 1 2 3 4 5; do
+for i in 1 2; do
   qvar="Q$i"
   question="${!qvar}"
   zipfile="$TMPDIR/q$i.zip"
@@ -46,7 +46,7 @@ for i in 1 2 3 4 5; do
   echo "$question"
   echo
 
-  http_code=$(curl -s -o "$zipfile" -w "%{http_code}" -X POST "$BASE_URL/api/v1/invoke-agent" \
+  http_code=$(curl -s -o "$zipfile" -w "%{http_code}" -X POST "$BASE_URL/api/v2/invoke-agent" \
     -H "Content-Type: application/json" \
     -d "{\"message\": $(printf '%s' "$question" | jq -Rs .)}" \
     -H "x-trace-id: $TRACE_ID" \

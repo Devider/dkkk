@@ -1,19 +1,19 @@
 """
-Экспериментальный граф на deepagents: extract_excel_data -> deep_agent.
+Граф на deepagents для /api/v2: extract_excel_data -> deep_agent.
 
-Заменяет ручной цикл orchestrator <-> tool_executor -> synthesizer из `main_graph.py` на
-`create_deep_agent` (пакет `deepagents`, построен поверх `langchain.agents` middleware):
-LLM с нативным tool-calling сам решает, нужен ли расчёт, и делегирует его через встроенный
-инструмент `task` одному из двух subagent'ов (`analyze_model_inputs_for_target` /
-`analyze_excel_model`). Каждый subagent — тонкая обёртка над существующим
-`AnalyzerSubAgent` (резолвинг имён) + LibreOffice-расчётом из `tools.py`, вызываемым через
-`OrchestratorTools.dispatch` без изменений.
+Использует `create_deep_agent` (пакет `deepagents`, построен поверх `langchain.agents`
+middleware) вместо ручного цикла orchestrator <-> tool_executor -> synthesizer из
+`api/v1/main_graph.py:AgentGraph`: LLM с нативным tool-calling сам решает, нужен ли расчёт, и
+делегирует его через встроенный инструмент `task` одному из двух subagent'ов
+(`analyze_model_inputs_for_target` / `analyze_excel_model`). Каждый subagent — тонкая обёртка
+над `AnalyzerSubAgent` (резолвинг имён) + LibreOffice-расчётом из `tools.py`, вызываемым через
+`OrchestratorTools.dispatch`.
 
-Включается флагом `AGENT_GRAPH_IMPL=DEEPAGENTS` (см. `config/base_config.py`), по умолчанию
-используется легаси-граф из `main_graph.py`. Внешний контракт идентичен `AgentGraph`:
+Это единственный граф, который конструирует `api/v2/router.py:get_agent()` — нет
+деплой-флага, выбирающего между этим графом и легаси `AgentGraph` (тот всегда отвечает на
+`/api/v1`). Внешний контракт идентичен `AgentGraph`:
 `.graph.ainvoke({"messages": [...], "thread_id": ..., "user_id": ...}, config=...)` возвращает
-словарь с `messages[-1]` — финальным `AIMessage`, поэтому `router.py` не нужно менять, кроме
-выбора класса в `get_agent()`.
+словарь с `messages[-1]` — финальным `AIMessage`.
 """
 
 import asyncio
@@ -29,12 +29,12 @@ from langchain_core.messages import AIMessage, BaseMessage
 from langgraph.errors import GraphRecursionError
 from langgraph.graph import END, START, StateGraph, add_messages
 
-from aigw_service.api.v1.prompts.deep_agent import DEEP_AGENT_SYSTEM_PROMPT
-from aigw_service.api.v1.prompts.ema_analizer import EMA_ANALIZER_PROMPT
-from aigw_service.api.v1.prompts.ift_analizer import IFT_ANALIZER_PROMPT
-from aigw_service.api.v1.prompts.lookup_more import LOOKUP_MORE_PROMPT
-from aigw_service.api.v1.schemas.llm_outputs import QueryAnalysisEMA, QueryAnalysisIFT
-from aigw_service.api.v1.states.agents import (
+from aigw_service.api.v2.prompts.deep_agent import DEEP_AGENT_SYSTEM_PROMPT
+from aigw_service.api.v2.prompts.ema_analizer import EMA_ANALIZER_PROMPT
+from aigw_service.api.v2.prompts.ift_analizer import IFT_ANALIZER_PROMPT
+from aigw_service.api.v2.prompts.lookup_more import LOOKUP_MORE_PROMPT
+from aigw_service.api.v2.schemas.llm_outputs import QueryAnalysisEMA, QueryAnalysisIFT
+from aigw_service.api.v2.states.agents import (
     ExcelModelAnalizerInput,
     ExcelModelAnalizerOutput,
     ExcelModelAnalizerState,
@@ -42,9 +42,9 @@ from aigw_service.api.v1.states.agents import (
     InputsForTargetAnalizerOutput,
     InputsForTargetAnalizerState,
 )
-from aigw_service.api.v1.subagents.analyzer import AnalyzerSubAgent
-from aigw_service.api.v1.subagents.orchestrator_tools import TOOL_TASK_DESCRIPTIONS, OrchestratorTools
-from aigw_service.api.v1.subagents.utils import _build_catalog_with_ids
+from aigw_service.api.v2.subagents.analyzer import AnalyzerSubAgent
+from aigw_service.api.v2.subagents.orchestrator_tools import TOOL_TASK_DESCRIPTIONS, OrchestratorTools
+from aigw_service.api.v2.subagents.utils import _build_catalog_with_ids
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()

@@ -1,14 +1,10 @@
 import asyncio
-import uuid
-from contextvars import ContextVar
 from enum import Enum, auto
 from random import random
 
 from langchain_gigachat import GigaChat
 
 from aigw_service.config import APP_CONFIG
-
-
 
 
 class ActionType(Enum):
@@ -18,6 +14,7 @@ class ActionType(Enum):
     INVOKE = auto()
     BIND_TOOLS = auto()
     CALL_TOOL = auto()  # Добавлен для более точного отслеживания
+
 
 class Agent(GigaChat):
     def __init__(self, *args, **kwargs):

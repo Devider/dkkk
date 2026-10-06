@@ -7,6 +7,7 @@ from aigw_service.api.metric_router import router as metric_router
 from aigw_service.api.middleware import log_requests
 from aigw_service.api.os_router import router as service_router
 from aigw_service.api.v1.router import router as main_router
+from aigw_service.api.v2.router import router as deep_agent_router
 from aigw_service.context import APP_CTX
 
 
@@ -38,6 +39,7 @@ app_main.include_router(metric_router, tags=["Like/dislike metric aigw_service r
 # Версия 1.x.y -> /v1
 # Версия 2.x.y -> /v2
 app_main.include_router(main_router, prefix="/api/v1", tags=["Эндпоинты вашего приложения"])
+app_main.include_router(deep_agent_router, prefix="/api/v2", tags=["Эндпоинты вашего приложения (deep agent)"])
 
 __all__ = [
     "app_main",

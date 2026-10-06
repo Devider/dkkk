@@ -11,6 +11,7 @@ Usage:
     python scripts/run_tool_queries.py --resume results.json     # continue from checkpoint
     python scripts/run_tool_queries.py --verbose                  # detailed per-field output
     python scripts/run_tool_queries.py --csv report.csv           # write CSV comparison dump
+    python scripts/run_tool_queries.py --api-version v2           # exercise the deep agent instead
 """
 
 import argparse
@@ -39,6 +40,12 @@ SYSTEM_FIELDS = {"thread_id", "user_id", "file_name"}
 def parse_args():
     parser = argparse.ArgumentParser(description="Run tool query tests")
     parser.add_argument("--url", default="http://localhost:8080", help="Server URL")
+    parser.add_argument(
+        "--api-version",
+        choices=["v1", "v2"],
+        default="v1",
+        help="API version to exercise: v1 (legacy orchestrator) or v2 (deep agent)",
+    )
     parser.add_argument("--log", default="server.log", help="Path to server log file")
     parser.add_argument(
         "--queries",
@@ -542,6 +549,7 @@ def _calc_expected_checks(expected: dict, tool: str) -> int:
 def main() -> int:
     args = parse_args()
     url = args.url.rstrip("/")
+    api_prefix = f"/api/{args.api_version}"
     log_file = Path(args.log)
     queries_file = Path(args.queries)
     model_file = Path(args.model)
@@ -622,7 +630,7 @@ def main() -> int:
         try:
             with open(upload_path, "rb") as f:
                 resp = httpx.post(
-                    f"{url}/api/v1/upload",
+                    f"{url}{api_prefix}/upload",
                     files={
                         "file": (
                             upload_path.name,
@@ -689,7 +697,7 @@ def main() -> int:
 
         try:
             resp = httpx.post(
-                f"{url}/api/v1/invoke-agent",
+                f"{url}{api_prefix}/invoke-agent",
                 json={"message": q["prompt"]},
                 headers=headers,
                 timeout=args.timeout,

@@ -3,8 +3,9 @@ from functools import wraps
 
 # Ленивый импорт aef_tracing — модуль может отсутствовать при локальной разработке
 try:
-    from aef_tracing import *  # noqa: F401,F403
+    from aef_tracing import *
     from aef_tracing.span_processors import session_id_cvar
+
     _TRACING_SPANS_AVAILABLE = True
 except ImportError:
     session_id_cvar = None  # type: ignore[assignment]

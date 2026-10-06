@@ -47,7 +47,7 @@ class AppContext:
 
         except HTTPError as e:
             status_code = e.response.status_code if hasattr(e, "response") else "Unknown"
-            self.logger.error(f"HTTP Error: {str(e)}, Status Code: {status_code}")
+            self.logger.error(f"HTTP Error: {e!s}, Status Code: {status_code}")
 
         except ConnectError as ce:
             self.logger.error(f"Connection Error: {ce}")

@@ -11,8 +11,8 @@ from unittest.mock import patch
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
-from aigw_service.api.v1 import main_graph_deep as mgd
-from aigw_service.api.v1.prompts.deep_agent import CAPABILITIES_ANSWER, DEEP_AGENT_SYSTEM_PROMPT
+from aigw_service.api.v2 import main_graph_deep as mgd
+from aigw_service.api.v2.prompts.deep_agent import CAPABILITIES_ANSWER, DEEP_AGENT_SYSTEM_PROMPT
 
 FAKE_INPUTS = {"IN0": "Цена меди"}
 FAKE_OUTPUTS = {"OUT0": "EBITDA"}
