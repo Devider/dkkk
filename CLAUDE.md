@@ -75,6 +75,11 @@ then `ruff format src` on the whole `src` tree before finishing a change.
 
 ### Request flow
 
+Two independently versioned, independently maintained API surfaces are mounted side by side in
+`api/__init__.py` — `/api/v1` (legacy orchestrator) and `/api/v2` (deep agent). There is no
+deployment-time flag that picks between them (the old `AGENT_GRAPH_IMPL` env var is gone): the
+implementation is a URL choice, made per request.
+
 ```
 POST /api/v1/upload
   saves the .xlsx to /tmp/user_file_{x-user-id}.{ext}
@@ -83,11 +88,39 @@ POST /api/v1/upload
 POST /api/v1/invoke-agent
   -> AgentGraph.graph.ainvoke(...)   (src/aigw_service/api/v1/main_graph.py)
   -> response is a ZIP (txt_response.txt + generated/agent_output.xlsx placeholder)
+
+POST /api/v2/upload
+  same contract as /api/v1/upload, independent handler, same memory-store namespace
+
+POST /api/v2/invoke-agent
+  -> DeepAgentGraph.graph.ainvoke(...)   (src/aigw_service/api/v2/main_graph_deep.py)
+  -> same ZIP response envelope as /api/v1/invoke-agent
 ```
 
-Both endpoints require the 5 headers validated in `api/v1/utils.py`: `x-trace-id` (UUID v4),
+Both pairs require the same 5 headers, validated independently by each version's own
+`utils.py` (`api/v1/utils.py` / `api/v2/utils.py`, byte-identical today): `x-trace-id` (UUID v4),
 `x-client-id` (`^[A-Z]{2}\d{8}$`), `x-request-time` (RFC-3339), `x-session-id` (UUID, optional),
 `x-user-id` (≤8 chars, required for upload/lookup). A header mismatch returns 422.
+
+`/api/v1/upload` and `/api/v2/upload` write to the *same* `("memories", user_id)` store
+namespace (keyed by `x-user-id`, not by API version) — a workbook uploaded via either version is
+readable by both. Conversation history is **not** shared, despite both graphs compiling against
+the same `APP_CTX.agent_memory.checkpointer` (`MemorySaver`) singleton: `/api/v1` keys it
+`{user_id}:{session_id}`, `/api/v2` keys it `v2:{user_id}:{session_id}` — the version prefix is
+load-bearing (not cosmetic), since the two graphs use incompatible state schemas and sharing a
+thread would corrupt state, not just leak messages.
+
+`api/v1/` and `api/v2/` hold fully independent copies of every module each graph needs
+(`tools.py`, `excel_handler.py`/`lo_backend.py`, `subagents/`, `schemas/`, `states/`,
+`prompts/`, `russian_stemmer.py`, `utils.py`, `schemas_file.py`) — zero cross-imports between
+them in either direction, by design (see `openspec/changes/add-deep-agent-v2-api/design.md` if
+still present, or `openspec/specs/deep-agent-api/`). This means a correctness fix to logic both
+versions conceptually share (Jaccard/name-resolution matching, a LibreOffice/UNO quirk, GigaChat
+stop-event handling) must be applied by hand to **both** `api/v1/`'s and `api/v2/`'s copies —
+there is no shared module or generation step keeping them in sync, and the two may drift apart
+over time. `api/v2/`'s copies are trimmed to only what `DeepAgentGraph` actually reaches (e.g.
+`subagents/orchestrator_tools.py` drops the native-tool-calling-only `OrchestratorTools.TOOLS`;
+`tools.py` drops the dependency-graph/business-summary functions neither graph calls).
 
 ### The agent graph (current — supersedes the old single-file `services.py` state machine)
 
