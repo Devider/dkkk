@@ -185,7 +185,7 @@ class TestAnalyzeModelInputsForTarget:
     input_queries = ["цена метанола", "рост потребительских цен США"]
     year = 2026
 
-    def test_search_and_optimize(self, model_path):
+    def test_adaptive_search(self, model_path):
         xl, imap, omap, fname = discover_cells(model_path)
         t0 = time.perf_counter()
 
@@ -203,38 +203,32 @@ class TestAnalyzeModelInputsForTarget:
         func = xl.get_compiled_func(irefs, oref)
         print_timing("compile (2→1 output)", time.perf_counter() - t0)
 
-        # Generate scenarios
-        input_map = {
-            n: {
-                "cell_ref": icells[n]["cell_ref"],
-                "original_name": icells[n]["original_name"],
-                "current_value": current_values[n],
-            }
-            for n in self.input_queries
-        }
-        scenarios = _tools.generate_scenarios(input_map, current_values, max_scenarios=100)
-        print_timing(f"generate {len(scenarios)} scenarios", time.perf_counter() - t0)
-
-        # Test scenarios
-        results = _tools.test_scenarios(func, scenarios, input_map, target_value=1000.0, tolerance=0.1)
-        print_timing(f"test {len(scenarios)} scenarios", time.perf_counter() - t0)
-
-        # Optimize
-        optimized = _tools.optimize_with_regression(func, results["all_scenarios"], self.input_queries, 1000.0)
-        print_timing("optimize_with_regression", time.perf_counter() - t0)
+        t_search = time.perf_counter()
+        search = _tools.adaptive_target_search(
+            func=func,
+            base_values=[current_values[n] for n in self.input_queries],
+            input_names=list(self.input_queries),
+            target_value=1000.0,
+            tolerance=0.1,
+        )
+        print_timing(
+            f"adaptive search ({search['evaluations']} evals, {search['iterations']} iters)",
+            time.perf_counter() - t_search,
+        )
 
         xl.close()
 
-        assert optimized is not None, "Optimization returned None"
-        opt_in = optimized["input_values"]
-        print(f"  Optimized: {opt_in}")
-        print(f"  Actual output: {optimized['actual_output']:.4f}, deviation: {optimized['deviation_percent']:.4f}%")
+        best = search["best"]
+        print(f"  best: {best['input_values']} → {best['output_value']:.4f}")
+        print(
+            f"  deviation: {best['deviation']:.4f} ({best['deviation_percent']:.4f}%), "
+            f"epsilon: {search['epsilon']}, stop_reason: {search['stop_reason']}"
+        )
 
-        assert opt_in["цена метанола"] == pytest.approx(378.22, abs=0.5)
-        assert opt_in["рост потребительских цен США"] == pytest.approx(0.01, abs=0.005)
-        assert optimized["actual_output"] == pytest.approx(1000.0, abs=0.5)
-        assert optimized["deviation_percent"] == pytest.approx(0.0, abs=0.1)
-        print("  ✓ Optimization matches production reference")
+        assert search["stop_reason"] == "within_tolerance", f"search stopped early: {search['stop_reason']}"
+        assert best["deviation_percent"] <= 0.1, f"deviation {best['deviation_percent']}% > tolerance 0.1%"
+        assert search["evaluations"] == search["probe_evaluations"] + search["iterations"]
+        print("  ✓ Adaptive search reaches the target within tolerance")
 
 
 # ---------------------------------------------------------------------------

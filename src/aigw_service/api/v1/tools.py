@@ -1,5 +1,4 @@
 import os
-import random
 import re
 import tempfile
 import time
@@ -44,6 +43,10 @@ _ANALYSIS_CACHE_ORDER: list = []
 _ANALYSIS_CACHE_MAXSIZE = 10
 # Максимальное количество сценариев для анализа одного вызова
 MAX_SCENARIOS = 100000
+# Адаптивный подбор значений входов под целевой выход (analyze_model_inputs_for_target)
+IFT_PROBE_STEP = 0.10
+IFT_MAX_ITER = 200
+IFT_SELECTION_LAMBDA = 1.0
 # Result classes
 
 
@@ -188,7 +191,7 @@ def analyze_model_inputs_for_target(
         target_value (float): Целевое значение для выходного параметра (без единиц и суффиксов)
         input_names (list[str]): Список входных параметров для анализа (без года)
         tolerance (float): Допустимое отклонение от целевого значения в процентах (по умолчанию 0.1%)
-        max_scenarios (int): Максимальное количество сценариев для анализа (по умолчанию 1000)
+        max_scenarios (int): Не используется (адаптивный поиск); параметр сохранён для совместимости
 
     Returns:
         ModelInputAnalysisToolResult: Результат анализа с найденными сценариями
@@ -214,7 +217,8 @@ def analyze_model_inputs_for_target(
         if not os.path.exists(file_path):
             return ModelInputAnalysisToolResult(status="ERROR", result=f"Файл {file_name} не найден", content={})
 
-        # Cache (LLMs often repeat identical target queries — the LO backend is slow)
+        # Cache (LLMs often repeat identical target queries — the LO backend is slow).
+        # max_scenarios is intentionally absent: it no longer affects the adaptive search.
         cache_key = (
             file_path,
             output_name,
@@ -222,7 +226,9 @@ def analyze_model_inputs_for_target(
             target_value,
             tuple(input_names),
             tolerance,
-            max_scenarios,
+            IFT_PROBE_STEP,
+            IFT_MAX_ITER,
+            IFT_SELECTION_LAMBDA,
             user_id,
         )
         cached = _ANALYSIS_CACHE.get(cache_key)
@@ -257,6 +263,14 @@ def analyze_model_inputs_for_target(
                         actual_output_name,
                         output_cell_ref,
                     )
+                    return ModelInputAnalysisToolResult(
+                        status="ERROR",
+                        result=(
+                            f'Ячейка выходного параметра "{actual_output_name}" ({output_cell_ref}) '
+                            "не содержит значения"
+                        ),
+                        content={},
+                    )
 
             except Exception as e:
                 return ModelInputAnalysisToolResult(
@@ -289,17 +303,20 @@ def analyze_model_inputs_for_target(
                         content={},
                     )
 
-            # Generate scenarios
-            scenarios = generate_scenarios(
-                input_cells=input_cells, current_values=current_values, max_scenarios=max_scenarios
-            )
+            missing_values = [n for n in input_names if input_cells[n]["current_value"] is None]
+            if missing_values:
+                return ModelInputAnalysisToolResult(
+                    status="ERROR",
+                    result="Ячейки входов не содержат значений: " + ", ".join(missing_values),
+                    content={},
+                )
 
             logger.info(
-                "IFT calculation started: file={}, output={}, target={}, scenarios={}",
+                "IFT calculation started: file={}, output={}, target={}, inputs={}",
                 os.path.basename(file_path),
                 actual_output_name,
                 target_value,
-                len(scenarios),
+                len(input_names),
             )
 
             # Compile a LibreOffice function for fast repeated evaluation
@@ -308,49 +325,55 @@ def analyze_model_inputs_for_target(
             output_ref = f"'[{fname}]OUTPUTS'!{output_cell_ref}"
             func = xl.get_compiled_func(input_refs, [output_ref])
 
-            # Test scenarios (in-memory, no LibreOffice)
-            results = test_scenarios(
+            base_values = [float(input_cells[n]["current_value"]) for n in input_names]
+            search = adaptive_target_search(
                 func=func,
-                scenarios=scenarios,
-                input_cells=input_cells,
+                base_values=base_values,
+                input_names=input_names,
                 target_value=target_value,
                 tolerance=tolerance,
             )
 
-            # Optimize using regression to refine beyond the grid resolution
-            optimized = optimize_with_regression(
-                func=func,
-                scenarios=results["all_scenarios"],
-                input_names=input_names,
-                target_value=target_value,
-            )
-            if optimized:
-                logger.info(f"Optimized scenario found: {optimized}")
+            all_scenarios = search["trace"]
+            best_point = search["best"]
+            within_tolerance = best_point["deviation"] < search["epsilon"]
+            matching_scenarios = [best_point] if within_tolerance else []
 
-            # Fallback: if no matching scenarios and optimization succeeded, accept it
-            if (
-                not results["matching_scenarios"]
-                and optimized
-                and optimized.get("deviation_percent", 1e9) <= tolerance
-            ):
-                results["matching_scenarios"].append(
-                    {
-                        "input_values": optimized["input_values"],
-                        "output_value": optimized["actual_output"],
-                        "deviation": optimized["deviation"],
-                        "deviation_percent": optimized["deviation_percent"],
-                    }
-                )
+            baseline_deviation = abs(search["baseline_output"] - target_value)
+            optimized = None
+            if best_point["deviation"] < baseline_deviation:
+                optimized = {
+                    "input_values": {name: round(v, 3) for name, v in best_point["input_values"].items()},
+                    "actual_output": round(best_point["output_value"], 3),
+                    "deviation": round(best_point["deviation"], 3),
+                    "deviation_percent": round(best_point["deviation_percent"], 2),
+                    "optimized": True,
+                    "search": "adaptive",
+                }
+                logger.info("Adaptive search improved on baseline: {}", optimized)
+
+            search_config = {
+                "input_ranges": search["input_ranges"],
+                "probe_step": IFT_PROBE_STEP,
+                "directions": search["directions"],
+                "max_iter": IFT_MAX_ITER,
+                "lambda": IFT_SELECTION_LAMBDA,
+                "epsilon": search["epsilon"],
+                "iterations": search["iterations"],
+                "stop_reason": search["stop_reason"],
+                "excluded": search["excluded"],
+                "penalty": search["penalty"],
+            }
 
             # Save results to Excel
             excel_file = save_analysis_results(
-                scenarios=results["all_scenarios"],
+                scenarios=all_scenarios,
                 optimized_scenario=optimized,
                 input_names=input_names,
                 output_name=output_name,
                 target_value=target_value,
                 tolerance=tolerance,
-                search_config=results["search_config"],
+                search_config=search_config,
             )
 
             # Prepare final results
@@ -359,12 +382,12 @@ def analyze_model_inputs_for_target(
                 "actual_output_name": actual_output_name,
                 "target_value": target_value,
                 "tolerance_percent": tolerance,
-                "scenarios_found": len(results["matching_scenarios"]),
-                "total_scenarios_tested": len(scenarios),
+                "scenarios_found": len(matching_scenarios),
+                "total_scenarios_tested": len(all_scenarios),
                 "processing_time_seconds": round(time.perf_counter() - start_time, 2),
-                "search_configuration": results["search_config"],
-                "matching_scenarios": results["matching_scenarios"][:10],
-                "all_scenarios": results["all_scenarios"][:50],
+                "search_configuration": search_config,
+                "matching_scenarios": matching_scenarios[:10],
+                "all_scenarios": all_scenarios[:50],
                 "input_names": input_names,
                 "current_input_values": current_values,
                 "optimized_scenario": optimized,
@@ -374,24 +397,25 @@ def analyze_model_inputs_for_target(
             # After scenario testing and before result generation
             elapsed_total = round(time.perf_counter() - start_time, 2)
             logger.info(
-                "IFT calculation completed: elapsed={}s, matching_scenarios={}, total_scenarios={}",
+                "IFT calculation completed: elapsed={}s, matching_scenarios={}, total_scenarios={}, stop_reason={}",
                 elapsed_total,
-                len(results["matching_scenarios"]),
-                len(scenarios),
+                len(matching_scenarios),
+                len(all_scenarios),
+                search["stop_reason"],
             )
 
             # Generate result message
             message = generate_result_message(
-                matching_scenarios=results["matching_scenarios"],
-                scenarios_tested=len(scenarios),
+                matching_scenarios=matching_scenarios,
+                scenarios_tested=len(all_scenarios),
                 target_value=target_value,
                 tolerance=tolerance,
-                search_config=results["search_config"],
-                processing_time=results["processing_time"],
+                search_config=search_config,
+                processing_time=search["processing_time"],
             )
 
             result = ModelInputAnalysisToolResult(
-                status="OK" if results["matching_scenarios"] else "WARNING", result=message, content=final_results
+                status="OK" if matching_scenarios else "WARNING", result=message, content=final_results
             )
 
             # Cache successful result
@@ -409,38 +433,6 @@ def analyze_model_inputs_for_target(
         return ModelInputAnalysisToolResult(status="ERROR", result=msg, content={})
 
 
-def generate_scenarios(input_cells: dict, current_values: dict, max_scenarios: int) -> list:
-    """Generate test scenarios for input parameters."""
-    num_inputs = len(input_cells)
-    steps_per_input = int(max_scenarios ** (1.0 / num_inputs))
-    steps_per_input = max(4, min(steps_per_input, 10))  # Between 4 and 10 steps
-
-    # Generate value ranges for each input
-    ranges = {}
-    steps = {}
-    for name, info in input_cells.items():
-        current = current_values[name]
-        ranges[name] = [current * 0.5, current * 1.5]  # ±50% from current
-        range_size = ranges[name][1] - ranges[name][0]
-        steps[name] = range_size / (steps_per_input - 1)
-
-    # Generate value sets
-    value_sets = []
-    for name in input_cells:
-        start, end = ranges[name]
-        step = steps[name]
-        values = np.arange(start, end + 1e-10, step)
-        value_sets.append(values.tolist())
-
-    # Generate combinations
-    scenarios = list(product(*value_sets))
-    if len(scenarios) > max_scenarios:
-        random.shuffle(scenarios)
-        scenarios = scenarios[:max_scenarios]
-
-    return scenarios
-
-
 def _formula_scalar(val) -> float:
     """Extract a scalar float from a compiled-function return value."""
     if isinstance(val, (list, tuple)):
@@ -450,110 +442,212 @@ def _formula_scalar(val) -> float:
     return float(val)
 
 
-def test_scenarios(func: Callable, scenarios: list, input_cells: dict, target_value: float, tolerance: float) -> dict:
-    """Test scenarios using a compiled LibreOffice function and collect results."""
-    matching_scenarios = []
-    all_scenarios = []
-    start_time = time.perf_counter()
-    input_names = list(input_cells)
+def _search_epsilon(target_value: float, tolerance: float) -> float:
+    """Absolute stop tolerance: ``|target| * tolerance / 100`` (guards zero targets)."""
+    epsilon = abs(target_value) * tolerance / 100.0
+    if epsilon <= 0.0:
+        epsilon = max(abs(tolerance) / 100.0, 1e-9)
+    return epsilon
 
-    for i, values in enumerate(scenarios):
-        scenario_inputs = dict(zip(input_names, values, strict=True))
 
-        try:
-            result = func(*values)
-            # func returns a list of output values (one per output ref)
-            output = _formula_scalar(result[0])
+def probe_input_directions(
+    func: Callable,
+    base_values: list[float],
+    input_names: list[str],
+    target_value: float,
+    tolerance: float,
+) -> dict:
+    """Evaluate the baseline and each input raised by ``IFT_PROBE_STEP`` to learn influence signs.
 
-            deviation = abs(output - target_value)
-            deviation_percent = (deviation / target_value) * 100
+    The baseline is evaluated once (N+1 evaluations for N inputs). Inputs with
+    ``|x0| < 1e-9`` are excluded without an extra evaluation (10% of zero is zero),
+    inputs whose probe leaves the output unchanged are marked neutral.
 
-            scenario = {
-                "input_values": scenario_inputs,
-                "output_value": output,
-                "deviation": deviation,
-                "deviation_percent": deviation_percent,
-            }
+    Returns a dict with: ``baseline``, ``directions`` ({name: +1/-1/0}),
+    ``excluded`` ({name: reason}), ``sensitivities`` ({name: |output delta|}),
+    ``epsilon``, ``probe_points`` (evaluated points as {values, output}) and
+    ``probe_evaluations``.
+    """
+    baseline = _formula_scalar(func(*base_values))
+    directions: dict[str, int] = {}
+    excluded: dict[str, str] = {}
+    sensitivities: dict[str, float] = {}
+    probe_points: list[dict] = []
+    evaluations = 1
 
-            all_scenarios.append(scenario)
-            logger.info(
-                "Scenario {}: output={:.3f}, deviation={:.4f}, deviation_percent={:.2f}%, tolerance={}",
-                i,
-                output,
-                deviation,
-                deviation_percent,
-                tolerance,
-            )
-            if deviation_percent <= tolerance:
-                matching_scenarios.append(scenario)
-
-        except (ValueError, TypeError):
+    for idx, (name, x0) in enumerate(zip(input_names, base_values, strict=True)):
+        if abs(x0) < 1e-9:
+            directions[name] = 0
+            excluded[name] = "zero_value"
             continue
 
-    processing_time = time.perf_counter() - start_time
+        probe_values = list(base_values)
+        probe_values[idx] = x0 + IFT_PROBE_STEP * abs(x0)
+        probe_out = _formula_scalar(func(*probe_values))
+        evaluations += 1
+        probe_points.append({"values": list(probe_values), "output": probe_out})
+
+        delta = probe_out - baseline
+        if delta > 0:
+            directions[name] = 1
+            sensitivities[name] = delta
+        elif delta < 0:
+            directions[name] = -1
+            sensitivities[name] = -delta
+        else:
+            directions[name] = 0
+            excluded[name] = "neutral"
+            sensitivities[name] = 0.0
 
     return {
-        "matching_scenarios": matching_scenarios,
-        "all_scenarios": all_scenarios,
-        "processing_time": processing_time,
-        "search_config": {
-            "input_ranges": {
-                name: {
-                    "min": min(s["input_values"][name] for s in all_scenarios),
-                    "max": max(s["input_values"][name] for s in all_scenarios),
-                }
-                for name in input_names
-            }
-        },
+        "baseline": baseline,
+        "directions": directions,
+        "excluded": excluded,
+        "sensitivities": sensitivities,
+        "epsilon": _search_epsilon(target_value, tolerance),
+        "probe_points": probe_points,
+        "probe_evaluations": evaluations,
     }
 
 
-def optimize_with_regression(
+def _deviation_percent(deviation: float, target_value: float) -> float:
+    """Legacy display formula ``deviation / target * 100`` with a zero-target guard."""
+    if target_value == 0.0:
+        return deviation / 1e-9 * 100.0
+    return deviation / target_value * 100.0
+
+
+def _quadratic_penalty(values: list[float], base_values: list[float], base_steps: list[float], eligible: list[int]) -> float:
+    """Sum of squared moves measured in base steps over the eligible inputs."""
+    total = 0.0
+    for idx in eligible:
+        if base_steps[idx] <= 0.0:
+            continue
+        total += ((values[idx] - base_values[idx]) / base_steps[idx]) ** 2
+    return total
+
+
+def _make_trace_point(input_names: list[str], values: list[float], output: float, target_value: float) -> dict:
+    deviation = abs(output - target_value)
+    return {
+        "input_values": {name: values[i] for i, name in enumerate(input_names)},
+        "output_value": output,
+        "deviation": deviation,
+        "deviation_percent": _deviation_percent(deviation, target_value),
+    }
+
+
+def adaptive_target_search(
     func: Callable,
-    scenarios: list,
-    input_names: list,
+    base_values: list[float],
+    input_names: list[str],
     target_value: float,
+    tolerance: float,
+    max_iter: int = IFT_MAX_ITER,
+    lambda_weight: float = IFT_SELECTION_LAMBDA,
 ) -> dict:
-    """Optimize inputs using scipy minimize with the compiled LibreOffice function."""
-    try:
-        from scipy.optimize import minimize
+    """Adaptive coordinate search driving one model output to ``target_value``.
 
-        # Prepare data — sort scenarios by deviation ascending, take best
-        sorted_scenarios = sorted(scenarios, key=lambda s: s["deviation"])
-        best = sorted_scenarios[0]
+    Probe once to get each input's direction and sensitivity, then per iteration:
+    build one candidate per eligible input (probe sign toward the target, magnitude
+    ``f_i * base_step_i`` with ``base_step_i = IFT_PROBE_STEP * |x_i0|`` fixed once),
+    score it as ``probe-predicted normalized target error + lambda_weight *
+    quadratic penalty``, evaluate only the argmin candidate (ties -> lowest index),
+    and on a miss (deviation grew) halve that input's step fraction and reject the
+    point. Stops on ``|value - target| < epsilon`` (within_tolerance), on
+    ``max_iter`` or when no input is eligible (no_eligible_inputs).
 
-        # Bounds from the scenario ranges
-        bounds = [
-            (min(s["input_values"][name] for s in scenarios), max(s["input_values"][name] for s in scenarios))
-            for name in input_names
-        ]
+    Returns: trace (baseline + probe + accepted/rejected evaluations), best point,
+    baseline_output, stop_reason, iterations, epsilon, normalization, directions,
+    excluded, input_ranges, penalty, probe_evaluations, evaluations, processing_time.
+    """
+    start_time = time.perf_counter()
+    probe = probe_input_directions(func, base_values, input_names, target_value, tolerance)
+    baseline = probe["baseline"]
+    epsilon = probe["epsilon"]
+    directions = probe["directions"]
+    excluded = probe["excluded"]
+    sensitivities = probe["sensitivities"]
+    base_steps = [IFT_PROBE_STEP * abs(v) for v in base_values]
+    eligible = [i for i, name in enumerate(input_names) if name not in excluded]
+    normalization = max(abs(baseline - target_value), epsilon)
 
-        # Objective: minimise |actual_output - target|
-        def objective(x):
-            out = func(*x)
-            return abs(_formula_scalar(out) - target_value)
+    trace = [_make_trace_point(input_names, base_values, baseline, target_value)]
+    trace.extend(
+        _make_trace_point(input_names, point["values"], point["output"], target_value)
+        for point in probe["probe_points"]
+    )
 
-        # Start from the best grid scenario
-        x0 = np.array([best["input_values"][name] for name in input_names])
-        res = minimize(objective, x0, bounds=bounds, method="L-BFGS-B")
+    fractions = dict.fromkeys(eligible, 1.0)
+    best_point = min(trace, key=lambda p: p["deviation"])
+    current_values = [best_point["input_values"][name] for name in input_names]
+    current_out = best_point["output_value"]
 
-        # Evaluate the optimised point with the real model
-        actual = _formula_scalar(func(*res.x))
+    iterations = 0
+    stop_reason = "max_iter"
+    while True:
+        current_dev = abs(current_out - target_value)
+        if current_dev < epsilon:
+            stop_reason = "within_tolerance"
+            break
+        if not eligible:
+            stop_reason = "no_eligible_inputs"
+            break
+        if iterations >= max_iter:
+            break
 
-        input_values = {name: round(float(v), 3) for name, v in zip(input_names, res.x, strict=True)}
-        deviation = abs(actual - target_value)
-        deviation_percent = deviation / target_value * 100
+        toward_target = 1.0 if current_out < target_value else -1.0
+        chosen = None
+        chosen_score = None
+        chosen_point = None
+        for idx in eligible:
+            name = input_names[idx]
+            move = directions[name] * toward_target * fractions[idx]
+            candidate = list(current_values)
+            candidate[idx] = current_values[idx] + move * base_steps[idx]
+            predicted_out = current_out + directions[name] * sensitivities[name] * move
+            predicted_error = abs(predicted_out - target_value) / normalization
+            penalty = _quadratic_penalty(candidate, base_values, base_steps, eligible)
+            score = predicted_error + lambda_weight * penalty
+            if chosen_score is None or score < chosen_score:
+                chosen = idx
+                chosen_score = score
+                chosen_point = candidate
 
-        return {
-            "input_values": input_values,
-            "actual_output": round(float(actual), 3),
-            "deviation": round(float(deviation), 3),
-            "deviation_percent": round(float(deviation_percent), 2),
-            "optimized": True,
+        new_out = _formula_scalar(func(*chosen_point))
+        trace.append(_make_trace_point(input_names, chosen_point, new_out, target_value))
+        iterations += 1
+        if abs(new_out - target_value) > current_dev:
+            fractions[chosen] /= 2.0
+        else:
+            current_values = chosen_point
+            current_out = new_out
+
+    best_point = min(trace, key=lambda p: p["deviation"])
+    input_ranges = {
+        name: {
+            "min": min(p["input_values"][name] for p in trace),
+            "max": max(p["input_values"][name] for p in trace),
         }
-    except Exception as e:
-        logger.opt(exception=True).warning("Optimization failed: {}", str(e))
-        return None
+        for name in input_names
+    }
+    best_values = [best_point["input_values"][name] for name in input_names]
+    return {
+        "trace": trace,
+        "best": best_point,
+        "baseline_output": baseline,
+        "stop_reason": stop_reason,
+        "iterations": iterations,
+        "epsilon": epsilon,
+        "normalization": normalization,
+        "directions": directions,
+        "excluded": excluded,
+        "input_ranges": input_ranges,
+        "penalty": _quadratic_penalty(best_values, base_values, base_steps, eligible),
+        "probe_evaluations": probe["probe_evaluations"],
+        "evaluations": probe["probe_evaluations"] + iterations,
+        "processing_time": time.perf_counter() - start_time,
+    }
 
 
 def get_output_cell_ref(mapping: dict, output_name: str, year: int) -> str:

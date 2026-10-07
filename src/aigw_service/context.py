@@ -14,6 +14,7 @@ from aigw_service.config import APP_CONFIG, Secrets
 from aigw_service.config import get_store as _get_store
 from aigw_service.core.llm_executor import Agent
 from aigw_service.core.tracing.tracing import AEFTracingHandler, TracingManager
+from aigw_service.exceptions import StopEventError
 from aigw_service.logger import ContextVarsContainer, LoggerConfigurator
 
 _STOP_EVENT_MARKER = b"temporarily unavailable due to technical reasons"
@@ -86,6 +87,8 @@ class AppContext(metaclass=Singleton):
 
         # Logger
         self.context_vars_container = ContextVarsContainer()
+        self._gigachat_max_retries = secrets.gigachat.max_retries
+        self._gigachat_retry_backoff_factor = secrets.gigachat.retry_backoff_factor
         self._logger_manager = LoggerConfigurator(
             log_lvl=secrets.log.log_lvl,
             log_file_path=secrets.log.log_file_abs_path,
@@ -200,6 +203,18 @@ class AppContext(metaclass=Singleton):
         except httpx.HTTPError as e:
             self.logger.error(f"Error connecting to Ollama at {self._ollama_kwargs['base_url']}: {e}")
 
+
+    def create_llm(self, model_name=None, timeout=60, **kwargs):
+        from aigw_service.core.llm_executor import Agent
+        params = dict(self._gigachat_base_params)
+        params.setdefault("max_retries", self._gigachat_max_retries)
+        params.setdefault("retry_backoff_factor", self._gigachat_retry_backoff_factor)
+        if model_name is not None:
+            params["model"] = model_name
+        params["timeout"] = timeout
+        params.update(kwargs)
+        return Agent(**params)
+        
     async def on_startup(self):
         self.logger.info("Application is starting up.")
 
