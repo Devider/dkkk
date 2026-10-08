@@ -186,7 +186,7 @@ async def invoke_agent(
                 "user_id": user_id,
             },
             "metadata": {
-                "lang_fuse_user_id": user_id,
+                "langfuse_user_id": user_id,
                 "client_id": x_client_id,
                 "langfuse_session_id": thread_id,
                 "endpoint": "/invoke-agent",
