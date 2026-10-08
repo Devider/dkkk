@@ -52,7 +52,7 @@
   over the touched files; verify both commands exit clean.
 - [x] 4.2 Run `pytest tests/unit/ -v` and confirm the new/updated tests from groups 1-3 pass and no
   existing test regresses.
-- [ ] 4.3 Per the proposal's Verification section: with `LANGFUSE_TRACING_ENABLED=true` against a
+- [x] 4.3 Per the proposal's Verification section: with `LANGFUSE_TRACING_ENABLED=true` against a
   local/dev Langfuse instance, run the app and issue one `/api/v1/invoke-agent` request that
   triggers `analyze_model_inputs_for_target` and one that triggers `analyze_excel_model`. In the
   Langfuse UI, confirm: each call appears as a `tool`-typed observation nested under the request's
