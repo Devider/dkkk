@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph, add_messages
 
 from aigw_service.api.v1.prompts.ema_analizer import EMA_ANALIZER_PROMPT
@@ -184,7 +185,7 @@ class AgentGraph:
             return "synthesizer"
         return "tool_executor"
 
-    async def tool_executor(self, state: AgentState) -> AgentState:
+    async def tool_executor(self, state: AgentState, config: RunnableConfig) -> AgentState:
         """Выполняет все tool_calls последнего сообщения оркестратора и возвращает ToolMessage'и."""
         last_message = state["messages"][-1]
         tool_calls = last_message.tool_calls or []
@@ -192,7 +193,7 @@ class AgentGraph:
         fingerprints = set(state.get("executed_tool_fingerprints", []))
         tool_results = list(state.get("tool_results", []))
         tool_messages = [
-            await self._execute_single_call(call, state, fingerprints, tool_results) for call in tool_calls
+            await self._execute_single_call(call, state, fingerprints, tool_results, config) for call in tool_calls
         ]
 
         return {
@@ -208,6 +209,7 @@ class AgentGraph:
         state: AgentState,
         fingerprints: set[str],
         tool_results: list[ToolCallResult],
+        config: RunnableConfig,
     ) -> ToolMessage:
         """Выполняет один tool_call, либо пропускает его, если это точный дубликат в рамках хода."""
         fingerprint = self._fingerprint_call(call)
@@ -230,6 +232,7 @@ class AgentGraph:
             available_outputs=state.get("available_outputs") or {},
             filename=state.get("filename"),
             user_id=state.get("user_id"),
+            config=config,
         )
         tool_results.append(result)
         return ToolMessage(content=result["result_text"], tool_call_id=call["id"], name=call["name"])
