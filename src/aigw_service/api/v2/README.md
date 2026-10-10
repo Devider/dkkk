@@ -13,6 +13,8 @@ loguru gotcha) see the root `CLAUDE.md`; this file only covers what is specific 
   **`task`** tool to one of two **compiled subagents**: `analyze_model_inputs_for_target` (IFT) and
   `analyze_excel_model` (EMA). The same LLM call that decides "no more tools" writes the final answer.
   There is no separate synthesizer node.
+- Besides `task`, the top-level LLM can call **direct tools** from `tools/` (`DEEP_AGENT_TOOLS`)
+  without going through a subagent. Currently that is `check_uploaded_file` and `list_excel_sheets`.
 - Each subagent is a one-node wrapper graph → `OrchestratorTools.dispatch` → `AnalyzerSubAgent`
   (LLM name resolution against the workbook catalog) → LibreOffice calculation in `tools/excel_calc.py`, run in
   a separate **spawned process**.
@@ -35,7 +37,8 @@ loguru gotcha) see the root `CLAUDE.md`; this file only covers what is specific 
 | `subagents/utils.py` | Catalog building (`_build_catalog_with_ids` → `IN{n}`/`OUT{n}` ids via openpyxl), token/diagnostic helpers |
 | `schemas/llm_outputs.py` | Pydantic structured outputs: `QueryAnalysisIFT`, `QueryAnalysisEMA`, `InputItem`, `OutputItem`, `RangeConfig`, `LookupResult` |
 | `states/agents.py` | TypedDict states for the IFT/EMA analyzer graphs |
-| `tools/storage.py` | `check_uploaded_file`: tool the deep agent calls directly (not via `task`) to check the store + disk for the user's uploaded workbook. New direct tools go in `tools/` and into `tools/__init__.py:DEEP_AGENT_TOOLS` |
+| `tools/storage.py` | `check_uploaded_file`: tool the deep agent calls directly (not via `task`) to check the store + disk for the user's uploaded workbook; `resolve_uploaded_file_path` helper shared by direct tools. New direct tools go in `tools/` and into `tools/__init__.py:DEEP_AGENT_TOOLS` |
+| `tools/workbook.py` | `list_excel_sheets`: direct tool that opens the uploaded workbook (openpyxl `read_only`) and returns its sheet names |
 | `tools/excel_calc.py` | Real calculations: `analyze_model_inputs_for_target`, `analyze_excel_model`, Jaccard name matching (`find_matching_cell`/`find_matching_outputs`), Inputs/Outputs mappings, result cache |
 | `excel_handler.py`, `lo_backend.py` | LibreOffice-via-UNO workbook wrapper (`ExcelWorkbook`, `get_compiled_func`) |
 | `russian_stemmer.py` | Pure-Python Snowball Russian stemmer used by `normalize_text` |
@@ -70,6 +73,8 @@ START -> extract_excel_data -> deep_agent -> END
                                    │
                                    ▼  (self.deep_agent.ainvoke, recursion_limit=16)
               ┌──────────── create_deep_agent(model=APP_CTX.llm) ────────────┐
+              │  model call ──tool_calls(check_uploaded_file,                │
+              │                        list_excel_sheets)──► direct tools    │
               │  model call ──tool_calls(task)──► SubAgentMiddleware         │
               │      ▲                                │                      │
               │      └──────── ToolMessage ◄──────────┤                      │
@@ -172,6 +177,46 @@ START -> anlyze_query --(any mentioned_input.lookup_more?)--> lookup_more -> res
 - EMA: sweep over the given ranges/steps for each output and year.
 - The file path comes from the store (`get_store_file(user_id)`), with `file_name` as a fallback.
 
+## Direct tools (`tools/`)
+
+`tools/` holds everything tool-related in v2:
+
+- `tools/excel_calc.py`: the LibreOffice calculation layer used by the subagents (see above). It is
+  **not** exposed to the top-level LLM.
+- `tools/storage.py`, `tools/workbook.py` and any future modules: LangChain `@tool`s that the top-level LLM calls
+  **directly**. They are registered in `tools/__init__.py:DEEP_AGENT_TOOLS` and passed to
+  `create_deep_agent(tools=...)`.
+
+Direct tools get domain context through `runtime: ToolRuntime` (injected by LangChain, not visible to
+the LLM). `runtime.state` is the deep agent's state, so `user_id`, `filename` and the catalogs are
+available there. They have no subagent wrapper, so there is no dedup fingerprint and no `TOOL ARGS`
+log line for them.
+
+### `check_uploaded_file` (`tools/storage.py`)
+
+- No LLM-visible arguments. Reads `user_id` from `runtime.state`.
+- Looks up `("memories", user_id)` in `APP_CTX.agent_memory.store`, then checks that
+  `$TMPDIR/<filename>` exists on disk. The disk check matters because the store record can outlive the file
+  (e.g. after `docker compose down -v` drops the `app_tmp` volume).
+- Returns one of two Russian strings: `FILE_FOUND_MESSAGE` or `FILE_NOT_FOUND_MESSAGE`. A store hit
+  with a missing file logs a WARNING.
+- The prompt section «ПРОВЕРКА ЗАГРУЖЕННОГО ФАЙЛА» tells the LLM to call it when the user asks
+  whether their file is uploaded. The tool name is in the "don't leak internals" list.
+- Caveat: `extract_excel_data` runs first and raises (→ 424) when no file is in the store, so in the
+  current graph the tool practically only ever returns `FILE_FOUND_MESSAGE` (or not-found when the
+  file vanished from disk). Making the "not uploaded" answer reachable requires relaxing
+  `extract_excel_data`, which is a behavior change (OpenSpec).
+
+### `list_excel_sheets` (`tools/workbook.py`)
+
+- No LLM-visible arguments. Resolves the file via `resolve_uploaded_file_path` (same store + disk
+  check as `check_uploaded_file`; returns `FILE_NOT_FOUND_MESSAGE` if it fails).
+- Opens the workbook with openpyxl `read_only=True` in `asyncio.to_thread` (no LibreOffice spawn, no
+  cell loading) and returns a Russian bullet list of `wb.sheetnames`, in workbook order.
+- A read failure is logged with the traceback and returns `SHEETS_READ_ERROR_MESSAGE`.
+- Prompt section «СПИСОК ЛИСТОВ ФАЙЛА» tells the LLM to call it (not `task`) when the user asks which
+  sheets the file has. The tool name is in the "don't leak internals" list.
+
 ## Top-level prompt behavior (`prompts/deep_agent.py`)
 
 These rules are enforced by the prompt, not by code:
@@ -180,6 +225,8 @@ These rules are enforced by the prompt, not by code:
 - No `task` for: greetings/clarifications, capability questions (answer with `CAPABILITIES_ANSWER`
   almost verbatim), answers already in history, off-topic requests (canned refusal), or languages
   other than Russian/English (canned refusal).
+- Call `check_uploaded_file` when the user asks whether their model file is uploaded.
+- Call `list_excel_sheets` when the user asks which sheets their model file has.
 - Never expose internals to the user (tool names, `deepagents`/LangGraph, cell refs, ids, placeholder
   values like "Year 0"). `CAPABILITIES_ANSWER` is a separate constant so a test can check it for leaked
   identifiers.
@@ -218,6 +265,9 @@ These rules are enforced by the prompt, not by code:
 - New subagent: add a `TOOL_TASK_DESCRIPTIONS` entry, a branch in `OrchestratorTools.dispatch`, and a
   `_build_compiled_subagent(...)` in `DeepAgentGraph.__init__`; mention it in the system prompt and
   check the prompt's "don't leak internals" list.
+- New direct tool: write a `@tool` in a module under `tools/` (use `runtime: ToolRuntime` for state,
+  not LLM arguments), add it to `DEEP_AGENT_TOOLS` in `tools/__init__.py`, describe when to call it in
+  the system prompt, and add its name to the prompt's "don't leak internals" list.
 - Anything that crosses into `_run_lo_calc` must be picklable and importable under `spawn`.
 - Use `logger.opt(exception=True).error("...: {}", str(e))` in `except` blocks (loguru brace issue).
 - Behavior changes go through OpenSpec (`opsx:propose`). See the root `CLAUDE.md`.
