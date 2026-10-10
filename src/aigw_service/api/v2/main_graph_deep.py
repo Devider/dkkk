@@ -45,6 +45,7 @@ from aigw_service.api.v2.states.agents import (
 from aigw_service.api.v2.subagents.analyzer import AnalyzerSubAgent
 from aigw_service.api.v2.subagents.orchestrator_tools import TOOL_TASK_DESCRIPTIONS, OrchestratorTools
 from aigw_service.api.v2.subagents.utils import _build_catalog_with_ids
+from aigw_service.api.v2.tools import DEEP_AGENT_TOOLS
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
@@ -125,6 +126,7 @@ class DeepAgentGraph:
         self.deep_agent = create_deep_agent(
             model=self.llm,
             system_prompt=DEEP_AGENT_SYSTEM_PROMPT,
+            tools=DEEP_AGENT_TOOLS,
             subagents=[
                 self._build_compiled_subagent("analyze_model_inputs_for_target"),
                 self._build_compiled_subagent("analyze_excel_model"),

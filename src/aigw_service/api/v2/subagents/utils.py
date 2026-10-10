@@ -2,7 +2,7 @@ from typing import Any
 
 import openpyxl
 
-from aigw_service.api.v2.tools import (
+from aigw_service.api.v2.tools.excel_calc import (
     create_input_mapping,
     create_output_mapping,
 )
