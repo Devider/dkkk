@@ -122,6 +122,15 @@ over time. `api/v2/`'s copies are trimmed to only what `DeepAgentGraph` actually
 `subagents/orchestrator_tools.py` drops the native-tool-calling-only `OrchestratorTools.TOOLS`;
 `tools.py` drops the dependency-graph/business-summary functions neither graph calls).
 
+### `/api/v2` deep-agent architecture
+
+Active development happens on `/api/v2`. Its architecture (deep agent + `task` subagents, process-pool
+LO calcs, dedup, recursion limit, v1-vs-v2 differences) is documented in
+`src/aigw_service/api/v2/README.md`. It is not loaded by default. Read it only when a task touches
+`api/v2/` and you need details beyond this file, e.g. before changing the graph, subagents, prompts or
+calc dispatch. Skip it for v1-only work or trivial v2 edits. Keep it up to date when changing `api/v2/`
+architecture.
+
 ### The agent graph (current — supersedes the old single-file `services.py` state machine)
 
 `src/aigw_service/api/v1/main_graph.py:AgentGraph` is what `router.py` actually wires up. `services.py`
