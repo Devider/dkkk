@@ -16,7 +16,7 @@ from langchain_core.messages import HumanMessage
 
 from aigw_service.api.v2.schemas.llm_outputs import InputItem
 from aigw_service.api.v2.subagents.analyzer import AnalyzerSubAgent
-from aigw_service.api.v2.tools import ExcelAnalysisToolResult, ModelInputAnalysisToolResult
+from aigw_service.api.v2.tools.excel_calc import ExcelAnalysisToolResult, ModelInputAnalysisToolResult
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
@@ -58,7 +58,7 @@ def _run_lo_calc(func_name: str, kwargs: dict[str, Any]) -> dict[str, Any]:
     ``tools.py``) живёт внутри worker-процесса и переиспользуется между вызовами
     пула, поэтому повторные запросы не теряют преимуществ кэша.
     """
-    from aigw_service.api.v2 import tools as _tools
+    from aigw_service.api.v2.tools import excel_calc as _tools
 
     func = getattr(_tools, func_name)
     result = func(**kwargs)

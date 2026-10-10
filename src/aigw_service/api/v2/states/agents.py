@@ -12,7 +12,7 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph import add_messages
 
 from aigw_service.api.v2.schemas.llm_outputs import InputItem, LookupResult, QueryAnalysisEMA, QueryAnalysisIFT
-from aigw_service.api.v2.tools import ExcelAnalysisToolArgs, ModelInputAnalysisToolResult
+from aigw_service.api.v2.tools.excel_calc import ExcelAnalysisToolArgs, ModelInputAnalysisToolResult
 
 
 class InputsForTargetAnalizerInput(TypedDict):
