@@ -270,7 +270,7 @@ class TestLanguage:
 
     def test_order_and_no_workbook_wins(self) -> None:
         names = [type(m).__name__ for m in AgentFactory(answer(), default_catalog()).middleware()]
-        assert names[:3] == ["TurnContext", "LanguageGuard", "PlanTodoList"]
+        assert names[:2] == ["TurnContext", "LanguageGuard"]
         assert isinstance(AgentFactory(answer(), default_catalog()).middleware()[1], LanguageGuard)
 
     async def test_no_workbook_and_foreign_language(self, tmp_path: Path) -> None:

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from deepagents.middleware import FilesystemMiddleware, SkillsMiddleware
 from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
@@ -95,7 +96,7 @@ class TestModelCall:
             ],
             mode,
         )
-        assert model.calls[0]["tools"] == ["write_todos"]
+        assert model.calls[0]["tools"] == ["read_file", "write_todos"]
         assert {"resolve_terms", "run_scenarios", "write_todos"} <= set(model.calls[1]["tools"])
         assert [name for name, _ in tool_results(out)] == ["write_todos", "run_scenarios", "write_todos"]
         assert len(engine) == 1
@@ -123,7 +124,7 @@ class TestModelCall:
             "always",
         )
         assert [c["tool_choice"] for c in model.calls[:2]] == [None, "write_todos"]
-        assert model.calls[1]["tools"] == ["write_todos"]
+        assert model.calls[1]["tools"] == ["read_file", "write_todos"]
         assert isinstance(model.calls[1]["messages"][-1], HumanMessage)  # the dropped answer is not in the prompt
         assert all(m.content != "Сразу отвечу без плана." for m in out["messages"])
         assert out["todos"] == COMPLETED
@@ -159,7 +160,7 @@ class TestModelCall:
         ]
         assert outs[0]["messages"][-1].content == "За какой год?"  # blocked is closed: no return
         assert outs[1]["todos"] == blocked
-        assert model.calls[0]["tools"] == ["write_todos"]
+        assert model.calls[0]["tools"] == ["read_file", "write_todos"]
         assert {"run_scenarios", "write_todos"} <= set(model.calls[2]["tools"])
         assert len(model.calls) == 3
 
@@ -257,12 +258,14 @@ class TestFactory:
         assert [type(m) for m in stack] == [
             TurnContext,
             LanguageGuard,
+            SkillsMiddleware,
+            FilesystemMiddleware,
             PlanTodoList,
             ForcePlanFirst,
             PlanCompletionGuard,
             TurnSummary,
         ]
-        assert stack[3].mode == "always"
+        assert stack[5].mode == "always"
 
     def test_off_installs_nothing(self) -> None:
         from aigw_service.api.v2.tools.catalog import default_catalog  # pylint: disable=import-outside-toplevel

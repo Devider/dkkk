@@ -24,3 +24,25 @@ TODO_TOOL_DESCRIPTION = """\
 Передавай план целиком при каждом вызове. Используй для любого запроса с расчётом; для приветствия \
 и вопросов без расчёта план не нужен.
 """
+
+# SkillsMiddleware (deepagents): the slots {skills_locations}, {skills_load_warnings}, {skills_list} are filled by it
+SKILLS_SYSTEM_PROMPT = """\
+## Skills — методики сложных расчётов
+
+{skills_locations}{skills_load_warnings}
+
+**Доступные skills:**
+
+{skills_list}
+
+- Если запрос совпадает с описанием skill, до составления плана прочитай его `SKILL.md` через `read_file` \
+по пути из списка (передай `limit=400`) и строй план по шаблону skill.
+- Инструменты, которые skill открывает, становятся доступны только после чтения этого skill.
+- Справочники skill (`references/...`) читай через `read_file`, когда на них ссылается текст skill.
+"""
+
+READ_FILE_DESCRIPTION = """\
+Читает файл: текст skill (`/skills/<name>/SKILL.md` и его `references/`) или сохранённый полный результат \
+расчёта (`/results/...`). Другие пути недоступны. По умолчанию читает первые 100 строк; для длинных файлов \
+передавай `limit` (например, 400) и `offset`. Над содержимым идёт служебная строка `@@ ... @@`.
+"""

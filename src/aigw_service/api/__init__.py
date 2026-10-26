@@ -7,12 +7,18 @@ from aigw_service.api.metric_router import router as metric_router
 from aigw_service.api.middleware import log_requests
 from aigw_service.api.os_router import router as service_router
 from aigw_service.api.v1.router import router as main_router
+from aigw_service.api.v2.factory import get_agent_v2
+from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
+from aigw_service.core.tracing.langsmith_guard import forbid_langsmith
 
 
 @contextlib.asynccontextmanager
 async def lifespan(_) -> tp.AsyncContextManager:  # type: ignore
+    forbid_langsmith()  # AR-Q14: tracing only inside the contour
     await APP_CTX.on_startup()
+    if APP_CONFIG.agent.engine == "v2":
+        get_agent_v2()  # AR-Q15: a broken skill or agent wiring stops the start, not the first request
     yield
     await APP_CTX.on_shutdown()
 
