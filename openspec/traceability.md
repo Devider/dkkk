@@ -27,7 +27,7 @@
 | FR-15 | Контракт API (ZIP) без изменений | agent-api | S4.2 | — | — |
 | FR-16 | Многоходовость через выжимки | agent-loop | S2.6 | — | S2.6 ✓ |
 | FR-17 | Кэш повторного расчёта в сессии | agent-loop | S2.5 | — | — |
-| FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | — |
+| FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | S3.1 ✓ (skills первой волны — S3.3, S3.4) |
 | FR-19 | Активация skill моделью или `AGENT_PINNED_SKILLS` | agent-skills | S3.5 | — | — |
 | FR-20 | Переключатель `AGENT_ENGINE = v1 / v2` | agent-api | S2.1 | S4.2 | S2.1 ✓ (`v1_api` на v2 — S4.2) |
 
@@ -48,8 +48,8 @@
 | AR-Q11 | Повторы LLM и движка, StopEvent → 503 | agent-loop | S2.5 | S0.2 | — |
 | AR-Q12 | Отмена без сирот `soffice` | agent-loop | S2.8 | S1.5 | — |
 | AR-Q13 | Журнал, Langfuse, `TOOL ARGS` | agent-api | S4.3 | — | — |
-| AR-Q14 | Нет записи и `execute`; LangSmith запрещён | agent-skills | S3.1 | S4.3 | — |
-| AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | S2.1 ✓ (валидация skills — S3.1) |
+| AR-Q14 | Нет записи и `execute`; LangSmith запрещён | agent-skills | S3.1 | S4.3 | S3.1 ✓ (включая запрет LangSmith) |
+| AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | S2.1 ✓, S3.1 ✓ |
 
 ## Story без дельты спек
 
