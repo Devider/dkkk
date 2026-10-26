@@ -23,11 +23,11 @@ docker compose logs app -f            # live logs
 docker compose down                   # stop (named volume app_tmp persists uploaded files)
 curl http://localhost:8888/health     # port from .env APP_PORT (repo default 8888; 8080 if no .env)
 
-# lint / format — MUST run ruff check --fix then ruff format before committing
-ruff check src           # check only
-ruff check --fix src     # auto-fix
-ruff format src          # format
-pylint src                # must score >7
+# lint / format — ONLY on the files you changed or added (see rule below)
+ruff check --fix <changed files>   # auto-fix
+ruff format <changed files>        # format
+ruff check <changed files>         # check only
+pylint src                         # must score >7
 
 # tests (from host venv, NOT from inside the docker container)
 pytest tests                                                        # everything, addopts already include -v -s --cov=src --maxfail=1
@@ -45,8 +45,11 @@ poetry add <pkg>
 poetry update             # after editing pyproject.toml directly
 ```
 
-There is no single-file lint autofix distinct from the commands above — always run `ruff check --fix src`
-then `ruff format src` on the whole `src` tree before finishing a change.
+**Lint rule: run ruff only on the files the change touches**, never on the whole `src` tree. `src` carries
+~100 pre-existing ruff findings; running `--fix` / `format` on all of it rewrites unrelated v1 code and the
+immutable components (`tools.py`, matcher, engine). A change must add no new findings in its files;
+pre-existing findings in a touched file are not a blocker and are not fixed as a side effect. Typical list:
+`git diff --name-only --diff-filter=AM HEAD -- '*.py'` plus untracked new files.
 
 ## Architecture
 
@@ -191,6 +194,13 @@ docker compose logs app -f
 docker compose down                   # app_tmp volume (uploaded/cached xlsx) persists across down
 docker compose down -v                # also drops app_tmp
 ```
+
+Dependencies in the image are installed strictly from `poetry.lock` (`poetry export` → `pip install
+--require-hashes`, app wheel with `--no-deps`). For builds in the closed network pass the internal PyPI
+mirror: `PIP_INDEX_URL=<mirror>/simple docker compose build app --no-cache` (default: public PyPI). The agent
+framework (`langchain`, `langchain-core`, `langgraph`, `deepagents`, `langchain-gigachat`, `gigachat`,
+`langfuse`) is pinned with `==` in `pyproject.toml`; `tests/unit/test_dependency_pins.py` fails if the installed
+versions drift or a v2 API entry point disappears.
 
 Known issue: `app_tmp` persists previously uploaded/cached xlsx files across restarts. If a workbook's
 formulas look stripped, re-upload the original via `/upload` rather than assuming a code bug.

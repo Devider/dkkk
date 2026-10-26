@@ -240,6 +240,10 @@ pytest tests/test_tools_performance.py -v -s --no-header --no-cov  # ~2.5 min
 docker compose build app --no-cache
 docker compose up -d
 
+# Сборка в закрытом контуре — зависимости из внутреннего зеркала PyPI
+# (ставятся строго по poetry.lock с проверкой хэшей; без переменной — публичный PyPI):
+PIP_INDEX_URL=<url зеркала>/simple docker compose build app --no-cache
+
 # Быстрый рестарт (без пересборки):
 docker compose restart app
 

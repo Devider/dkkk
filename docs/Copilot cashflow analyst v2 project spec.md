@@ -255,7 +255,7 @@ Oct 23, 2026 · @Aleksei
 | 12 | `ToolCallLimitMiddleware` | langchain | `wrap_tool_call` | Общий лимит и лимит на расчётные инструменты на ход (`run_limit`, не `thread_limit`) | 30 / 10 |
 | 13 | `ModelRetryMiddleware` | langchain | `wrap_model_call` | Повтор при сетевых ошибках и 5xx; `StopEventError` не повторяется | 3 попытки, пауза 2 с × 2 |
 | 14 | `CalcCache` | свой | `wrap_tool_call` | Повторный вызов с теми же аргументами в сессии — из кэша (замена fingerprint-дедупликации v1) | Ключ: `user_id`, хэш файла, инструмент, аргументы |
-| 15 | `ToolErrorMiddleware` | свой | `wrap_tool_call` | Исключение → конверт ошибки `{error, code, hint}`; неизвестное → `internal_error` | — |
+| 15 | `ToolErrorMiddleware` | langchain | `wrap_tool_call` | Исключение → конверт ошибки `{error, code, hint}` через `on_error` / `aon_error`; неизвестное → `internal_error`. `ToolRetryMiddleware` стоит внутри него с `on_failure="error"` | — |
 | 16 | `ToolRetryMiddleware` | langchain | `wrap_tool_call` | Повтор только инструментов `uses_engine` при `engine_unavailable` | 1 повтор |
 | 17 | `AnswerGroundingGuard` | свой | `after_model` | Числа финального ответа найдены в результатах или вводе пользователя | 1 перегенерация |
 | 18 | `PlanCompletionGuard` | свой | `after_model` | Ответ при открытых шагах → напоминание и `jump_to="model"` | N = 3 |

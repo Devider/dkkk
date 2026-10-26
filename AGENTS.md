@@ -14,11 +14,12 @@ docker compose up -d
 docker compose logs app -f      # live logs
 docker compose down             # stop
 
-# lint / format — MUST run `ruff check --fix src` then `ruff format src`
-ruff check src           # check only
-ruff check --fix src     # auto-fix
-ruff format src          # format
-pylint src               # must score >7
+# lint / format — ONLY on files you changed or added, never on the whole src tree
+# (src has pre-existing findings; a change must add no new ones in its files)
+ruff check --fix <changed files>   # auto-fix
+ruff format <changed files>        # format
+ruff check <changed files>         # check only
+pylint src                         # must score >7
 
 # test (from host venv, NOT from docker container)
 pytest tests             # -v -s --maxfail=1 --cov=src
