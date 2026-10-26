@@ -1,10 +1,27 @@
+from typing import Literal
+
 from pydantic import Field
 
 from ..base_config import BaseAppSettings
 
 
 class AgentSettings(BaseAppSettings):
-    """Настройки устойчивости AI-агента (retry, StopEvent, loop prevention)."""
+    """Настройки AI-агента: выбор движка и модели v2, устойчивость (retry, StopEvent), лимиты, пул движка."""
+
+    # Agent engine switch (FR-20): v1 — LangGraph graph of main_graph.py, v2 — create_agent (api/v2)
+    engine: Literal["v1", "v2"] = Field(
+        default="v1",
+        validation_alias="AGENT_ENGINE",
+    )
+    # Model of agent v2 (AR-Q1): GigaChat (api_key / certificates by LOCAL and GIGACHAT_*) or a scripted model
+    model: Literal["gigachat", "scripted"] = Field(
+        default="gigachat",
+        validation_alias="AGENT_MODEL",
+    )
+    script_path: str = Field(
+        default="",
+        validation_alias="AGENT_SCRIPT_PATH",
+    )
 
     # Retry — количество попыток вызова LLM при транзитных ошибках
     llm_retry_attempts: int = Field(

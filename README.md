@@ -182,6 +182,28 @@ for scenario in combinations:
 
 **Каждый сценарий работает с отдельной копией оригинального файла**, поэтому сценарии независимы и изменения не накапливаются.
 
+## Параметры агента (`AGENT_*`)
+
+Задаются переменными окружения (`.env`, `docker.env`), читаются `config/agent/config.py` (`AgentSettings`).
+Переключение `AGENT_ENGINE` и `AGENT_MODEL` — переменная + перезапуск, без пересборки образа.
+
+| Переменная | По умолчанию | Назначение |
+| --- | --- | --- |
+| `AGENT_ENGINE` | `v1` | Движок агента: `v1` — граф `main_graph.py`, `v2` — `create_agent` (`api/v2/`) |
+| `AGENT_MODEL` | `gigachat` | Модель v2: `gigachat` (api_key или сертификаты — по `LOCAL` и `GIGACHAT_*`) или `scripted` |
+| `AGENT_SCRIPT_PATH` | — | JSON-сценарий скриптовой модели: `[{"tool": "имя", "args": {...}} \| {"content": "текст"}]` |
+| `AGENT_LLM_RETRY_ATTEMPTS` | `3` | Повторы вызова LLM при временных ошибках и 429 |
+| `AGENT_LLM_RETRY_WAIT` | `2.0` | Первая пауза между повторами, с (дальше удваивается) |
+| `AGENT_MAX_ITERATIONS` | `10` | v1: лимит итераций оркестратора |
+| `AGENT_MAX_MESSAGES` | `30` | v1: лимит сообщений в истории |
+| `AGENT_MAX_PROMPT_TOKENS` | `30000` | Бюджет запроса к модели, токенов |
+| `AGENT_MAX_GRID` | `400` | v2: максимум сценариев в сетке `run_scenarios` (проверка до движка) |
+| `AGENT_CALC_WORKERS` | `2` | v2: размер пула процессов LibreOffice на сервис |
+| `AGENT_CALC_TIMEOUT` | `120` | v2: таймаут одного расчёта, с; дальше — `engine_timeout` и пересоздание пула |
+| `AGENT_DUP_TOOL_THRESHOLD` | `3` | v1: порог повторов одинакового вызова инструмента |
+| `AGENT_STOP_ON_CRITICAL` | `True` | StopEvent GigaChat → HTTP 503 |
+| `AGENT_STOP_ON_ERROR` | `False` | Останавливать ход на любой ошибке LLM |
+
 ## Архитектура
 
 ```

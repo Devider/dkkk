@@ -17,6 +17,9 @@ from langfuse.langchain import CallbackHandler
 from aigw_service.api.v1.main_graph import AgentGraph
 from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
 from aigw_service.api.v1.utils import common_headers
+from aigw_service.api.v2.context import RequestContext
+from aigw_service.api.v2.service import AgentV2
+from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
 
@@ -107,7 +110,10 @@ async def upload_file(
 # =====================================================================================================================
 @lru_cache(maxsize=1)
 def get_agent():
+    """Agent v1 or v2 by AGENT_ENGINE (FR-20): switch and roll back with the variable and a restart."""
     try:
+        if APP_CONFIG.agent.engine == "v2":
+            return AgentV2()
         agent = AgentGraph()
         return agent
     except Exception as e:
@@ -159,7 +165,7 @@ def get_cb_handler():
 async def invoke_agent(
     request: CopilotAgentRequest,
     headers: dict = Depends(common_headers),
-    agent: AgentGraph = Depends(get_agent),
+    agent: AgentGraph | AgentV2 = Depends(get_agent),
     cb_handler: Optional[CallbackHandler] = Depends(get_cb_handler()),
 ) -> StreamingResponse:
     _setup_request_headers(headers=headers)
@@ -197,18 +203,28 @@ async def invoke_agent(
         else:
             logger.warning("cb_handler is None - LAngfuse tracing is disabled or unavailable, skipping callbacks")
         logger.info("config before entering process message: {}", config)
-        result = await agent.graph.ainvoke(
-            {
-                "messages": [HumanMessage(content=request.message)],
-                "thread_id": thread_id,
-                "user_id": user_id,
-            },
-            config=config,
-        )
+        if isinstance(agent, AgentV2):
+            config["metadata"]["agent_engine"] = "v2"
+            context = RequestContext(
+                user_id=user_id,
+                session_id=session_id,
+                trace_id=headers.get("x-trace-id") or "",
+                client_id=x_client_id or "",
+            )
+            result_content = await agent.answer(request.message, context, config)
+        else:
+            result = await agent.graph.ainvoke(
+                {
+                    "messages": [HumanMessage(content=request.message)],
+                    "thread_id": thread_id,
+                    "user_id": user_id,
+                },
+                config=config,
+            )
 
-        logger.info("Invoking agent with thread_id={}, user_id={}", thread_id, user_id)
-        msg = result["messages"][-1]
-        result_content = msg.content if hasattr(msg, "content") else str(msg)
+            logger.info("Invoking agent with thread_id={}, user_id={}", thread_id, user_id)
+            msg = result["messages"][-1]
+            result_content = msg.content if hasattr(msg, "content") else str(msg)
         logger.info("Content text: {}", result_content)
 
         zip_buffer = BytesIO()

@@ -52,6 +52,8 @@ def turn_context(runtime: ToolRuntime) -> ToolContext:
         raise ToolContextError(
             f"runtime.context must provide user_id, thread_id, file_path and model_index, got {type(context).__name__}"
         )
+    if context.model_index is None:
+        raise ToolContextError("runtime.context has no model_index: TurnContext must load the workbook first")
     return context
 
 
