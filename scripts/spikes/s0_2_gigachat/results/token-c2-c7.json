@@ -1,0 +1,212 @@
+{
+  "mode": "token",
+  "model": "GigaChat-3-Pro",
+  "host": "api.giga.chat",
+  "started": "2026-10-26T11:55:49",
+  "results": [
+    {
+      "check": "C2",
+      "ok_rate": "2/2",
+      "runs": [
+        {
+          "case": "expired",
+          "ok": true
+        },
+        {
+          "case": "revoked_not_expired",
+          "ok": true
+        }
+      ],
+      "seconds": 1.2
+    },
+    {
+      "check": "C3",
+      "ok_rate": "3/3",
+      "runs": [
+        {
+          "ok": true,
+          "tools": [
+            "write_todos",
+            "get_metric",
+            "get_fx_rate",
+            "write_todos"
+          ],
+          "answer": "EBITDA за 2026 год составляет 1265.9, а средний курс USD/RUB в 2026 году — 96.8."
+        },
+        {
+          "ok": true,
+          "tools": [
+            "write_todos",
+            "get_metric",
+            "get_fx_rate",
+            "write_todos"
+          ],
+          "answer": "EBITDA за 2026 год составляет 1265.9, а средний курс USD/RUB в 2026 году — 96.8."
+        },
+        {
+          "ok": true,
+          "tools": [
+            "write_todos",
+            "get_metric",
+            "get_fx_rate",
+            "write_todos"
+          ],
+          "answer": "EBITDA 2026 года составляет 1265.9, а средний курс USD/RUB в 2026 году — 96.8."
+        }
+      ],
+      "tool_choice_any": {
+        "strict": {
+          "error": "ValueError",
+          "message": "GigaChat API does not support tool_choice='any'. Use 'auto' or specify a concrete tool name. If you want to automatically convert 'any' to 'auto', set allow_any_tool_choice_fallback=True when creating the GigaChat instance."
+        },
+        "fallback_tool_calls": []
+      },
+      "seconds": 12.6
+    },
+    {
+      "check": "C4",
+      "ok_rate": "3/3",
+      "runs": [
+        {
+          "ok": true,
+          "tool_calls_per_message": [
+            1,
+            1
+          ],
+          "tools": [
+            "get_metric",
+            "get_fx_rate"
+          ]
+        },
+        {
+          "ok": true,
+          "tool_calls_per_message": [
+            1,
+            1
+          ],
+          "tools": [
+            "get_metric",
+            "get_fx_rate"
+          ]
+        },
+        {
+          "ok": true,
+          "tool_calls_per_message": [
+            1,
+            1
+          ],
+          "tools": [
+            "get_metric",
+            "get_fx_rate"
+          ]
+        }
+      ],
+      "seconds": 5.2
+    },
+    {
+      "check": "C5",
+      "ok_rate": "3/3",
+      "runs": [
+        {
+          "ok": true,
+          "tool_turns": 3,
+          "with_functions_state_id": 3
+        },
+        {
+          "ok": true,
+          "tool_turns": 3,
+          "with_functions_state_id": 3
+        },
+        {
+          "ok": true,
+          "tool_turns": 3,
+          "with_functions_state_id": 3
+        }
+      ],
+      "seconds": 9.8
+    },
+    {
+      "check": "C6",
+      "ok_rate": "3/3",
+      "runs": [
+        {
+          "ok": true,
+          "tools": [
+            "open_skill",
+            "calc_headroom"
+          ],
+          "answer": "Запас по DSCR на 2026 год до порогового значения ковенанты (1,2) составляет 10,8%."
+        },
+        {
+          "ok": true,
+          "tools": [
+            "open_skill",
+            "calc_headroom"
+          ],
+          "answer": "Запас по DSCR на 2026 год до порогового значения ковенанты (1,2) составляет 10,8%."
+        },
+        {
+          "ok": true,
+          "tools": [
+            "open_skill",
+            "calc_headroom"
+          ],
+          "answer": "Запас по DSCR на 2026 год до порогового значения ковенанты (1,2) составляет 10,8%."
+        }
+      ],
+      "seconds": 4.9
+    },
+    {
+      "check": "C7",
+      "ok_rate": "3/3",
+      "runs": [
+        {
+          "after_tool_in_loop": {
+            "ok": true,
+            "answer": "EBITDA в 2026 году составляет 1265.9."
+          },
+          "after_tool_no_tools": {
+            "ok": true,
+            "answer": "EBITDA в 2026 году составит 1265.9."
+          },
+          "after_ai": {
+            "ok": true,
+            "answer": " \n\nРасчёт основан на прогнозе роста EBITDA с 2024 по 2026 год в среднем на 15% ежегодно. В 2024 году показатель составил 973,8 млн USD.\n\nФормула расчё"
+          },
+          "ok": true
+        },
+        {
+          "after_tool_in_loop": {
+            "ok": true,
+            "answer": "EBITDA в 2026 году составляет 1265.9."
+          },
+          "after_tool_no_tools": {
+            "ok": true,
+            "answer": "EBITDA в 2026 году составит 1265.9."
+          },
+          "after_ai": {
+            "ok": true,
+            "answer": " \n\nЭто значение получено на основе прогноза, исходя из следующих данных:\n- EBITDA 2025 = 1197 млн USD  \n- Темп роста EBITDA в период с 2024 по 2026 го"
+          },
+          "ok": true
+        },
+        {
+          "after_tool_in_loop": {
+            "ok": true,
+            "answer": "EBITDA в 2026 году составляет 1265.9."
+          },
+          "after_tool_no_tools": {
+            "ok": true,
+            "answer": "EBITDA в 2026 году составит 1265.9."
+          },
+          "after_ai": {
+            "ok": true,
+            "answer": " \n\nЭто значение получено на основе прогноза, исходя из следующих предположений:\n- Темп роста выручки: 10% в год.\n- Операционная маржа (EBITDA / Выручк"
+          },
+          "ok": true
+        }
+      ],
+      "seconds": 12.1
+    }
+  ]
+}

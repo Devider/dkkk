@@ -1,0 +1,73 @@
+{
+  "mode": "token",
+  "model": "GigaChat-3-Pro",
+  "host": "api.giga.chat",
+  "started": "2026-10-26T11:56:49",
+  "results": [
+    {
+      "check": "C8",
+      "ok_rate": "1/1",
+      "cases": {
+        "retry_default": {
+          "raised": null,
+          "final_message": "Model call failed after 3 attempts with ForbiddenError: 403 https://gigachat/api/v1/chat/completions: b'temporarily unavailable due to technical reasons', None",
+          "api_calls": 3,
+          "seen_in_wrap_model_call": []
+        },
+        "retry_on_failure_error": {
+          "raised": "ForbiddenError",
+          "api_calls": 3,
+          "seen_in_wrap_model_call": [
+            "ForbiddenError"
+          ]
+        },
+        "v1_subclass_wrapper": {
+          "raised": "StopEventError",
+          "api_calls": 1,
+          "seen_in_wrap_model_call": [
+            "StopEventError"
+          ]
+        },
+        "guard_prototype": {
+          "raised": "StopEventError",
+          "api_calls": 1,
+          "seen_in_wrap_model_call": [
+            "StopEventError"
+          ]
+        }
+      },
+      "seconds": 0.5
+    },
+    {
+      "check": "C9",
+      "ok_rate": "0/1",
+      "subclass": {
+        "model_calls": 2,
+        "override_calls": {
+          "invoke": 0,
+          "ainvoke": 2,
+          "bind_tools": 2
+        },
+        "ainvoke_bypassed": false
+      },
+      "middleware_prototype": {
+        "answer_ok": true,
+        "turn_seconds": 1.63,
+        "max_overhead_ms": 0.02,
+        "preview_results": [
+          {
+            "ok": false,
+            "error": "NotFoundError",
+            "message": "404 https://api.giga.chat/v1/chat/completions: b'{\"status\":404,\"message\":\"No such model\"}\\n', Headers({'server': 'nginx', 'date': 'Mon, 26 Oct 2026 08:56:53 GMT', 'content-type': 'application/json; charset=utf-8', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'keep-alive': 'timeout=15'"
+          },
+          {
+            "ok": false,
+            "error": "NotFoundError",
+            "message": "404 https://api.giga.chat/v1/chat/completions: b'{\"status\":404,\"message\":\"No such model\"}\\n', Headers({'server': 'nginx', 'date': 'Mon, 26 Oct 2026 08:56:53 GMT', 'content-type': 'application/json; charset=utf-8', 'transfer-encoding': 'chunked', 'connection': 'keep-alive', 'keep-alive': 'timeout=15'"
+          }
+        ]
+      },
+      "seconds": 2.8
+    }
+  ]
+}
