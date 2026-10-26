@@ -8,7 +8,9 @@ from pydantic import BaseModel, Field
 from aigw_service.api.v2.tools.adapter import ToolSpec
 from aigw_service.api.v2.tools.context import ToolContext
 from aigw_service.api.v2.tools.envelope import Number, ToolFailure, ToolSuccess
+from aigw_service.api.v2.tools.prechecks import GridInput, check_scenarios, check_target
 from aigw_service.api.v2.tools.v1_results import UNREACHED_NOTE, classify_v1, is_unreached
+from aigw_service.config import APP_CONFIG
 from excel_engine import (
     ExcelAnalysisToolResult,
     ModelInputAnalysisToolResult,
@@ -25,31 +27,33 @@ class InputRange(BaseModel):
     """Grid for one model input."""
 
     id: str = Field(description="ID входа из resolve_terms, например IN12")
-    min: float = Field(description="Начало диапазона")
-    max: float = Field(description="Конец диапазона")
-    step: float = Field(description="Шаг сетки")
+    min: float | None = Field(default=None, description="Начало диапазона; не придумывай, если пользователь не задал")
+    max: float | None = Field(default=None, description="Конец диапазона; для одной точки равен началу")
+    step: float | None = Field(default=None, description="Шаг сетки; не придумывай, если пользователь не задал")
 
 
 class RunScenariosArgs(BaseModel):
     """Arguments of run_scenarios the model chooses."""
 
-    inputs: list[InputRange] = Field(description="Входы и их диапазоны")
-    outputs: list[str] = Field(description="ID выходов из resolve_terms, например OUT40")
-    year: int = Field(description="Год, за который нужны выходы")
+    inputs: list[InputRange] = Field(default_factory=list, description="Входы и их диапазоны")
+    outputs: list[str] = Field(default_factory=list, description="ID выходов из resolve_terms, например OUT40")
+    year: int | None = Field(default=None, description="Год, за который нужны выходы; не придумывай, если не назван")
 
 
 class FindInputForTargetArgs(BaseModel):
     """Arguments of find_input_for_target the model chooses."""
 
     output_id: str = Field(description="ID выхода, который должен достичь цели")
-    year: int = Field(description="Год цели")
-    target: float = Field(description="Целевое значение выхода, без единиц")
-    input_ids: list[str] = Field(description="ID входов, значения которых подбираются")
+    year: int | None = Field(default=None, description="Год цели; не придумывай, если не назван")
+    target: float | None = Field(default=None, description="Целевое значение выхода, без единиц; не придумывай")
+    input_ids: list[str] = Field(default_factory=list, description="ID входов, значения которых подбираются")
     tolerance: float = Field(default=IFT_TOLERANCE, description="Допуск в процентах")
 
 
 def run_scenarios(args: RunScenariosArgs, ctx: ToolContext) -> ToolSuccess | ToolFailure:
     index = ctx.model_index
+    grid = [GridInput(i.id, i.min, i.max, i.step) for i in args.inputs]
+    check_scenarios(index, grid, args.outputs, args.year, APP_CONFIG.agent.max_grid)
     input_names = [index.input_name(i.id) for i in args.inputs]
     result = analyze_excel_model(
         file_name=ctx.file_path,
@@ -65,6 +69,7 @@ def run_scenarios(args: RunScenariosArgs, ctx: ToolContext) -> ToolSuccess | Too
 
 def find_input_for_target(args: FindInputForTargetArgs, ctx: ToolContext) -> ToolSuccess | ToolFailure:
     index = ctx.model_index
+    check_target(index, args.output_id, args.year, args.target, args.input_ids, args.tolerance)
     output_name = index.output_name(args.output_id)
     result = analyze_model_inputs_for_target(
         file_name=ctx.file_path,
@@ -118,7 +123,8 @@ def target_envelope(result: ModelInputAnalysisToolResult, output_name: str, year
     content = result.content or {}
     notes: list[str] = []
     scenarios = content.get("matching_scenarios") or []
-    if is_unreached(result.status, result.result):
+    reachable = not is_unreached(result.status, result.result)
+    if not reachable:
         notes.append(UNREACHED_NOTE)
         nearest = min(
             content.get("all_scenarios") or [], key=lambda s: abs(s.get("deviation", math.inf)), default=None
@@ -139,6 +145,7 @@ def target_envelope(result: ModelInputAnalysisToolResult, output_name: str, year
         if (v := _finite(scenario.get("output_value"))) is not None:
             numbers.append(Number(value=v, label=output_label))
     data = {
+        "reachable": reachable,
         "output": output_label,
         "target": content.get("target_value"),
         "scenarios": [

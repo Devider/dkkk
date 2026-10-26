@@ -29,6 +29,11 @@ class AgentSettings(BaseAppSettings):
         default=30000,
         validation_alias="AGENT_MAX_PROMPT_TOKENS",
     )
+    # Scenario grid size checked before the engine runs (spec §10 «Контракт» п. 2)
+    max_grid: int = Field(
+        default=400,
+        validation_alias="AGENT_MAX_GRID",
+    )
     duplicate_tool_call_threshold: int = Field(
         default=3,
         validation_alias="AGENT_DUP_TOOL_THRESHOLD",

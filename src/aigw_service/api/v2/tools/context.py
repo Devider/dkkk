@@ -14,10 +14,17 @@ class ModelIndex:
 
     inputs: Mapping[str, str] = field(default_factory=dict)
     outputs: Mapping[str, str] = field(default_factory=dict)
+    input_values: Mapping[str, Mapping[int, float]] = field(default_factory=dict)
+    """Input ID → {year: value}: the base the units check compares a range with (empty → check skipped)."""
+    output_years: Mapping[str, tuple[int, ...]] = field(default_factory=dict)
+    """Output ID → years that have a value; empty for a section header (empty mapping → checks skipped)."""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "inputs", MappingProxyType(dict(self.inputs)))
         object.__setattr__(self, "outputs", MappingProxyType(dict(self.outputs)))
+        values = {k: MappingProxyType(dict(v)) for k, v in self.input_values.items()}
+        object.__setattr__(self, "input_values", MappingProxyType(values))
+        object.__setattr__(self, "output_years", MappingProxyType({k: tuple(v) for k, v in self.output_years.items()}))
 
     def input_name(self, input_id: str) -> str:
         """Canonical input name; ``ToolError(unknown_id)`` for an ID that is not in the index."""

@@ -14,10 +14,10 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from tests.unit.v2.fakes import FakeContext, ScriptedChatModel, tool_call
 
 import excel_engine.calculations as engine
-from aigw_service.api.v1.subagents.utils import _build_catalog_with_ids
 from aigw_service.api.v2.tools.calc_tools import scenarios_envelope, target_envelope
 from aigw_service.api.v2.tools.catalog import default_catalog
 from aigw_service.api.v2.tools.context import ModelIndex
+from aigw_service.api.v2.tools.index_builder import build_model_index
 
 WORKBOOK = str(Path(__file__).resolve().parents[3] / "models" / "Methanex_FinModel.xlsx")
 VOLATILE = [
@@ -42,8 +42,7 @@ def fresh() -> None:
 
 @pytest.fixture(scope="module")
 def index() -> ModelIndex:
-    inputs, outputs = _build_catalog_with_ids(WORKBOOK)
-    return ModelIndex(inputs, outputs)
+    return build_model_index(WORKBOOK)  # with years and values: prechecks run on the real index
 
 
 def id_of(mapping: dict, name: str) -> str:
