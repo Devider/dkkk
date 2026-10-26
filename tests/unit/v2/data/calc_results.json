@@ -1,0 +1,282 @@
+{
+ "ift_ok": {
+  "status": "OK",
+  "result": "Найдено 1 сценариев, приводящих к целевому значению 1000.0 ± 0.1%. Проверено 10 сценариев за 0.13 сек.\nНайденные значения входных параметров:\nМетанол=379.233 → 1000.00 (отклонение 0.00%)\nДиапазоны поиска:\nМетанол: 193.35 to 580.05",
+  "content": {
+   "target_output": "EBITDA",
+   "actual_output_name": "EBITDA",
+   "target_value": 1000.0,
+   "tolerance_percent": 0.1,
+   "scenarios_found": 1,
+   "total_scenarios_tested": 10,
+   "processing_time_seconds": 2.98,
+   "search_configuration": {
+    "input_ranges": {
+     "Метанол": {
+      "min": 193.35038702346102,
+      "max": 580.0511610703829
+     }
+    }
+   },
+   "matching_scenarios": [
+    {
+     "input_values": {
+      "Метанол": 379.233
+     },
+     "output_value": 1000.0,
+     "deviation": 0.0,
+     "deviation_percent": 0.0
+    }
+   ],
+   "all_scenarios": [
+    {
+     "input_values": {
+      "Метанол": 193.35038702346102
+     },
+     "output_value": 330.0391840582298,
+     "deviation": 669.9608159417702,
+     "deviation_percent": 66.99608159417701
+    },
+    {
+     "input_values": {
+      "Метанол": 236.31713969534124
+     },
+     "output_value": 484.9002772284142,
+     "deviation": 515.0997227715858,
+     "deviation_percent": 51.509972277158575
+    },
+    {
+     "input_values": {
+      "Метанол": 279.2838923672215
+     },
+     "output_value": 639.7613703985995,
+     "deviation": 360.2386296014005,
+     "deviation_percent": 36.02386296014004
+    },
+    {
+     "input_values": {
+      "Метанол": 322.25064503910164
+     },
+     "output_value": 794.6224635687838,
+     "deviation": 205.37753643121619,
+     "deviation_percent": 20.53775364312162
+    },
+    {
+     "input_values": {
+      "Метанол": 365.2173977109819
+     },
+     "output_value": 949.4835567389687,
+     "deviation": 50.51644326103133,
+     "deviation_percent": 5.051644326103133
+    },
+    {
+     "input_values": {
+      "Метанол": 408.1841503828621
+     },
+     "output_value": 1104.3446499091522,
+     "deviation": 104.34464990915217,
+     "deviation_percent": 10.434464990915217
+    },
+    {
+     "input_values": {
+      "Метанол": 451.15090305474234
+     },
+     "output_value": 1259.2057430793375,
+     "deviation": 259.2057430793375,
+     "deviation_percent": 25.920574307933748
+    },
+    {
+     "input_values": {
+      "Метанол": 494.1176557266225
+     },
+     "output_value": 1414.0668362495214,
+     "deviation": 414.06683624952143,
+     "deviation_percent": 41.406683624952144
+    },
+    {
+     "input_values": {
+      "Метанол": 537.0844083985028
+     },
+     "output_value": 1568.9279294197072,
+     "deviation": 568.9279294197072,
+     "deviation_percent": 56.89279294197072
+    },
+    {
+     "input_values": {
+      "Метанол": 580.0511610703829
+     },
+     "output_value": 1723.7890225898911,
+     "deviation": 723.7890225898911,
+     "deviation_percent": 72.37890225898911
+    }
+   ],
+   "input_names": [
+    "Метанол"
+   ],
+   "current_input_values": {
+    "Метанол": 386.70077404692205
+   },
+   "optimized_scenario": {
+    "input_values": {
+     "Метанол": 379.233
+    },
+    "actual_output": 1000.0,
+    "deviation": 0.0,
+    "deviation_percent": 0.0,
+    "optimized": true
+   },
+   "results_file": "/tmp/excel_analysis/scenarios_analysis_20261026_114047.xlsx"
+  }
+ },
+ "ift_unreachable": {
+  "status": "WARNING",
+  "result": "Не найдено сценариев, приводящих к целевому значению 5000.0 ± 0.1%. Проверено 10 сценариев за 0.13 сек.\nДиапазоны поиска:\nМетанол: 193.35 to 580.05",
+  "content": {
+   "target_output": "EBITDA",
+   "actual_output_name": "EBITDA",
+   "target_value": 5000.0,
+   "tolerance_percent": 0.1,
+   "scenarios_found": 0,
+   "total_scenarios_tested": 10,
+   "processing_time_seconds": 1.09,
+   "search_configuration": {
+    "input_ranges": {
+     "Метанол": {
+      "min": 193.35038702346102,
+      "max": 580.0511610703829
+     }
+    }
+   },
+   "matching_scenarios": [],
+   "all_scenarios": [
+    {
+     "input_values": {
+      "Метанол": 193.35038702346102
+     },
+     "output_value": 330.0391840582298,
+     "deviation": 4669.96081594177,
+     "deviation_percent": 93.39921631883541
+    },
+    {
+     "input_values": {
+      "Метанол": 236.31713969534124
+     },
+     "output_value": 484.9002772284142,
+     "deviation": 4515.099722771586,
+     "deviation_percent": 90.30199445543172
+    },
+    {
+     "input_values": {
+      "Метанол": 279.2838923672215
+     },
+     "output_value": 639.7613703985995,
+     "deviation": 4360.2386296014,
+     "deviation_percent": 87.20477259202801
+    },
+    {
+     "input_values": {
+      "Метанол": 322.25064503910164
+     },
+     "output_value": 794.6224635687838,
+     "deviation": 4205.377536431216,
+     "deviation_percent": 84.10755072862432
+    },
+    {
+     "input_values": {
+      "Метанол": 365.2173977109819
+     },
+     "output_value": 949.4835567389687,
+     "deviation": 4050.5164432610313,
+     "deviation_percent": 81.01032886522063
+    },
+    {
+     "input_values": {
+      "Метанол": 408.1841503828621
+     },
+     "output_value": 1104.3446499091522,
+     "deviation": 3895.6553500908476,
+     "deviation_percent": 77.91310700181695
+    },
+    {
+     "input_values": {
+      "Метанол": 451.15090305474234
+     },
+     "output_value": 1259.2057430793375,
+     "deviation": 3740.7942569206625,
+     "deviation_percent": 74.81588513841325
+    },
+    {
+     "input_values": {
+      "Метанол": 494.1176557266225
+     },
+     "output_value": 1414.0668362495214,
+     "deviation": 3585.9331637504783,
+     "deviation_percent": 71.71866327500956
+    },
+    {
+     "input_values": {
+      "Метанол": 537.0844083985028
+     },
+     "output_value": 1568.9279294197072,
+     "deviation": 3431.072070580293,
+     "deviation_percent": 68.62144141160586
+    },
+    {
+     "input_values": {
+      "Метанол": 580.0511610703829
+     },
+     "output_value": 1723.7890225898911,
+     "deviation": 3276.210977410109,
+     "deviation_percent": 65.52421954820218
+    }
+   ],
+   "input_names": [
+    "Метанол"
+   ],
+   "current_input_values": {
+    "Метанол": 386.70077404692205
+   },
+   "optimized_scenario": {
+    "input_values": {
+     "Метанол": 580.051
+    },
+    "actual_output": 1723.789,
+    "deviation": 3276.211,
+    "deviation_percent": 65.52,
+    "optimized": true
+   },
+   "results_file": "/tmp/excel_analysis/scenarios_analysis_20261026_114048.xlsx"
+  }
+ },
+ "ema": {
+  "status": "OK",
+  "result": "Результаты анализа по сценариям:\n\nМетанол | EBITDA_2026 | Чистая прибыль_2026\n-------------------------------------------\n300.0 | 714.427 | 192.965\n400.0 | 1074.847 | 486.417\n500.0 | 1435.268 | 779.87",
+  "content": {
+   "scenario_file": "/tmp/excel_analysis/scenarios_20261026_114049.xlsx",
+   "scenario_matrix_file": null,
+   "minmax_matrix_file": "/tmp/excel_analysis/min_max_scenarios_20261026_114049.xlsx"
+  },
+  "result_df_records": [
+   {
+    "Метанол": 300.0,
+    "EBITDA_2026": 714.427,
+    "Чистая прибыль_2026": 192.965
+   },
+   {
+    "Метанол": 400.0,
+    "EBITDA_2026": 1074.847,
+    "Чистая прибыль_2026": 486.417
+   },
+   {
+    "Метанол": 500.0,
+    "EBITDA_2026": 1435.268,
+    "Чистая прибыль_2026": 779.87
+   }
+  ],
+  "result_df_columns": [
+   "Метанол",
+   "EBITDA_2026",
+   "Чистая прибыль_2026"
+  ]
+ }
+}

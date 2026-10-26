@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Protocol, runtime_checkable
 
+from aigw_service.api.v2.tools.envelope import ErrorCode, ToolError
+
 
 @dataclass(frozen=True)
 class ModelIndex:
@@ -18,12 +20,19 @@ class ModelIndex:
         object.__setattr__(self, "outputs", MappingProxyType(dict(self.outputs)))
 
     def input_name(self, input_id: str) -> str:
-        """Canonical input name; ``KeyError`` for an ID that is not in the index."""
-        return self.inputs[input_id]
+        """Canonical input name; ``ToolError(unknown_id)`` for an ID that is not in the index."""
+        return _lookup(self.inputs, input_id)
 
     def output_name(self, output_id: str) -> str:
-        """Canonical output name; ``KeyError`` for an ID that is not in the index."""
-        return self.outputs[output_id]
+        """Canonical output name; ``ToolError(unknown_id)`` for an ID that is not in the index."""
+        return _lookup(self.outputs, output_id)
+
+
+def _lookup(names: Mapping[str, str], item_id: str) -> str:
+    try:
+        return names[item_id]
+    except KeyError:
+        raise ToolError(ErrorCode.UNKNOWN_ID, f"ID {item_id} нет в индексе модели") from None
 
 
 @runtime_checkable

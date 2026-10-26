@@ -14,6 +14,7 @@ from aigw_service.api.v2.tools import calc_tools
 from aigw_service.api.v2.tools.adapter import ToolContextError, ToolSpec, build_tool
 from aigw_service.api.v2.tools.catalog import ToolCatalog, default_catalog
 from aigw_service.api.v2.tools.context import ModelIndex
+from aigw_service.api.v2.tools.envelope import ToolError, ToolSuccess
 from excel_engine import ExcelAnalysisToolResult, ModelInputAnalysisToolResult
 
 SERVICE_FIELDS = {"user_id", "session_id", "thread_id", "file_name", "file_path", "model_index"}
@@ -41,9 +42,10 @@ class TestModelIndex:
         assert INDEX.input_name("IN1") == "Метанол"
         assert INDEX.output_name("OUT7") == "Чистая прибыль"
 
-    def test_unknown_id_raises(self) -> None:
-        with pytest.raises(KeyError):
+    def test_unknown_id_raises_unknown_id(self) -> None:
+        with pytest.raises(ToolError) as exc_info:
             INDEX.input_name("IN999")
+        assert exc_info.value.code == "unknown_id"
 
     def test_is_read_only(self) -> None:
         with pytest.raises(TypeError):
@@ -62,7 +64,7 @@ class TestAdapter:
                 file=ctx.file_path,
                 name=ctx.model_index.output_name(args.output_id),
             )
-            return {"value": 1265.9}
+            return ToolSuccess(result="EBITDA 2026 = 1265.9")
 
         return build_tool(ToolSpec("probe", "Проба", ProbeArgs, call)), seen
 
@@ -80,7 +82,7 @@ class TestAdapter:
             "file": "/tmp/user_file_alice.xlsx",
             "name": "EBITDA",
         }
-        assert json.loads(tool_messages(messages)[0].content) == {"value": 1265.9}
+        assert json.loads(tool_messages(messages)[0].content) == {"status": "ok", "result": "EBITDA 2026 = 1265.9"}
 
     async def test_forged_service_arguments_are_dropped(self, probe: tuple) -> None:
         tool, seen = probe
@@ -104,18 +106,24 @@ class TestAdapter:
 class TestCatalog:
     def test_skill_tool_is_not_in_base_set(self) -> None:
         catalog = ToolCatalog()
-        catalog.register(ToolSpec("probe", "Проба", ProbeArgs, lambda a, c: {}))
+        catalog.register(ToolSpec("probe", "Проба", ProbeArgs, lambda a, c: ToolSuccess(result="")))
         catalog.register(
-            ToolSpec("calc_headroom", "Запас", ProbeArgs, lambda a, c: {}, availability="covenant-headroom")
+            ToolSpec(
+                "calc_headroom",
+                "Запас",
+                ProbeArgs,
+                lambda a, c: ToolSuccess(result=""),
+                availability="covenant-headroom",
+            )
         )
         assert [t.name for t in catalog.base_tools()] == ["probe"]
         assert [t.name for t in catalog.skill_tools()] == ["calc_headroom"]
 
     def test_duplicate_name_rejected(self) -> None:
         catalog = ToolCatalog()
-        catalog.register(ToolSpec("probe", "Проба", ProbeArgs, lambda a, c: {}))
+        catalog.register(ToolSpec("probe", "Проба", ProbeArgs, lambda a, c: ToolSuccess(result="")))
         with pytest.raises(ValueError, match="already registered"):
-            catalog.register(ToolSpec("probe", "Проба", ProbeArgs, lambda a, c: {}))
+            catalog.register(ToolSpec("probe", "Проба", ProbeArgs, lambda a, c: ToolSuccess(result="")))
 
     def test_default_catalog_has_engine_calc_tools(self) -> None:
         catalog = default_catalog()
@@ -165,7 +173,7 @@ class TestCalcTools:
             "steps": [100.0],
             "user_id": None,
         }
-        assert json.loads(tool_messages(messages)[0].content)["status"] == "OK"
+        assert json.loads(tool_messages(messages)[0].content)["status"] == "ok"
 
     async def test_find_input_for_target_uses_v1_settings(self, domain: dict) -> None:
         call = tool_call("find_input_for_target", output_id="OUT0", year=2026, target=1000, input_ids=["IN1", "IN2"])

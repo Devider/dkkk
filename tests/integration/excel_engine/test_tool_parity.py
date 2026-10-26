@@ -1,4 +1,4 @@
-"""S1.1: v2 calculation tools (IDs + turn context) give the same result as a direct excel_engine call (needs LibreOffice)."""
+"""S1.1/S1.2: v2 calculation tools (IDs + context → envelope) match a direct excel_engine call (needs LibreOffice)."""
 
 import json
 import random
@@ -15,6 +15,7 @@ from tests.unit.v2.fakes import FakeContext, ScriptedChatModel, tool_call
 
 import excel_engine.calculations as engine
 from aigw_service.api.v1.subagents.utils import _build_catalog_with_ids
+from aigw_service.api.v2.tools.calc_tools import scenarios_envelope, target_envelope
 from aigw_service.api.v2.tools.catalog import default_catalog
 from aigw_service.api.v2.tools.context import ModelIndex
 
@@ -74,16 +75,19 @@ async def test_run_scenarios_matches_engine(index: ModelIndex) -> None:
     )
     actual = await via_tool(call, index)
     fresh()
-    expected = engine.analyze_excel_model(
+    direct = engine.analyze_excel_model(
         file_name=WORKBOOK,
         input_names=["Метанол"],
         output_names=["EBITDA", "Чистая прибыль"],
         output_years=[2026, 2026],
         ranges=[[300, 500]],
         steps=[100],
-    ).model_dump()
-    assert expected["status"] == "OK"
-    assert normalize(actual) == normalize(expected)
+    )
+    assert direct.status == "OK"
+    expected = scenarios_envelope(direct, ["Метанол"]).model_dump(mode="json", exclude_none=True)
+    assert actual["status"] == "ok"
+    assert normalize(actual["data"]) == normalize(expected["data"])
+    assert actual["numbers"] == expected["numbers"]
 
 
 async def test_find_input_for_target_matches_engine(index: ModelIndex) -> None:
@@ -91,7 +95,7 @@ async def test_find_input_for_target_matches_engine(index: ModelIndex) -> None:
     call = tool_call("find_input_for_target", output_id=ebitda, year=2026, target=1000, input_ids=[methanol])
     actual = await via_tool(call, index)
     fresh()
-    expected = engine.analyze_model_inputs_for_target(
+    direct = engine.analyze_model_inputs_for_target(
         file_name=WORKBOOK,
         output_name="EBITDA",
         output_year=2026,
@@ -99,6 +103,9 @@ async def test_find_input_for_target_matches_engine(index: ModelIndex) -> None:
         input_names=["Метанол"],
         tolerance=0.1,
         max_scenarios=1000,
-    ).model_dump()
-    assert expected["status"] == "OK"
-    assert normalize(actual) == normalize(expected)
+    )
+    assert direct.status == "OK"
+    expected = target_envelope(direct, "EBITDA", 2026).model_dump(mode="json", exclude_none=True)
+    assert actual["status"] == "ok"
+    assert normalize(actual["data"]) == normalize(expected["data"])
+    assert actual["numbers"] == expected["numbers"]

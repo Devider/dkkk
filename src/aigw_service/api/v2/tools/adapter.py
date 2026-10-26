@@ -1,11 +1,11 @@
 """Domain function → LangChain tool (ADR-5).
 
 The model sees only the arguments of ``ToolSpec.args_schema``. The user, the workbook path and the model
-index come from the turn context in ``runtime.context`` and never appear in a tool schema.
+index come from the turn context in ``runtime.context`` and never appear in a tool schema. Every result is
+an envelope (``envelope.py``); unexpected exceptions propagate to ``ToolErrorMiddleware`` (S2.5).
 """
 
 import asyncio
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -15,6 +15,7 @@ from langchain_core.tools import StructuredTool
 from pydantic import BaseModel
 
 from aigw_service.api.v2.tools.context import ToolContext
+from aigw_service.api.v2.tools.envelope import ToolError, ToolFailure, ToolSuccess, to_json
 
 BASE = "base"
 """Availability of a tool the model always sees; a skill tool carries the skill name instead."""
@@ -27,8 +28,8 @@ class ToolSpec:
     name: str
     description: str
     args_schema: type[BaseModel]
-    call: Callable[[BaseModel, ToolContext], Any]
-    """Maps model arguments + turn context to the domain call; runs in a worker thread."""
+    call: Callable[[BaseModel, ToolContext], ToolSuccess | ToolFailure]
+    """Maps model arguments + turn context to the domain call and its envelope; runs in a worker thread."""
     availability: str = BASE
     uses_engine: bool = False
 
@@ -46,23 +47,17 @@ def turn_context(runtime: ToolRuntime) -> ToolContext:
     return context
 
 
-def serialize(result: Any) -> str:
-    """Domain result → tool message text (the S1.2 envelope will replace this)."""
-    if isinstance(result, BaseModel):
-        result = result.model_dump()
-    if isinstance(result, str):
-        return result
-    return json.dumps(result, ensure_ascii=False, default=str)
-
-
 def build_tool(spec: ToolSpec) -> StructuredTool:
     """``StructuredTool`` whose schema is ``spec.args_schema``; ``runtime`` is injected by LangChain."""
 
     async def run(runtime: ToolRuntime, **kwargs: Any) -> str:
         context = turn_context(runtime)
         args = spec.args_schema.model_validate(kwargs)
-        result = await asyncio.to_thread(spec.call, args, context)
-        return serialize(result)
+        try:
+            envelope = await asyncio.to_thread(spec.call, args, context)
+        except ToolError as exc:
+            envelope = exc.failure()
+        return to_json(envelope)
 
     return StructuredTool.from_function(
         coroutine=run,
