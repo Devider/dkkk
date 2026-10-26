@@ -512,7 +512,7 @@ Skill — это папка с `SKILL.md` в формате Agent Skills: ког
 
 | Story | Содержание | Критерий приёмки | Требования | Зависит от |
 | --- | --- | --- | --- | --- |
-| **E0. Фундамент и spikes** |  |  |  |  |
+| **E0. Фундамент и spikes** (`agent-platform`) |  |  |  |  |
 | S0.1 | Зафиксировать версии `langchain`, `langgraph`, `deepagents`, `langchain-gigachat`, `langfuse` | Чистая сборка образа из внутреннего зеркала, `poetry.lock` в репозитории | AR-Q4 | — |
 | S0.2 | Spike: GigaChat в `create_agent` в обоих режимах подключения | Отчёт по списку из раздела 12; решения по ADR-9 и ADR-10 | AR-Q1, AR-Q11 | S0.1 |
 | S0.3 | Spike: `create_agent` + `ScriptedChatModel` + `SkillsMiddleware` на store-backend + `resolve_terms` поверх `AnalyzerSubAgent` | Ход «сопоставить → сценарии → ответ» проходит; skill открывает инструмент; кандидаты с оценками получаются без правки смыслового слоя | ADR-2, ADR-4 | S0.1 |
@@ -529,7 +529,7 @@ Skill — это папка с `SKILL.md` в формате Agent Skills: ког
 | S1.6 | Вынос результатов в `/results` | Ни один `ToolMessage` не больше порога; полный результат читается `read_file`; чужой — нет | AR-Q6, AR-Q7 | S1.1, S0.3 |
 | S1.7 | `derive`, `get_values`, `describe_model` | Property-тесты `derive`; чтения не блокируют loop | FR-13 | S1.2 |
 | **E2. Агентный цикл** (`agent-loop`, `agent-planning`) |  |  |  |  |
-| S2.1 | `AgentFactory`, `CopilotAgentState`, `RequestContext`, системный промпт, переключатель `AGENT_ENGINE` | Агент собирается для обоих режимов GigaChat и скриптовой модели; v1 не сломан; промпты встроенных middleware на русском | FR-20, AR-Q1, AR-Q15 | S1.1 |
+| S2.1 | `AgentFactory`, `CopilotAgentState`, `RequestContext`, системный промпт, переключатель `AGENT_ENGINE` | Агент собирается для обоих режимов GigaChat и скриптовой модели; v1 не сломан; промпты встроенных middleware на русском | FR-20, AR-Q1, AR-Q5, AR-Q15 | S1.1 |
 | S2.2 | `TurnContext` и `LanguageGuard` | FR-1 и FR-2 проходят; индекс и карточка берутся из реестра, книга для этого не открывается | FR-1, FR-2 | S2.1 |
 | S2.3 | `ForcePlanFirst` и режимы плана | Первый tool call, не считая чтения skill, — `write_todos` в обоих режимах GigaChat; `auto` и `off` работают | FR-3, FR-4 | S2.1 |
 | S2.4 | `PlanCompletionGuard` | Ранний ответ возвращается ≤ N раз, затем ответ со списком невыполненного | FR-5, FR-8 | S2.3 |

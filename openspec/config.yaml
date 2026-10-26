@@ -1,0 +1,45 @@
+schema: spec-driven
+
+context: |
+  Language: ru
+  All artifacts must be written in ru.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+  Проект: aigw-rest-service — FastAPI + LangChain/LangGraph агент для сценарного анализа
+  Excel cashflow-моделей (Python 3.12, Poetry, Docker, LibreOffice UNO, GigaChat).
+  Идёт перенос агента v1 (src/aigw_service/api/v1/main_graph.py) на v2 (create_agent + middleware)
+  в src/aigw_service/api/v2/. v1 и v2 живут рядом за переключателем AGENT_ENGINE.
+
+  Источник требований: docs/Copilot cashflow analyst v2 project spec.md
+  (FR-* — §4, AR-Q* — §5, ADR-* — §6, story S*.* — §15). Артефакты ссылаются на ID, а не копируют текст.
+  Трассировка требований → capability → story: openspec/traceability.md.
+
+  Правила работы:
+  - Один change на story, имя `s<эпик>-<номер>-<slug>`, например `s1-3-resolve-terms`.
+  - Мастер-спеки openspec/specs/ не пишутся заранее: требование появляется там из дельты
+    story-владельца (traceability.md) при архивации. Остальные story делают MODIFIED.
+  - Capabilities: agent-platform, agent-tools, agent-loop, agent-planning, agent-skills,
+    agent-answer, agent-api, agent-eval.
+  - Spike и замеры (S0.2, S0.3, S0.4) не меняют спеки: skip_specs, результат — отчёт в design.md.
+  - Неизменяемые компоненты (§2 спецификации): тела функций индекса модели, смыслового слоя,
+    движка пересчёта и tools.py не правятся. api/os_router.py и api/metric_router.py не редактировать.
+  - v1 и v2 не импортируют друг друга; LangChain импортируется только в api/v2 (AR-Q3).
+
+rules:
+  proposal:
+    - Первой строкой указать story ID и ссылки на FR / AR-Q / ADR из спецификации
+    - Явно перечислить, что вне рамок этой story
+  specs:
+    - 'Заголовок требования начинается с ID, например `### Requirement: FR-6 Явное сопоставление`'
+    - Каждый критерий приёмки из спецификации — отдельный Scenario (WHEN / THEN)
+    - ADDED только в story-владельце требования (openspec/traceability.md), иначе MODIFIED
+  design:
+    - Ссылаться на ADR спецификации; новое решение оформлять как отклонение с причиной
+  tasks:
+    - Последние задачи всегда — `ruff check --fix src`, `ruff format src`, `pylint src` (> 7) и `pytest tests/unit`
+    - Новый код типизирован; покрытие нового кода ≥ 80 % (AR-Q15)
+
+operations:
+  archive:
+    guidance:
+      - Перед архивацией отметить story как выполненную в openspec/traceability.md
