@@ -1,19 +1,27 @@
-"""ForcePlanFirst (FR-3, FR-4, ADR-3, spec §8 правила 2 и 9, №11): no tool work before the turn has a plan.
+"""ForcePlanFirst and PlanCompletionGuard (FR-3, FR-4, FR-8, ADR-3, spec §8 правила 2, 7 и 9, №11 и №19).
+
+ForcePlanFirst: no tool work before the turn has a plan.
 
 Until ``todos`` is non-empty the model sees only ``write_todos`` and ``read_file`` with ``tool_choice=auto``
 (GigaChat cannot force "any of the set" — spike S0.2). In ``always`` an answer without a tool call is dropped and
 the call is repeated once with ``tool_choice="write_todos"``; in ``auto`` it is the answer of a turn without a
 plan. Any other tool call without a plan gets ``plan_required`` instead of running.
+
+PlanCompletionGuard: an answer while steps are ``pending`` / ``in_progress`` goes back to the model with a reminder
+as a user message (the model's answer must not stay last — spike S0.2 C7), at most N times per turn; then the answer
+is accepted with a «Не выполнено» section and the open steps are closed as ``skipped``.
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Any, Literal
+from typing import Any, Literal, NotRequired
 
-from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse, hook_config
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
+from aigw_service.api.v2.middleware.language import detect_language
+from aigw_service.api.v2.middleware.todos import OPEN, PlanState, plan_text
 from aigw_service.api.v2.tools.envelope import ErrorCode, failure, to_json
 
 PlanMode = Literal["always", "auto"]
@@ -109,3 +117,69 @@ class ForcePlanFirst(AgentMiddleware):
         if has_plan(request.state) or _allowed_without_plan(request.tool_call):
             return await handler(request)
         return _plan_required(request.tool_call)
+
+
+NOT_DONE_REASON = "Не выполнено к концу хода"
+_TEXTS = {
+    "ru": {
+        "reminder": "В плане остались незакрытые шаги:\n{steps}\n\nДоведи их: выполни, либо отметь `skipped` "
+        "с причиной, либо `blocked` с причиной и вопросом пользователю. Затем дай финальный ответ.",
+        "not_done": "Не выполнено",
+    },
+    "en": {
+        "reminder": "The plan still has open steps:\n{steps}\n\nFinish them: do them, or mark them `skipped` with "
+        "a reason, or `blocked` with a reason and a question to the user. Then give the final answer.",
+        "not_done": "Not done",
+    },
+}
+
+
+class GuardState(PlanState):
+    """The counter lives in the state, so it holds across model calls of the turn (TurnContext resets it)."""
+
+    guard_counters: NotRequired[dict[str, int]]
+
+
+class PlanCompletionGuard(AgentMiddleware):
+    """Last in the stack, so its ``after_model`` checks the answer first (spec §8 №19)."""
+
+    state_schema = GuardState
+
+    def __init__(self, max_returns: int) -> None:
+        super().__init__()
+        self.max_returns = max_returns
+
+    @hook_config(can_jump_to=["model"])
+    def after_model(self, state: dict[str, Any], runtime: Any) -> dict[str, Any] | None:
+        messages = state.get("messages") or []
+        answer = messages[-1] if messages else None
+        if not isinstance(answer, AIMessage) or answer.tool_calls:
+            return None
+        todos = state.get("todos") or []
+        open_steps = [t for t in todos if t.get("status") in OPEN]
+        if not open_steps:
+            return None
+        texts = _TEXTS[_language(messages)]
+        counters = state.get("guard_counters") or {}
+        returns = counters.get("plan_returns", 0)
+        if returns < self.max_returns:
+            return {
+                "messages": [HumanMessage(texts["reminder"].format(steps=plan_text(open_steps)))],
+                "guard_counters": {**counters, "plan_returns": returns + 1},
+                "jump_to": "model",
+            }
+        listed = "\n".join(f"- {t['content']}" for t in open_steps)
+        closed = [
+            {**t, "status": "skipped", "reason": NOT_DONE_REASON} if t.get("status") in OPEN else t for t in todos
+        ]
+        final = AIMessage(f"{answer.text.rstrip()}\n\n**{texts['not_done']}:**\n{listed}", id=answer.id)
+        return {"messages": [final], "todos": closed}
+
+    @hook_config(can_jump_to=["model"])
+    async def aafter_model(self, state: dict[str, Any], runtime: Any) -> dict[str, Any] | None:
+        return self.after_model(state, runtime)
+
+
+def _language(messages: list[Any]) -> str:
+    last = next((m for m in reversed(messages) if isinstance(m, HumanMessage)), None)
+    return "en" if last is not None and detect_language(str(last.content)) == "en" else "ru"

@@ -6,7 +6,6 @@ from typing import Any
 
 import pytest
 from langchain.agents import create_agent
-from langchain.agents.middleware import TodoListMiddleware
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
@@ -17,8 +16,10 @@ from tests.unit.v2.test_prechecks import INDEX
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import AgentFactory
 from aigw_service.api.v2.middleware.language import LanguageGuard
-from aigw_service.api.v2.middleware.plan import ForcePlanFirst, has_plan
+from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
+from aigw_service.api.v2.middleware.todos import PlanStep, PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
+from aigw_service.api.v2.prompts.middleware import TODO_SYSTEM_PROMPT, TODO_TOOL_DESCRIPTION
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
 from aigw_service.api.v2.tools import calc_tools
 from aigw_service.config import APP_CONFIG
@@ -26,6 +27,8 @@ from aigw_service.config.agent.config import AgentSettings
 from excel_engine import ExcelAnalysisToolResult
 
 PLAN = [{"content": "Посчитать сценарии", "status": "in_progress"}]
+COMPLETED = [{**PLAN[0], "status": "completed"}]
+DONE = tool_call("write_todos", "c_done", todos=COMPLETED)
 SCENARIOS = {"inputs": [{"id": "IN1", "min": 300, "max": 500, "step": 100}], "outputs": ["OUT0"], "year": 2026}
 
 
@@ -86,13 +89,14 @@ class TestModelCall:
             [
                 tool_call("write_todos", "c1", todos=PLAN),
                 tool_call("run_scenarios", "c2", **SCENARIOS),
+                DONE,
                 AIMessage("Готово."),
             ],
             mode,
         )
         assert model.calls[0]["tools"] == ["write_todos"]
         assert {"resolve_terms", "run_scenarios", "write_todos"} <= set(model.calls[1]["tools"])
-        assert [name for name, _ in tool_results(out)] == ["write_todos", "run_scenarios"]
+        assert [name for name, _ in tool_results(out)] == ["write_todos", "run_scenarios", "write_todos"]
         assert len(engine) == 1
 
     async def test_auto_answer_without_plan(self, tmp_path: Path, engine: list) -> None:
@@ -112,6 +116,7 @@ class TestModelCall:
                 AIMessage("Сразу отвечу без плана."),
                 tool_call("write_todos", "c1", todos=PLAN),
                 tool_call("run_scenarios", "c2", **SCENARIOS),
+                DONE,
                 AIMessage("Готово."),
             ],
             "always",
@@ -120,7 +125,7 @@ class TestModelCall:
         assert model.calls[1]["tools"] == ["write_todos"]
         assert isinstance(model.calls[1]["messages"][-1], HumanMessage)  # the dropped answer is not in the prompt
         assert all(m.content != "Сразу отвечу без плана." for m in out["messages"])
-        assert out["todos"] == PLAN
+        assert out["todos"] == COMPLETED
         assert out["messages"][-1].content == "Готово."
 
     async def test_always_gives_up_after_one_forced_call(self, tmp_path: Path, engine: list) -> None:
@@ -129,23 +134,32 @@ class TestModelCall:
         assert out["messages"][-1].content == "Второй."
 
     @pytest.mark.parametrize("mode", ["always", "auto"])
-    async def test_plan_kept_from_previous_turn_is_a_plan(self, mode: str) -> None:
-        """A plan left in the checkpoint (TurnContext keeps one with blocked steps): every tool is visible."""
+    async def test_blocked_plan_of_previous_turn_is_a_plan(self, tmp_path: Path, mode: str) -> None:
+        """TurnContext keeps a plan with blocked steps; next turn the model updates it with every tool visible."""
+        from aigw_service.api.v2.tools.catalog import default_catalog  # pylint: disable=import-outside-toplevel
+
+        blocked = [{"content": "Сценарии EBITDA", "status": "blocked", "reason": "нет года расчёта"}]
         model = ScriptedChatModel(
-            steps=[tool_call("write_todos", "c1", todos=PLAN), AIMessage("Нужен год расчёта."), AIMessage("Обновлю.")]
+            steps=[tool_call("write_todos", "c1", todos=blocked), AIMessage("За какой год?"), AIMessage("Обновлю.")]
         )
-        agent = create_agent(
+        store = await uploaded_store("u1", INDEX, str(tmp_path))
+        agent = AgentFactory(
             model,
-            [_calc],
-            middleware=[TodoListMiddleware(), ForcePlanFirst(mode)],
-            context_schema=RequestContext,
+            default_catalog(),
+            store=store,
+            upload_dir=str(tmp_path),
             checkpointer=InMemorySaver(),
-        )
-        config = {"configurable": {"thread_id": "t1"}}
-        for text in ("Посчитай сценарии", "Год 2026"):
+            plan_mode=mode,
+        ).build()
+        config = {"configurable": {"thread_id": "u1:s1"}}
+        outs = [
             await agent.ainvoke({"messages": [("user", text)]}, config=config, context=RequestContext("u1", "s1"))
+            for text in ("Посчитай сценарии EBITDA", "Год 2026")
+        ]
+        assert outs[0]["messages"][-1].content == "За какой год?"  # blocked is closed: no return
+        assert outs[1]["todos"] == blocked
         assert model.calls[0]["tools"] == ["write_todos"]
-        assert set(model.calls[2]["tools"]) == {"write_todos", "_calc"}
+        assert {"run_scenarios", "write_todos"} <= set(model.calls[2]["tools"])
         assert len(model.calls) == 3
 
     def test_has_plan(self) -> None:
@@ -175,6 +189,7 @@ class TestToolCall:
                 tool_call("run_scenarios", "c1", **SCENARIOS),
                 tool_call("write_todos", "c2", todos=PLAN),
                 tool_call("run_scenarios", "c3", **SCENARIOS),
+                DONE,
                 AIMessage("Готово."),
             ],
         )
@@ -188,7 +203,7 @@ class TestToolCall:
                 "hint": "Сначала составь план через write_todos.",
             },
         )
-        assert [name for name, _ in results] == ["run_scenarios", "write_todos", "run_scenarios"]
+        assert [name for name, _ in results] == ["run_scenarios", "write_todos", "run_scenarios", "write_todos"]
         assert results[2][1]["status"] == "ok"
         assert len(engine) == 1
 
@@ -201,7 +216,7 @@ class TestToolCall:
         agent = create_agent(
             model,
             [read_file, _calc],
-            middleware=[TodoListMiddleware(), ForcePlanFirst("auto")],
+            middleware=[PlanTodoList(), ForcePlanFirst("auto")],
             context_schema=RequestContext,
         )
         out = await agent.ainvoke({"messages": [("user", "x")]}, context=RequestContext("u1", "s1"))
@@ -221,7 +236,7 @@ class TestToolCall:
             ]
         )
         agent = create_agent(
-            model, [_calc], middleware=[TodoListMiddleware(), ForcePlanFirst("always")], context_schema=RequestContext
+            model, [_calc], middleware=[PlanTodoList(), ForcePlanFirst("always")], context_schema=RequestContext
         )
         out = agent.invoke({"messages": [("user", "x")]}, context=RequestContext("u1", "s1"))
         contents = [m.content for m in out["messages"] if isinstance(m, ToolMessage) and m.name == "_calc"]
@@ -238,14 +253,21 @@ class TestFactory:
 
         monkeypatch.setattr(APP_CONFIG.agent, "plan_mode", "always")
         stack = AgentFactory(ScriptedChatModel(steps=[]), default_catalog()).middleware()
-        assert [type(m) for m in stack] == [TurnContext, LanguageGuard, TodoListMiddleware, ForcePlanFirst]
+        assert [type(m) for m in stack] == [
+            TurnContext,
+            LanguageGuard,
+            PlanTodoList,
+            ForcePlanFirst,
+            PlanCompletionGuard,
+        ]
         assert stack[3].mode == "always"
 
     def test_off_installs_nothing(self) -> None:
         from aigw_service.api.v2.tools.catalog import default_catalog  # pylint: disable=import-outside-toplevel
 
         stack = AgentFactory(ScriptedChatModel(steps=[]), default_catalog(), plan_mode="off").middleware()
-        assert not any(isinstance(m, ForcePlanFirst) for m in stack)
+        assert not any(isinstance(m, (ForcePlanFirst, PlanCompletionGuard)) for m in stack)
+        assert any(isinstance(m, PlanTodoList) for m in stack)
 
     async def test_off_runs_calculation_without_plan(self, tmp_path: Path, engine: list) -> None:
         out, model = await run_turn(
@@ -258,3 +280,145 @@ class TestFactory:
     def test_middleware_rejects_off(self) -> None:
         with pytest.raises(ValueError, match="'always' or 'auto'"):
             ForcePlanFirst("off")
+
+
+class TestPlanSchema:
+    """FR-5 «Статусы шагов плана»."""
+
+    @staticmethod
+    def agent(steps: list) -> tuple[Any, ScriptedChatModel]:
+        model = ScriptedChatModel(steps=steps)
+        return create_agent(model, [_calc], middleware=[PlanTodoList()], context_schema=RequestContext), model
+
+    async def test_skipped_and_blocked_keep_reason(self) -> None:
+        plan = [
+            {"content": "Базовое значение", "status": "completed"},
+            {"content": "Сценарии", "status": "skipped", "reason": "движок недоступен"},
+            {"content": "Цель DSCR", "status": "blocked", "reason": "нет целевого значения"},
+        ]
+        agent, _ = self.agent([tool_call("write_todos", "c1", todos=plan), AIMessage("ок")])
+        out = await agent.ainvoke({"messages": [("user", "x")]}, context=RequestContext("u1", "s1"))
+        assert out["todos"] == plan
+        message = next(m for m in out["messages"] if isinstance(m, ToolMessage))
+        assert message.content.startswith("План обновлён:")
+        assert "3. [blocked] Цель DSCR — нет целевого значения" in message.content
+
+    @pytest.mark.parametrize("status", ["skipped", "blocked"])
+    @pytest.mark.parametrize("reason", [None, " "])
+    async def test_closed_without_reason_is_rejected(self, status: str, reason: str | None) -> None:
+        step = {"content": "Сценарии", "status": status} | ({"reason": reason} if reason is not None else {})
+        agent, _ = self.agent(
+            [
+                tool_call("write_todos", "c1", todos=PLAN),
+                tool_call("write_todos", "c2", todos=[step]),
+                AIMessage("ок"),
+            ]
+        )
+        out = await agent.ainvoke({"messages": [("user", "x")]}, context=RequestContext("u1", "s1"))
+        rejected = [m for m in out["messages"] if isinstance(m, ToolMessage)][1]
+        assert rejected.status == "error"
+        assert "reason" in rejected.content
+        assert out["todos"] == PLAN
+
+    def test_unknown_status_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            PlanStep(content="x", status="done")
+
+    def test_prompts_name_statuses(self) -> None:
+        for text in (TODO_SYSTEM_PROMPT, TODO_TOOL_DESCRIPTION):
+            assert all(word in text for word in ("skipped", "blocked", "reason"))
+        assert "`blocked`" in TODO_SYSTEM_PROMPT
+
+
+class TestCompletionGuard:
+    """FR-8 «Завершение плана»."""
+
+    @staticmethod
+    def agent(steps: list, max_returns: int = 3) -> tuple[Any, ScriptedChatModel]:
+        model = ScriptedChatModel(steps=steps)
+        middleware = [PlanTodoList(), PlanCompletionGuard(max_returns)]
+        return create_agent(model, [_calc], middleware=middleware, context_schema=RequestContext), model
+
+    async def test_early_answer_goes_back_with_reminder(self) -> None:
+        agent, model = self.agent(
+            [
+                tool_call("write_todos", "c1", todos=PLAN),
+                AIMessage("Рано."),
+                tool_call("_calc", "c2", x=1),
+                tool_call("write_todos", "c3", todos=COMPLETED),
+                AIMessage("Готово."),
+            ]
+        )
+        out = await agent.ainvoke({"messages": [("user", "Посчитай")]}, context=RequestContext("u1", "s1"))
+        reminder = model.calls[2]["messages"][-1]
+        assert isinstance(reminder, HumanMessage)
+        assert "1. [in_progress] Посчитать сценарии" in reminder.content
+        assert out["messages"][-1].content == "Готово."
+        assert out["guard_counters"] == {"plan_returns": 1}
+        assert out["todos"] == COMPLETED
+
+    async def test_returns_are_limited_then_not_done_section(self) -> None:
+        plan = [*COMPLETED, {"content": "Цель DSCR", "status": "pending"}]
+        agent, model = self.agent(
+            [tool_call("write_todos", "c1", todos=plan)] + [AIMessage("Рано.") for _ in range(4)]
+        )
+        out = await agent.ainvoke({"messages": [("user", "Посчитай")]}, context=RequestContext("u1", "s1"))
+        assert len(model.calls) == 5  # plan + first answer + 3 returns
+        assert out["guard_counters"] == {"plan_returns": 3}
+        assert out["messages"][-1].content == "Рано.\n\n**Не выполнено:**\n- Цель DSCR"
+        assert out["todos"] == [*COMPLETED, {"content": "Цель DSCR", "status": "skipped", "reason": NOT_DONE_REASON}]
+        assert sum(isinstance(m, HumanMessage) for m in out["messages"]) == 4
+
+    async def test_closed_plan_is_accepted(self) -> None:
+        plan = [
+            *COMPLETED,
+            {"content": "Сценарии", "status": "skipped", "reason": "движок недоступен"},
+            {"content": "Цель", "status": "blocked", "reason": "нет года"},
+        ]
+        agent, model = self.agent([tool_call("write_todos", "c1", todos=plan), AIMessage("За какой год?")])
+        out = await agent.ainvoke({"messages": [("user", "x")]}, context=RequestContext("u1", "s1"))
+        assert out["messages"][-1].content == "За какой год?"
+        assert len(model.calls) == 2
+
+    async def test_no_plan_or_tool_call_is_not_checked(self) -> None:
+        agent, model = self.agent([AIMessage("Привет!")])
+        out = await agent.ainvoke({"messages": [("user", "Привет")]}, context=RequestContext("u1", "s1"))
+        assert out["messages"][-1].content == "Привет!"
+        assert len(model.calls) == 1
+
+    async def test_english_request(self) -> None:
+        agent, _ = self.agent([tool_call("write_todos", "c1", todos=PLAN), AIMessage("Early.")], max_returns=0)
+        out = await agent.ainvoke(
+            {"messages": [("user", "What is the EBITDA for 2026?")]}, context=RequestContext("u1", "s1")
+        )
+        assert out["messages"][-1].content == "Early.\n\n**Not done:**\n- Посчитать сценарии"
+
+    def test_sync_path(self) -> None:
+        agent, model = self.agent(
+            [tool_call("write_todos", "c1", todos=PLAN), AIMessage("Рано."), AIMessage("Рано.")], 1
+        )
+        out = agent.invoke({"messages": [("user", "Посчитай")]}, context=RequestContext("u1", "s1"))
+        assert len(model.calls) == 3
+        assert "**Не выполнено:**" in out["messages"][-1].content
+
+    async def test_off_accepts_open_plan(self, tmp_path: Path, engine: list) -> None:
+        out, model = await run_turn(tmp_path, [tool_call("write_todos", "c1", todos=PLAN), AIMessage("Рано.")], "off")
+        assert out["messages"][-1].content == "Рано."
+        assert len(model.calls) == 2
+
+
+class TestMaxReturnsSetting:
+    def test_default(self) -> None:
+        assert AgentSettings().plan_max_returns == 3
+
+    def test_negative_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AGENT_PLAN_MAX_RETURNS", "-1")
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
+            AgentSettings()
+
+    def test_factory_passes_the_setting(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from aigw_service.api.v2.tools.catalog import default_catalog  # pylint: disable=import-outside-toplevel
+
+        monkeypatch.setattr(APP_CONFIG.agent, "plan_max_returns", 5)
+        stack = AgentFactory(ScriptedChatModel(steps=[]), default_catalog(), plan_mode="auto").middleware()
+        assert stack[-1].max_returns == 5

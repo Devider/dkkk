@@ -5,15 +5,15 @@ from functools import cache
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import AgentMiddleware, TodoListMiddleware
+from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.middleware.language import LanguageGuard
-from aigw_service.api.v2.middleware.plan import ForcePlanFirst
+from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
+from aigw_service.api.v2.middleware.todos import PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.models import build_model
-from aigw_service.api.v2.prompts.middleware import TODO_SYSTEM_PROMPT, TODO_TOOL_DESCRIPTION
 from aigw_service.api.v2.prompts.system import SYSTEM_PROMPT
 from aigw_service.api.v2.state import CopilotAgentState
 from aigw_service.api.v2.tools.catalog import ToolCatalog, default_catalog
@@ -42,15 +42,18 @@ class AgentFactory:
         self.plan_mode = plan_mode or APP_CONFIG.agent.plan_mode
 
     def middleware(self) -> list[AgentMiddleware]:
-        plan = [] if self.plan_mode == "off" else [ForcePlanFirst(self.plan_mode)]  # §8 №11, FR-4
+        planned = self.plan_mode != "off"  # FR-4: off installs neither ForcePlanFirst nor PlanCompletionGuard
+        force = [ForcePlanFirst(self.plan_mode)] if planned else []  # §8 №11
+        guard = [PlanCompletionGuard(APP_CONFIG.agent.plan_max_returns)] if planned else []  # §8 №19, FR-8
         return [
             TurnContext(
                 store=self.store, upload_dir=self.upload_dir
             ),  # §8 №1: workbook, index and card; no workbook — answer without LLM
             LanguageGuard(),  # §8 №2: ru / en only, no LLM
-            TodoListMiddleware(system_prompt=TODO_SYSTEM_PROMPT, tool_description=TODO_TOOL_DESCRIPTION),
-            *plan,
+            PlanTodoList(),  # §8 №10: write_todos with skipped / blocked and a reason (FR-5)
+            *force,
             *self.extra_middleware,
+            *guard,  # last: after_* hooks run bottom-up, the plan is checked first
         ]
 
     def build(self) -> Any:

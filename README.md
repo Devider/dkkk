@@ -198,6 +198,7 @@ for scenario in combinations:
 | `AGENT_MAX_MESSAGES` | `30` | v1: лимит сообщений в истории |
 | `AGENT_MAX_PROMPT_TOKENS` | `30000` | Бюджет запроса к модели, токенов |
 | `AGENT_PLAN_MODE` | `auto` | v2: режим плана — `auto` (модель решает, расчёт без плана → `plan_required`), `always` (план в каждом ходе, для eval и отладки), `off` |
+| `AGENT_PLAN_MAX_RETURNS` | `3` | v2: сколько раз ответ при открытых шагах плана возвращается модели; затем ответ с разделом «Не выполнено» |
 | `AGENT_MAX_GRID` | `400` | v2: максимум сценариев в сетке `run_scenarios` (проверка до движка) |
 | `AGENT_CALC_WORKERS` | `2` | v2: размер пула процессов LibreOffice на сервис |
 | `AGENT_CALC_TIMEOUT` | `120` | v2: таймаут одного расчёта, с; дальше — `engine_timeout` и пересоздание пула |

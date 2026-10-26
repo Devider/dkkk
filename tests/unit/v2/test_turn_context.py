@@ -199,7 +199,7 @@ class TestTurnContext:
         saver = InMemorySaver()
         cfg = {"configurable": {"thread_id": "u1:s1"}}
         steps = [
-            tool_call("write_todos", todos=[{"content": "Посчитать", "status": "pending"}]),
+            tool_call("write_todos", todos=[{"content": "Посчитать", "status": "completed"}]),
             AIMessage("ок"),
             AIMessage("ок"),
         ]
@@ -270,7 +270,7 @@ class TestLanguage:
 
     def test_order_and_no_workbook_wins(self) -> None:
         names = [type(m).__name__ for m in AgentFactory(answer(), default_catalog()).middleware()]
-        assert names[:3] == ["TurnContext", "LanguageGuard", "TodoListMiddleware"]
+        assert names[:3] == ["TurnContext", "LanguageGuard", "PlanTodoList"]
         assert isinstance(AgentFactory(answer(), default_catalog()).middleware()[1], LanguageGuard)
 
     async def test_no_workbook_and_foreign_language(self, tmp_path: Path) -> None:
@@ -312,6 +312,7 @@ class TestEndToEnd:
                 terms=[{"text": "метанол", "role": "input"}, {"text": "EBITDA", "role": "output"}],
             ),
             scenarios,
+            tool_call("write_todos", "c3", todos=[{"content": "Сценарии EBITDA 2026", "status": "completed"}]),
             AIMessage("EBITDA 2026 растёт с ценой метанола."),
         ]
         v2 = AgentV2(AgentFactory(ScriptedChatModel(steps=steps), default_catalog()).build())

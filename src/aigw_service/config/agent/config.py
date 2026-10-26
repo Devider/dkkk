@@ -28,6 +28,12 @@ class AgentSettings(BaseAppSettings):
         default="auto",
         validation_alias="AGENT_PLAN_MODE",
     )
+    # PlanCompletionGuard (FR-8): how many times an answer with open plan steps goes back to the model
+    plan_max_returns: int = Field(
+        default=3,
+        ge=0,
+        validation_alias="AGENT_PLAN_MAX_RETURNS",
+    )
 
     # Retry — количество попыток вызова LLM при транзитных ошибках
     llm_retry_attempts: int = Field(
