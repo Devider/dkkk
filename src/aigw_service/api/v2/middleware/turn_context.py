@@ -13,8 +13,9 @@ from typing import Any
 from uuid import uuid4
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, hook_config
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
+from aigw_service.api.v2.middleware.prompt import append_block
 from aigw_service.api.v2.state import CopilotAgentState
 from aigw_service.api.v2.tools.state import RESET
 from aigw_service.api.v2.turn.card import card_text
@@ -72,6 +73,8 @@ class TurnContext(AgentMiddleware):
         """Spec §9 правила 1–2: per-turn fields reset; a new workbook drops terms and plan of the old one."""
         turn_id = uuid4().hex
         update: dict[str, Any] = {"turn_id": turn_id, "step_results": [], "guard_counters": {}}
+        asked = next((m for m in reversed(state.get("messages") or []) if isinstance(m, HumanMessage)), None)
+        update["turn_message_id"] = asked.id if asked else None  # where this turn starts (TurnSummary)
         if not any(t.get("status") == BLOCKED for t in state.get("todos") or []):
             update["todos"] = []
         previous = (state.get("model_ref") or {}).get("file_hash")
@@ -91,13 +94,5 @@ class TurnContext(AgentMiddleware):
         if card:
             model_ref = request.state.get("model_ref") or {}
             replaced = model_ref.get("replaced_in_turn") == request.state.get("turn_id")
-            request = request.override(system_message=_append(request.system_message, card_text(card, replaced)))
+            request = request.override(system_message=append_block(request.system_message, card_text(card, replaced)))
         return await handler(request)
-
-
-def _append(system: SystemMessage | None, text: str) -> SystemMessage:
-    """One system message only (GigaChat, spike S0.2): the card is a block of the existing one."""
-    if system is None:
-        return SystemMessage(text)
-    blocks = system.content if isinstance(system.content, list) else [{"type": "text", "text": system.content}]
-    return SystemMessage(content=[*blocks, {"type": "text", "text": "\n\n" + text}])

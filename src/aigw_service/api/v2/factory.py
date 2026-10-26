@@ -13,11 +13,13 @@ from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
 from aigw_service.api.v2.middleware.todos import PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
+from aigw_service.api.v2.middleware.turn_summary import TurnSummary
 from aigw_service.api.v2.models import build_model
 from aigw_service.api.v2.prompts.system import SYSTEM_PROMPT
 from aigw_service.api.v2.state import CopilotAgentState
 from aigw_service.api.v2.tools.catalog import ToolCatalog, default_catalog
 from aigw_service.config import APP_CONFIG
+from aigw_service.context import APP_CTX
 
 
 class AgentFactory:
@@ -53,7 +55,8 @@ class AgentFactory:
             PlanTodoList(),  # §8 №10: write_todos with skipped / blocked and a reason (FR-5)
             *force,
             *self.extra_middleware,
-            *guard,  # last: after_* hooks run bottom-up, the plan is checked first
+            *guard,  # after_* hooks run bottom-up, the plan is checked first
+            TurnSummary(),  # §8 №20: dialog memory in the prompt, the turn's digest after it (FR-16)
         ]
 
     def build(self) -> Any:
@@ -70,5 +73,8 @@ class AgentFactory:
 
 @cache
 def get_agent_v2() -> Any:
-    """One compiled agent per service process; per-request data travels in ``RequestContext``."""
-    return AgentFactory(build_model(), default_catalog()).build()
+    """One compiled agent per service process; per-request data travels in ``RequestContext``.
+
+    Session state lives in the service checkpointer by ``thread_id`` (ADR-8); today a process-memory ``MemorySaver``.
+    """
+    return AgentFactory(build_model(), default_catalog(), checkpointer=APP_CTX.agent_memory.checkpointer).build()

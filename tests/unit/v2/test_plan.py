@@ -19,6 +19,7 @@ from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
 from aigw_service.api.v2.middleware.todos import PlanStep, PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
+from aigw_service.api.v2.middleware.turn_summary import TurnSummary
 from aigw_service.api.v2.prompts.middleware import TODO_SYSTEM_PROMPT, TODO_TOOL_DESCRIPTION
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
 from aigw_service.api.v2.tools import calc_tools
@@ -259,6 +260,7 @@ class TestFactory:
             PlanTodoList,
             ForcePlanFirst,
             PlanCompletionGuard,
+            TurnSummary,
         ]
         assert stack[3].mode == "always"
 
@@ -421,4 +423,4 @@ class TestMaxReturnsSetting:
 
         monkeypatch.setattr(APP_CONFIG.agent, "plan_max_returns", 5)
         stack = AgentFactory(ScriptedChatModel(steps=[]), default_catalog(), plan_mode="auto").middleware()
-        assert stack[-1].max_returns == 5
+        assert next(m for m in stack if isinstance(m, PlanCompletionGuard)).max_returns == 5

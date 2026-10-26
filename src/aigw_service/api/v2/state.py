@@ -14,6 +14,8 @@ class CopilotAgentState(ToolsState):
 
     turn_id: NotRequired[str]
     """Current turn (TurnContext, S2.2)."""
+    turn_message_id: NotRequired[str | None]
+    """Id of the user message this turn started with: the turn's messages follow it (TurnContext, S2.6)."""
     model_ref: NotRequired[dict[str, Any]]
     """``{file_name, file_hash}`` of the workbook the session works with (S2.2)."""
     step_results: NotRequired[list[dict[str, Any]]]
