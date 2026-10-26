@@ -20,7 +20,6 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-from aigw_service.api.v2.middleware.language import detect_language
 from aigw_service.api.v2.middleware.todos import OPEN, PlanState, plan_text
 from aigw_service.api.v2.tools.envelope import ErrorCode, failure, to_json
 
@@ -120,18 +119,12 @@ class ForcePlanFirst(AgentMiddleware):
 
 
 NOT_DONE_REASON = "Не выполнено к концу хода"
-_TEXTS = {
-    "ru": {
-        "reminder": "В плане остались незакрытые шаги:\n{steps}\n\nДоведи их: выполни, либо отметь `skipped` "
-        "с причиной, либо `blocked` с причиной и вопросом пользователю. Затем дай финальный ответ.",
-        "not_done": "Не выполнено",
-    },
-    "en": {
-        "reminder": "The plan still has open steps:\n{steps}\n\nFinish them: do them, or mark them `skipped` with "
-        "a reason, or `blocked` with a reason and a question to the user. Then give the final answer.",
-        "not_done": "Not done",
-    },
-}
+REMINDER = (
+    "В плане остались незакрытые шаги:\n{steps}\n\nДоведи их: выполни, либо отметь `skipped` с причиной, "
+    "либо `blocked` с причиной и вопросом пользователю. Затем дай финальный ответ."
+)
+NOT_DONE = "Не выполнено"
+"""Russian whatever the question's language (FR-14)."""
 
 
 class GuardState(PlanState):
@@ -159,12 +152,11 @@ class PlanCompletionGuard(AgentMiddleware):
         open_steps = [t for t in todos if t.get("status") in OPEN]
         if not open_steps:
             return None
-        texts = _TEXTS[_language(messages)]
         counters = state.get("guard_counters") or {}
         returns = counters.get("plan_returns", 0)
         if returns < self.max_returns:
             return {
-                "messages": [HumanMessage(texts["reminder"].format(steps=plan_text(open_steps)))],
+                "messages": [HumanMessage(REMINDER.format(steps=plan_text(open_steps)))],
                 "guard_counters": {**counters, "plan_returns": returns + 1},
                 "jump_to": "model",
             }
@@ -172,14 +164,9 @@ class PlanCompletionGuard(AgentMiddleware):
         closed = [
             {**t, "status": "skipped", "reason": NOT_DONE_REASON} if t.get("status") in OPEN else t for t in todos
         ]
-        final = AIMessage(f"{answer.text.rstrip()}\n\n**{texts['not_done']}:**\n{listed}", id=answer.id)
+        final = AIMessage(f"{answer.text.rstrip()}\n\n**{NOT_DONE}:**\n{listed}", id=answer.id)
         return {"messages": [final], "todos": closed}
 
     @hook_config(can_jump_to=["model"])
     async def aafter_model(self, state: dict[str, Any], runtime: Any) -> dict[str, Any] | None:
         return self.after_model(state, runtime)
-
-
-def _language(messages: list[Any]) -> str:
-    last = next((m for m in reversed(messages) if isinstance(m, HumanMessage)), None)
-    return "en" if last is not None and detect_language(str(last.content)) == "en" else "ru"

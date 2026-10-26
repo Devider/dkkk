@@ -183,7 +183,10 @@ class TestScenarios:
         assert "Память диалога" not in system_of(model, 5)
         assert not out.get("turn_summaries")
         assert not out.get("resolved_terms")
-        assert [m.content for m in out["messages"]] == ["Привет", "Привет!"]
+        assert [m.content for m in out["messages"] if not m.additional_kwargs.get("lc_source")] == [
+            "Привет",
+            "Привет!",
+        ]
 
 
 def state_with(messages: list, **fields: Any) -> dict[str, Any]:

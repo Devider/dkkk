@@ -7,7 +7,7 @@ card to the system prompt of every model call.
 
 import asyncio
 import tempfile
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -36,10 +36,13 @@ class TurnContext(AgentMiddleware):
 
     state_schema = CopilotAgentState
 
-    def __init__(self, store: Any = None, upload_dir: str | Path | None = None) -> None:
+    def __init__(
+        self, store: Any = None, upload_dir: str | Path | None = None, pinned_skills: Sequence[str] = ()
+    ) -> None:
         super().__init__()
         self._store = store
         self.upload_dir = Path(upload_dir or tempfile.gettempdir())
+        self.pinned_skills = tuple(pinned_skills)
 
     @property
     def store(self) -> Any:
@@ -66,7 +69,11 @@ class TurnContext(AgentMiddleware):
             found = await registry.get(digest)
         index, card = found
         ctx.file_path, ctx.model_index, ctx.card = str(path), index, card
-        return self._turn_update(state, digest, card)
+        update = self._turn_update(state, digest, card)
+        pins = [n for n in self.pinned_skills if not _pinned_in(state.get("messages") or [], n)]
+        if pins:  # §11 «Активация» п. 2: once per session, or again once history lost it (no piling copies)
+            update["pinned_skills"] = pins
+        return update
 
     @staticmethod
     def _turn_update(state: dict[str, Any], digest: str, card: dict[str, Any]) -> dict[str, Any]:
@@ -96,3 +103,13 @@ class TurnContext(AgentMiddleware):
             replaced = model_ref.get("replaced_in_turn") == request.state.get("turn_id")
             request = request.override(system_message=append_block(request.system_message, card_text(card, replaced)))
         return await handler(request)
+
+
+def _pinned_in(messages: list[Any], name: str) -> bool:
+    """SkillsMiddleware marks the message it pins a skill with (deepagents ``lc_source="pinned_skill"``)."""
+    return any(
+        isinstance(m, HumanMessage)
+        and m.additional_kwargs.get("lc_source") == "pinned_skill"
+        and (m.additional_kwargs.get("skill") or {}).get("name") == name
+        for m in messages
+    )

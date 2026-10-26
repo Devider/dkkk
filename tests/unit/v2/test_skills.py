@@ -68,7 +68,13 @@ async def run(
     model = ScriptedChatModel(steps=steps)
     store = store or await uploaded_store(user, INDEX, str(tmp_path))
     agent = AgentFactory(
-        model, catalog or default_catalog(), store=store, upload_dir=str(tmp_path), plan_mode="off", skills_dir=skills
+        model,
+        catalog or default_catalog(),
+        store=store,
+        upload_dir=str(tmp_path),
+        plan_mode="off",
+        skills_dir=skills,
+        pinned_skills=(),
     ).build()
     out = await agent.ainvoke(
         {"messages": [("user", "Запрос")]}, context=RequestContext(user_id=user, session_id="s1")

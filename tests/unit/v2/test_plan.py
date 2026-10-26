@@ -14,6 +14,7 @@ from pydantic import ValidationError
 from tests.unit.v2.fakes import uploaded_store
 from tests.unit.v2.test_prechecks import INDEX
 
+from aigw_service.api.v2.answer_check import hygiene_issues
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import AgentFactory
 from aigw_service.api.v2.middleware.language import LanguageGuard
@@ -391,12 +392,14 @@ class TestCompletionGuard:
         assert out["messages"][-1].content == "Привет!"
         assert len(model.calls) == 1
 
-    async def test_english_request(self) -> None:
-        agent, _ = self.agent([tool_call("write_todos", "c1", todos=PLAN), AIMessage("Early.")], max_returns=0)
+    async def test_english_request_gets_russian_section(self) -> None:
+        """FR-14: the agent's own insert is Russian whatever the question's language."""
+        agent, _ = self.agent([tool_call("write_todos", "c1", todos=PLAN), AIMessage("Рано.")], max_returns=0)
         out = await agent.ainvoke(
             {"messages": [("user", "What is the EBITDA for 2026?")]}, context=RequestContext("u1", "s1")
         )
-        assert out["messages"][-1].content == "Early.\n\n**Not done:**\n- Посчитать сценарии"
+        assert out["messages"][-1].content == "Рано.\n\n**Не выполнено:**\n- Посчитать сценарии"
+        assert hygiene_issues(out["messages"][-1].content) == []
 
     def test_sync_path(self) -> None:
         agent, model = self.agent(
