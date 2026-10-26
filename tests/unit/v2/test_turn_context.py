@@ -305,6 +305,7 @@ class TestEndToEnd:
             )
 
         steps = [
+            tool_call("write_todos", "c0", todos=[{"content": "Сценарии EBITDA 2026", "status": "in_progress"}]),
             tool_call(
                 "resolve_terms",
                 "c1",

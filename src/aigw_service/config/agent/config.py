@@ -22,6 +22,12 @@ class AgentSettings(BaseAppSettings):
         default="",
         validation_alias="AGENT_SCRIPT_PATH",
     )
+    # Plan mode of agent v2 (FR-4, spike S0.2): auto — the model decides, a tool call without a plan gets
+    # plan_required; always — a plan every turn (eval, debugging); off — ForcePlanFirst is not installed
+    plan_mode: Literal["always", "auto", "off"] = Field(
+        default="auto",
+        validation_alias="AGENT_PLAN_MODE",
+    )
 
     # Retry — количество попыток вызова LLM при транзитных ошибках
     llm_retry_attempts: int = Field(
