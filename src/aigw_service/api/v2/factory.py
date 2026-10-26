@@ -9,6 +9,8 @@ from langchain.agents.middleware import AgentMiddleware, TodoListMiddleware
 from langchain_core.language_models import BaseChatModel
 
 from aigw_service.api.v2.context import RequestContext
+from aigw_service.api.v2.middleware.language import LanguageGuard
+from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.models import build_model
 from aigw_service.api.v2.prompts.middleware import TODO_SYSTEM_PROMPT, TODO_TOOL_DESCRIPTION
 from aigw_service.api.v2.prompts.system import SYSTEM_PROMPT
@@ -25,14 +27,22 @@ class AgentFactory:
         catalog: ToolCatalog,
         middleware: Sequence[AgentMiddleware] = (),
         checkpointer: Any = None,
+        store: Any = None,
+        upload_dir: str | None = None,
     ) -> None:
         self.model = model
+        self.store = store
+        self.upload_dir = upload_dir
         self.catalog = catalog
         self.extra_middleware = list(middleware)
         self.checkpointer = checkpointer
 
     def middleware(self) -> list[AgentMiddleware]:
         return [
+            TurnContext(
+                store=self.store, upload_dir=self.upload_dir
+            ),  # §8 №1: workbook, index and card; no workbook — answer without LLM
+            LanguageGuard(),  # §8 №2: ru / en only, no LLM
             TodoListMiddleware(system_prompt=TODO_SYSTEM_PROMPT, tool_description=TODO_TOOL_DESCRIPTION),
             *self.extra_middleware,
         ]

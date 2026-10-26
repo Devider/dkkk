@@ -6,12 +6,13 @@ from ``runtime.context`` (``ToolContext``).
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from aigw_service.api.v2.tools.context import ModelIndex
 
 
 @dataclass
-class RequestContext:
+class RequestContext:  # pylint: disable=too-many-instance-attributes  # fields of spec §9
     """One turn of one user's session."""
 
     user_id: str
@@ -22,6 +23,8 @@ class RequestContext:
     """Monotonic time the turn must finish by (S2.8)."""
     file_path: str = ""
     model_index: ModelIndex | None = None
+    card: dict[str, Any] | None = None
+    """Model card for the prompt (TurnContext); tools do not use it."""
 
     @property
     def thread_id(self) -> str:

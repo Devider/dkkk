@@ -10,9 +10,11 @@ from unittest.mock import MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+from langchain.agents import create_agent
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_gigachat import GigaChat
 from pydantic import ValidationError
+from tests.unit.v2.fakes import uploaded_store
 from tests.unit.v2.test_prechecks import INDEX
 
 from aigw_service.api.v2 import models
@@ -191,7 +193,7 @@ class TestPrompts:
 class TestFactoryTurn:
     """A full turn through AgentFactory on the scripted model with the real catalog."""
 
-    async def test_turn(self, monkeypatch: pytest.MonkeyPatch, inline_gate: object) -> None:
+    async def test_turn(self, monkeypatch: pytest.MonkeyPatch, inline_gate: object, tmp_path: Path) -> None:
         monkeypatch.setattr(rt, "analyze_with_v1", self._analyzer)
         monkeypatch.setattr(
             calc_tools,
@@ -221,8 +223,9 @@ class TestFactoryTurn:
                 AIMessage("EBITDA 2026 растёт вместе с ценой метанола."),
             ]
         )
-        agent = AgentFactory(model, default_catalog()).build()
-        ctx = RequestContext(user_id="u1", session_id="s1", file_path="/tmp/user_file_u1.xlsx", model_index=INDEX)
+        store = await uploaded_store("u1", INDEX, str(tmp_path))
+        agent = AgentFactory(model, default_catalog(), store=store, upload_dir=str(tmp_path)).build()
+        ctx = RequestContext(user_id="u1", session_id="s1")
         out = await agent.ainvoke({"messages": [("user", "EBITDA 2026 при цене метанола 300–500?")]}, context=ctx)
 
         assert out["messages"][-1].content.startswith("EBITDA 2026")
@@ -246,10 +249,11 @@ class TestFactoryTurn:
         return [Pick("input", "метанол", "IN1"), Pick("output", "EBITDA", "OUT0")]
 
     async def test_tools_without_index_are_a_wiring_error(self) -> None:
+        """Without TurnContext nothing fills the index: the adapter reports wiring, not an AttributeError."""
         model = ScriptedChatModel(
             steps=[tool_call("resolve_terms", terms=[{"text": "EBITDA", "role": "output"}]), AIMessage("ок")]
         )
-        agent = AgentFactory(model, default_catalog()).build()
+        agent = create_agent(model, default_catalog().base_tools(), context_schema=RequestContext)
         with pytest.raises(Exception, match="TurnContext must load the workbook"):
             await agent.ainvoke({"messages": [("user", "x")]}, context=RequestContext(user_id="u1", session_id="s1"))
 
@@ -275,15 +279,15 @@ class TestEngineSwitch:
         monkeypatch.setattr(router, "AgentGraph", lambda: pytest.fail("v1 graph must not be built for v2"))
         assert isinstance(router.get_agent(), AgentV2)
 
-    async def test_v2_answers_with_same_zip(self, router: object, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_v2_answers_with_same_zip(
+        self, router: object, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
         from aigw_service.api import app_main
 
         monkeypatch.setattr(APP_CONFIG.agent, "engine", "v2")
-        scripted = AgentV2(
-            AgentFactory(
-                ScriptedChatModel(steps=[AIMessage("Привет! Загрузите модель и задайте вопрос.")]), default_catalog()
-            ).build()
-        )
+        store = await uploaded_store("u1", INDEX, str(tmp_path))
+        model = ScriptedChatModel(steps=[AIMessage("Привет! Загрузите модель и задайте вопрос.")])
+        scripted = AgentV2(AgentFactory(model, default_catalog(), store=store, upload_dir=str(tmp_path)).build())
         monkeypatch.setitem(app_main.dependency_overrides, router.get_agent, lambda: scripted)
         monkeypatch.setitem(app_main.dependency_overrides, router.get_cb_handler(), lambda: None)  # no Langfuse
         async with AsyncClient(transport=ASGITransport(app=app_main), base_url="http://test") as client:

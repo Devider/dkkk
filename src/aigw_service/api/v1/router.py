@@ -19,6 +19,7 @@ from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependen
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.service import AgentV2
+from aigw_service.api.v2.turn.registry import ModelRegistry
 from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
@@ -91,6 +92,8 @@ async def upload_file(
             await out_file.write(content)
 
         await store.aput(namespace, key, {"filename": filename})
+        if APP_CONFIG.agent.engine == "v2":
+            await _register_model_v2(store, namespace, key, filename, file_location, file.filename)
         store_items = await store.aget(namespace, key)
 
         logger.info("File saved to {}, store: {}", file_location, store_items)
@@ -102,6 +105,22 @@ async def upload_file(
         return JSONResponse(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             content=FailedDependencyResponse(error_description=str(e)).model_dump(),
+        )
+
+
+async def _register_model_v2(
+    store, namespace: tuple, key: str, filename: str, file_location: Path, original_name: str | None
+) -> None:
+    """Agent v2 (FR-1): index and card go to the model registry now, so turns never open the workbook.
+
+    A failure here does not fail the upload: TurnContext builds the index on the first turn instead.
+    """
+    try:
+        digest = await ModelRegistry(store).register(file_location, file_name=original_name or filename)
+        await store.aput(namespace, key, {"filename": filename, "file_hash": digest})
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.opt(exception=True).warning(
+            "Model registration failed, the first turn will build the index: {}", str(e)
         )
 
 

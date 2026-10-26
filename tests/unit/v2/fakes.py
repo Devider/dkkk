@@ -32,3 +32,21 @@ class InlineGate:
         if self.error is not None:
             raise self.error
         return func(**kwargs)
+
+
+async def uploaded_store(user_id: str, index: ModelIndex, upload_dir: str, file_name: str = "model.xlsx") -> Any:
+    """Agent store as after ``/upload`` at AGENT_ENGINE=v2: the user's file, its hash and a registry record."""
+    from pathlib import Path
+
+    from langgraph.store.memory import InMemoryStore
+
+    from aigw_service.api.v2.turn.card import build_card
+    from aigw_service.api.v2.turn.registry import NAMESPACE, _dump
+
+    stored = f"user_file_{user_id}.xlsx"
+    (Path(upload_dir) / stored).write_bytes(b"workbook bytes of " + user_id.encode())
+    digest = f"hash-{user_id}"
+    store = InMemoryStore()
+    await store.aput(("memories", user_id), user_id, {"filename": stored, "file_hash": digest})
+    await store.aput(NAMESPACE, digest, {"index": _dump(index), "card": build_card(file_name, index)})
+    return store
