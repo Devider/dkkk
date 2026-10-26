@@ -60,5 +60,5 @@
 | S0.4 | Замер базовой линии v1 | Метрики и тестовая книга (`skip_specs`) |
 | S0.5 | Каркас OpenSpec | `openspec/config.yaml`, этот файл; сделано без change |
 | S0.6 | Инструменты разработки | MCP LangChain в `.mcp.json`, описание в CLAUDE.md / AGENTS.md (`skip_specs`) |
-| S0.7 | Копия движка в `src/excel_engine/` | Поведение не меняется (`skip_specs`) |
+| S0.7 | Копия движка в `src/excel_engine/` | ✓ 2026-10-26: полное замыкание, AST-идентичность и паритет на Methanex (Docker) (`skip_specs`) |
 | S5.4 | Удаление v1 | Чистка кода и документации (`skip_specs`) |
