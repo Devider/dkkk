@@ -55,7 +55,8 @@
 
 | Story | Почему | Результат |
 | --- | --- | --- |
-| S0.2, S0.3 | Spike | Отчёт и решения по ADR в `design.md` (`skip_specs`) |
+| S0.2 | Spike | ✓ 2026-10-26: решения по ADR-3, ADR-9, ADR-10, StopEvent — `archive/2026-10-26-s0-2-gigachat-agent-spike/design.md`; режим сертификатов не проверен |
+| S0.3 | Spike | Отчёт и решения по ADR в `design.md` (`skip_specs`) |
 | S0.4 | Замер базовой линии v1 | Метрики и тестовая книга (`skip_specs`) |
 | S0.5 | Каркас OpenSpec | `openspec/config.yaml`, этот файл; сделано без change |
 | S0.6 | Инструменты разработки | MCP LangChain в `.mcp.json`, описание в CLAUDE.md / AGENTS.md (`skip_specs`) |
