@@ -29,17 +29,17 @@
 | FR-17 | Кэш повторного расчёта в сессии | agent-loop | S2.5 | — | — |
 | FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | — |
 | FR-19 | Активация skill моделью или `AGENT_PINNED_SKILLS` | agent-skills | S3.5 | — | — |
-| FR-20 | Переключатель `AGENT_ENGINE = v1 / v2` | agent-api | S2.1 | S4.2 | — |
+| FR-20 | Переключатель `AGENT_ENGINE = v1 / v2` | agent-api | S2.1 | S4.2 | S2.1 ✓ (`v1_api` на v2 — S4.2) |
 
 ## Архитектурные требования
 
 | ID | Кратко | Capability | Владелец | Также | Статус |
 | --- | --- | --- | --- | --- | --- |
-| AR-Q1 | GigaChat api_key / сертификаты / скриптовая модель | agent-platform | S2.1 | S0.2 | — |
+| AR-Q1 | GigaChat api_key / сертификаты / скриптовая модель | agent-platform | S2.1 | S0.2 | S2.1 ✓ (eval по режимам — S5.1) |
 | AR-Q2 | Тесты без сети и LibreOffice | agent-eval | S5.2 | — | — |
 | AR-Q3 | LangChain только в рантайме и адаптере | agent-tools | S1.1 | — | S1.1 ✓ |
 | AR-Q4 | Зафиксированные версии, сборка из зеркала | agent-platform | S0.1 | — | S0.1 ✓ (сборка в контуре не проверена) |
-| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S2.5, S2.8, S3.5 | — |
+| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S2.5, S2.8, S3.5 | S2.1 ✓ |
 | AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | — |
 | AR-Q7 | Изоляция пользователей | agent-tools | S1.6 | S4.2 | — |
 | AR-Q8 | Конкурентность движка | agent-tools | S1.5 | — | S1.5 ✓ (размер пула — по замеру S0.4) |
@@ -49,7 +49,7 @@
 | AR-Q12 | Отмена без сирот `soffice` | agent-loop | S2.8 | S1.5 | — |
 | AR-Q13 | Журнал, Langfuse, `TOOL ARGS` | agent-api | S4.3 | — | — |
 | AR-Q14 | Нет записи и `execute`; LangSmith запрещён | agent-skills | S3.1 | S4.3 | — |
-| AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | — |
+| AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | S2.1 ✓ (валидация skills — S3.1) |
 
 ## Story без дельты спек
 
