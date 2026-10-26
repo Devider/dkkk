@@ -42,8 +42,8 @@
 | AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S2.5, S2.8, S3.5 | — |
 | AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | — |
 | AR-Q7 | Изоляция пользователей | agent-tools | S1.6 | S4.2 | — |
-| AR-Q8 | Конкурентность движка | agent-tools | S1.5 | — | — |
-| AR-Q9 | Event loop не блокируется | agent-tools | S1.5 | S1.7 | — |
+| AR-Q8 | Конкурентность движка | agent-tools | S1.5 | — | S1.5 ✓ (размер пула — по замеру S0.4) |
+| AR-Q9 | Event loop не блокируется | agent-tools | S1.5 | S1.7 | S1.5 ✓ (чтения — S1.7) |
 | AR-Q10 | Производительность, таймаут хода | agent-loop | S2.8 | S0.4, S5.3 | — |
 | AR-Q11 | Повторы LLM и движка, StopEvent → 503 | agent-loop | S2.5 | S0.2 | — |
 | AR-Q12 | Отмена без сирот `soffice` | agent-loop | S2.8 | S1.5 | — |
