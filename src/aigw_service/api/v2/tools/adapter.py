@@ -50,7 +50,7 @@ def turn_context(runtime: ToolRuntime) -> ToolContext:
     context = runtime.context
     if not isinstance(context, ToolContext):
         raise ToolContextError(
-            f"runtime.context must provide user_id, file_path and model_index, got {type(context).__name__}"
+            f"runtime.context must provide user_id, thread_id, file_path and model_index, got {type(context).__name__}"
         )
     return context
 

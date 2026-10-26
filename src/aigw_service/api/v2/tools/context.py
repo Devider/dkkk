@@ -47,5 +47,7 @@ class ToolContext(Protocol):
     """What a tool needs from the turn; never part of a tool schema, so the model cannot see or forge it."""
 
     user_id: str
+    thread_id: str
+    """``"{user_id}:{session_id}"``: the engine gate runs one calculation at a time per thread."""
     file_path: str
     model_index: ModelIndex

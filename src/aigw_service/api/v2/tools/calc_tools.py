@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from aigw_service.api.v2.tools.adapter import ToolSpec
 from aigw_service.api.v2.tools.context import ToolContext
+from aigw_service.api.v2.tools.engine_gate import EngineGate, default_gate
 from aigw_service.api.v2.tools.envelope import Number, ToolFailure, ToolSuccess
 from aigw_service.api.v2.tools.prechecks import GridInput, check_scenarios, check_target
 from aigw_service.api.v2.tools.v1_results import UNREACHED_NOTE, classify_v1, is_unreached
@@ -50,12 +51,19 @@ class FindInputForTargetArgs(BaseModel):
     tolerance: float = Field(default=IFT_TOLERANCE, description="Допуск в процентах")
 
 
-def run_scenarios(args: RunScenariosArgs, ctx: ToolContext) -> ToolSuccess | ToolFailure:
+def _gate() -> EngineGate:
+    """The service-wide gate; unit tests replace it with an in-process one."""
+    return default_gate()
+
+
+async def run_scenarios(args: RunScenariosArgs, ctx: ToolContext) -> ToolSuccess | ToolFailure:
     index = ctx.model_index
     grid = [GridInput(i.id, i.min, i.max, i.step) for i in args.inputs]
     check_scenarios(index, grid, args.outputs, args.year, APP_CONFIG.agent.max_grid)
     input_names = [index.input_name(i.id) for i in args.inputs]
-    result = analyze_excel_model(
+    result = await _gate().run(
+        ctx.thread_id,
+        analyze_excel_model,
         file_name=ctx.file_path,
         input_names=input_names,
         output_names=[index.output_name(o) for o in args.outputs],
@@ -67,11 +75,13 @@ def run_scenarios(args: RunScenariosArgs, ctx: ToolContext) -> ToolSuccess | Too
     return scenarios_envelope(result, input_names)
 
 
-def find_input_for_target(args: FindInputForTargetArgs, ctx: ToolContext) -> ToolSuccess | ToolFailure:
+async def find_input_for_target(args: FindInputForTargetArgs, ctx: ToolContext) -> ToolSuccess | ToolFailure:
     index = ctx.model_index
     check_target(index, args.output_id, args.year, args.target, args.input_ids, args.tolerance)
     output_name = index.output_name(args.output_id)
-    result = analyze_model_inputs_for_target(
+    result = await _gate().run(
+        ctx.thread_id,
+        analyze_model_inputs_for_target,
         file_name=ctx.file_path,
         output_name=output_name,
         output_year=args.year,
@@ -169,7 +179,7 @@ CALC_TOOLS = [
             "Вызывай с ID из resolve_terms, когда нужно посмотреть выходы при диапазонах входов."
         ),
         args_schema=RunScenariosArgs,
-        call=run_scenarios,
+        acall=run_scenarios,
         uses_engine=True,
     ),
     ToolSpec(
@@ -179,7 +189,7 @@ CALC_TOOLS = [
             "Вызывай с ID из resolve_terms, когда спрашивают «каким должен быть X, чтобы Y = Z»."
         ),
         args_schema=FindInputForTargetArgs,
-        call=find_input_for_target,
+        acall=find_input_for_target,
         uses_engine=True,
     ),
 ]

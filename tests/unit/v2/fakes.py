@@ -43,8 +43,23 @@ class FakeContext:
     """Implements ``ToolContext`` for tests."""
 
     user_id: str = "u1"
+    thread_id: str = "u1:s1"
     file_path: str = "/tmp/user_file_u1.xlsx"
     model_index: ModelIndex = field(default_factory=lambda: ModelIndex({"IN1": "Метанол"}, {"OUT0": "EBITDA"}))
 
 
 Step = AIMessage | Callable[[list[BaseMessage]], AIMessage]
+
+
+class InlineGate:
+    """EngineGate stand-in for unit tests: runs the domain function in-process and records session keys."""
+
+    def __init__(self) -> None:
+        self.sessions: list[str] = []
+        self.error: Exception | None = None
+
+    async def run(self, session_key: str, func: Callable[..., Any], /, **kwargs: Any) -> Any:
+        self.sessions.append(session_key)
+        if self.error is not None:
+            raise self.error
+        return func(**kwargs)

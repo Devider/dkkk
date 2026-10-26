@@ -34,6 +34,15 @@ class AgentSettings(BaseAppSettings):
         default=400,
         validation_alias="AGENT_MAX_GRID",
     )
+    # Engine pool (ADR-6): concurrent LibreOffice recalculations in the service and per-call timeout, seconds
+    calc_workers: int = Field(
+        default=2,
+        validation_alias="AGENT_CALC_WORKERS",
+    )
+    calc_timeout: float = Field(
+        default=120.0,
+        validation_alias="AGENT_CALC_TIMEOUT",
+    )
     duplicate_tool_call_threshold: int = Field(
         default=3,
         validation_alias="AGENT_DUP_TOOL_THRESHOLD",
