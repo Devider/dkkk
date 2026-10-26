@@ -16,7 +16,7 @@
 | FR-4 | Режимы плана `always` / `auto` / `off` | agent-planning | S2.3 | — | — |
 | FR-5 | Статусы шагов плана | agent-planning | S2.4 | — | — |
 | FR-6 | Явное сопоставление: расчёт только по ID индекса | agent-tools | S1.3 | S1.4 | — |
-| FR-7 | Коррекция по `code` / `hint` | agent-tools | S1.2 | S5.1 | — |
+| FR-7 | Коррекция по `code` / `hint` | agent-tools | S1.2 | S5.1 | S1.2 ✓ (eval — S5.1) |
 | FR-8 | Завершение: ответ не принимается при открытых шагах | agent-planning | S2.4 | — | — |
 | FR-9 | Лимиты на ход (`run_limit`) и частичный ответ | agent-loop | S2.5 | — | — |
 | FR-10 | Недостающие данные → `blocked`, продолжение плана | agent-planning | S2.6 | S1.4 | — |
