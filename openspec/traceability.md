@@ -37,7 +37,7 @@
 | --- | --- | --- | --- | --- | --- |
 | AR-Q1 | GigaChat api_key / сертификаты / скриптовая модель | agent-platform | S2.1 | S0.2 | — |
 | AR-Q2 | Тесты без сети и LibreOffice | agent-eval | S5.2 | — | — |
-| AR-Q3 | LangChain только в рантайме и адаптере | agent-tools | S1.1 | — | — |
+| AR-Q3 | LangChain только в рантайме и адаптере | agent-tools | S1.1 | — | S1.1 ✓ |
 | AR-Q4 | Зафиксированные версии, сборка из зеркала | agent-platform | S0.1 | — | S0.1 ✓ (сборка в контуре не проверена) |
 | AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S2.5, S2.8, S3.5 | — |
 | AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | — |
