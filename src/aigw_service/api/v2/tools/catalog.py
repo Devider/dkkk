@@ -39,9 +39,11 @@ class ToolCatalog:
 
 def default_catalog() -> ToolCatalog:
     """Catalog with every tool implemented so far."""
-    from aigw_service.api.v2.tools.calc_tools import CALC_TOOLS  # pylint: disable=import-outside-toplevel
+    # pylint: disable=import-outside-toplevel
+    from aigw_service.api.v2.tools.calc_tools import CALC_TOOLS
+    from aigw_service.api.v2.tools.resolve_terms import RESOLVE_TERMS
 
     catalog = ToolCatalog()
-    for spec in CALC_TOOLS:
+    for spec in [RESOLVE_TERMS, *CALC_TOOLS]:
         catalog.register(spec)
     return catalog

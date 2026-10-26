@@ -6,12 +6,14 @@ an envelope (``envelope.py``); unexpected exceptions propagate to ``ToolErrorMid
 """
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from langchain.tools import ToolRuntime
+from langchain_core.messages import ToolMessage
 from langchain_core.tools import StructuredTool
+from langgraph.types import Command
 from pydantic import BaseModel
 
 from aigw_service.api.v2.tools.context import ToolContext
@@ -28,10 +30,16 @@ class ToolSpec:
     name: str
     description: str
     args_schema: type[BaseModel]
-    call: Callable[[BaseModel, ToolContext], ToolSuccess | ToolFailure]
-    """Maps model arguments + turn context to the domain call and its envelope; runs in a worker thread."""
+    call: Callable[[BaseModel, ToolContext], ToolSuccess | ToolFailure] | None = None
+    """Sync mapping of model arguments + turn context to the domain call and its envelope; runs in a worker thread."""
+    acall: Callable[[BaseModel, ToolContext], Awaitable[ToolSuccess | ToolFailure]] | None = None
+    """Async alternative to ``call`` (e.g. a semantic-layer LLM call); runs on the event loop."""
     availability: str = BASE
     uses_engine: bool = False
+
+    def __post_init__(self) -> None:
+        if (self.call is None) == (self.acall is None):
+            raise ValueError(f"tool {self.name!r}: set exactly one of call / acall")
 
 
 class ToolContextError(RuntimeError):
@@ -50,14 +58,21 @@ def turn_context(runtime: ToolRuntime) -> ToolContext:
 def build_tool(spec: ToolSpec) -> StructuredTool:
     """``StructuredTool`` whose schema is ``spec.args_schema``; ``runtime`` is injected by LangChain."""
 
-    async def run(runtime: ToolRuntime, **kwargs: Any) -> str:
+    async def run(runtime: ToolRuntime, **kwargs: Any) -> str | Command:
         context = turn_context(runtime)
         args = spec.args_schema.model_validate(kwargs)
         try:
-            envelope = await asyncio.to_thread(spec.call, args, context)
+            if spec.acall is not None:
+                envelope = await spec.acall(args, context)
+            else:
+                envelope = await asyncio.to_thread(spec.call, args, context)
         except ToolError as exc:
             envelope = exc.failure()
-        return to_json(envelope)
+        text = to_json(envelope)
+        if isinstance(envelope, ToolSuccess) and envelope.state_update:
+            message = ToolMessage(text, tool_call_id=runtime.tool_call_id, name=spec.name)
+            return Command(update={**envelope.state_update, "messages": [message]})
+        return text
 
     return StructuredTool.from_function(
         coroutine=run,

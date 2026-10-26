@@ -1,0 +1,1129 @@
+{
+  "started": "2026-10-26T15:13:31+03:00",
+  "resolve_terms": {
+    "inputs": {
+      "accuracy": 0.791,
+      "hits": 87,
+      "total": 110,
+      "queries": 30
+    },
+    "outputs": {
+      "accuracy": 0.745,
+      "hits": 41,
+      "total": 55,
+      "queries": 30
+    }
+  },
+  "common_queries": 27,
+  "on_common": {
+    "resolve_terms": {
+      "inputs": {
+        "accuracy": 0.78,
+        "hits": 78,
+        "total": 100,
+        "queries": 27
+      },
+      "outputs": {
+        "accuracy": 0.773,
+        "hits": 34,
+        "total": 44,
+        "queries": 27
+      }
+    },
+    "v1_r1": {
+      "inputs": {
+        "accuracy": 0.81,
+        "hits": 81,
+        "total": 100,
+        "queries": 27
+      },
+      "outputs": {
+        "accuracy": 0.364,
+        "hits": 16,
+        "total": 44,
+        "queries": 27
+      }
+    }
+  },
+  "confidence": {
+    "high": {
+      "n": 58,
+      "precision": 1.0
+    },
+    "low": {
+      "n": 104,
+      "precision": 0.683
+    }
+  },
+  "errors": [],
+  "rows": [
+    {
+      "id": "T058",
+      "kind": "ift",
+      "in": [
+        4,
+        4
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T013",
+      "kind": "ift",
+      "in": [
+        3,
+        4
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T141",
+      "kind": "ift",
+      "in": [
+        3,
+        3
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T126",
+      "kind": "ift",
+      "in": [
+        5,
+        5
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T115",
+      "kind": "ift",
+      "in": [
+        2,
+        4
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T072",
+      "kind": "ift",
+      "in": [
+        3,
+        3
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T053",
+      "kind": "ift",
+      "in": [
+        4,
+        5
+      ],
+      "out": [
+        0,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T280",
+      "kind": "ift",
+      "in": [
+        2,
+        3
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T045",
+      "kind": "ift",
+      "in": [
+        3,
+        4
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T217",
+      "kind": "ift",
+      "in": [
+        4,
+        4
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T017",
+      "kind": "ift",
+      "in": [
+        1,
+        3
+      ],
+      "out": [
+        0,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        }
+      ]
+    },
+    {
+      "id": "T016",
+      "kind": "ift",
+      "in": [
+        3,
+        3
+      ],
+      "out": [
+        0,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        }
+      ]
+    },
+    {
+      "id": "T048",
+      "kind": "ift",
+      "in": [
+        3,
+        3
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T112",
+      "kind": "ift",
+      "in": [
+        2,
+        4
+      ],
+      "out": [
+        0,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        }
+      ]
+    },
+    {
+      "id": "T120",
+      "kind": "ift",
+      "in": [
+        2,
+        3
+      ],
+      "out": [
+        0,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T259",
+      "kind": "ift",
+      "in": [
+        2,
+        4
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T014",
+      "kind": "ift",
+      "in": [
+        2,
+        4
+      ],
+      "out": [
+        0,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T288",
+      "kind": "ift",
+      "in": [
+        4,
+        4
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T102",
+      "kind": "ift",
+      "in": [
+        2,
+        3
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "T215",
+      "kind": "ift",
+      "in": [
+        4,
+        5
+      ],
+      "out": [
+        1,
+        1
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A113",
+      "kind": "ema",
+      "in": [
+        2,
+        3
+      ],
+      "out": [
+        3,
+        3
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A230",
+      "kind": "ema",
+      "in": [
+        5,
+        5
+      ],
+      "out": [
+        1,
+        2
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A143",
+      "kind": "ema",
+      "in": [
+        1,
+        1
+      ],
+      "out": [
+        4,
+        5
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A004",
+      "kind": "ema",
+      "in": [
+        4,
+        4
+      ],
+      "out": [
+        3,
+        5
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        }
+      ]
+    },
+    {
+      "id": "A082",
+      "kind": "ema",
+      "in": [
+        2,
+        3
+      ],
+      "out": [
+        2,
+        3
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A217",
+      "kind": "ema",
+      "in": [
+        2,
+        3
+      ],
+      "out": [
+        3,
+        3
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A175",
+      "kind": "ema",
+      "in": [
+        3,
+        5
+      ],
+      "out": [
+        3,
+        4
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A080",
+      "kind": "ema",
+      "in": [
+        3,
+        4
+      ],
+      "out": [
+        4,
+        5
+      ],
+      "confidence": [
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A111",
+      "kind": "ema",
+      "in": [
+        3,
+        3
+      ],
+      "out": [
+        2,
+        3
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": false
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    },
+    {
+      "id": "A173",
+      "kind": "ema",
+      "in": [
+        4,
+        4
+      ],
+      "out": [
+        2,
+        2
+      ],
+      "confidence": [
+        {
+          "confidence": "high",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        },
+        {
+          "confidence": "low",
+          "correct": true
+        }
+      ]
+    }
+  ]
+}

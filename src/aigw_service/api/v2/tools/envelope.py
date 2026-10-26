@@ -85,6 +85,8 @@ class ToolSuccess(BaseModel):
     notes: list[str] = Field(default_factory=list)
     hint: str | None = None
     ref: str | None = None
+    state_update: dict[str, Any] | None = Field(default=None, exclude=True)
+    """Agent-state fields to update with this result; never shown to the model."""
 
 
 class ToolFailure(BaseModel):
