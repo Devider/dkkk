@@ -171,3 +171,4 @@ cython_debug/
 
 # Test output artifacts
 test_output/
+.DS_Store
