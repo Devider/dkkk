@@ -1,0 +1,109 @@
+{
+  "started": "2026-10-26T12:27:03+03:00",
+  "results": [
+    {
+      "check": "K1",
+      "ok_rate": "1/1",
+      "tools": [
+        "write_todos",
+        "resolve_terms",
+        "run_scenarios",
+        "write_todos"
+      ],
+      "todos": [
+        {
+          "content": "Сопоставить термины",
+          "status": "completed"
+        },
+        {
+          "content": "Посчитать сценарии",
+          "status": "completed"
+        },
+        {
+          "content": "Сформулировать вывод",
+          "status": "completed"
+        }
+      ],
+      "run_scenarios_args": {
+        "input_id": "IN12",
+        "min_value": 300,
+        "max_value": 450,
+        "step": 50,
+        "output_id": "OUT40",
+        "year": 2026
+      },
+      "seconds": 0.0
+    },
+    {
+      "check": "K9",
+      "ok_rate": "6/6",
+      "variants": {
+        "default_en": {
+          "ok_rate": "3/3",
+          "runs": [
+            {
+              "ok": true,
+              "tools": [
+                "read_file",
+                "resolve_terms",
+                "calc_headroom"
+              ],
+              "answer": "Запас по ковенанте DSCR в 2026 году составляет **10,8%** до порога 1.2."
+            },
+            {
+              "ok": true,
+              "tools": [
+                "read_file",
+                "resolve_terms",
+                "calc_headroom"
+              ],
+              "answer": "Запас по ковенанте DSCR в 2026 году составляет **10,8%** до порога 1,2."
+            },
+            {
+              "ok": true,
+              "tools": [
+                "read_file",
+                "resolve_terms",
+                "calc_headroom"
+              ],
+              "answer": "Запас по ковенанте DSCR в 2026 году составляет **10,8%** до порога 1.2."
+            }
+          ]
+        },
+        "russian": {
+          "ok_rate": "3/3",
+          "runs": [
+            {
+              "ok": true,
+              "tools": [
+                "read_file",
+                "resolve_terms",
+                "calc_headroom"
+              ],
+              "answer": "В 2026 году запас по ковенанте DSCR ≥ 1,2 составляет **10,8 %**. Это означает, что текущий уровень покрытия долга свободным денежным потоком превышает пороговое значение почти на 11 %."
+            },
+            {
+              "ok": true,
+              "tools": [
+                "read_file",
+                "resolve_terms",
+                "calc_headroom"
+              ],
+              "answer": "Запас по ковенанте DSCR ≥ 1,2 в 2026 году составляет **10,8%**. Это означает, что текущий уровень покрытия долга свободным денежным потоком превышает порог на данный процент."
+            },
+            {
+              "ok": true,
+              "tools": [
+                "read_file",
+                "resolve_terms",
+                "calc_headroom"
+              ],
+              "answer": "Запас по ковенанте DSCR ≥ 1,2 в 2026 году составляет **10,8%**. Это означает, что текущий уровень покрытия долга свободным денежным потоком превышает порог на данный процент."
+            }
+          ]
+        }
+      },
+      "seconds": 16.0
+    }
+  ]
+}

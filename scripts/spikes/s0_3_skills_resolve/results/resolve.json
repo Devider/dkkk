@@ -1,0 +1,5699 @@
+{
+  "started": "2026-10-26T12:33:05+03:00",
+  "results": [
+    {
+      "check": "R1",
+      "ok_rate": "info",
+      "inputs": {
+        "accuracy": 0.736,
+        "hits": 81,
+        "total": 110,
+        "extra": 18
+      },
+      "outputs": {
+        "accuracy": 0.291,
+        "hits": 16,
+        "total": 55,
+        "extra": 18
+      },
+      "by_kind": {
+        "ift": {
+          "inputs": {
+            "accuracy": 0.827,
+            "hits": 62,
+            "total": 75,
+            "extra": 12
+          },
+          "outputs": {
+            "accuracy": 0.65,
+            "hits": 13,
+            "total": 20,
+            "extra": 7
+          }
+        },
+        "ema": {
+          "inputs": {
+            "accuracy": 0.76,
+            "hits": 19,
+            "total": 25,
+            "extra": 6
+          },
+          "outputs": {
+            "accuracy": 0.125,
+            "hits": 3,
+            "total": 24,
+            "extra": 11
+          }
+        }
+      },
+      "errors": [
+        {
+          "id": "A004",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            5,
+            0
+          ]
+        },
+        {
+          "id": "A082",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A111",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        }
+      ],
+      "rate_limited_retries": 0,
+      "rows": [
+        {
+          "id": "T058",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "RUB PPI",
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)"
+              ],
+              [
+                "price coefficient",
+                "Коэффициент цены"
+              ],
+              [
+                "Russia CPI (RUB)",
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)"
+              ],
+              [
+                "year-end EUR/RUB",
+                "Курс рубля к EUR в конце года (eop EUR/RUB)"
+              ]
+            ],
+            "outputs": [
+              "OUT8 - Чистая прибыль"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T013",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "price coefficient",
+                "Коэффициент цены"
+              ],
+              [
+                "coking coal price",
+                "Коксующийся уголь, FOB Vostochny port"
+              ],
+              [
+                "urea price",
+                "Карбамид (FOB Южный)"
+              ],
+              [
+                "3m Euribor",
+                "Ставка Euribor 3m"
+              ]
+            ],
+            "outputs": [
+              "ICR corr (LTM)"
+            ]
+          },
+          "in": [
+            3,
+            4,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T141",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "copper (LME)",
+                "Медь (London Metals Exchange)"
+              ],
+              [
+                "Eurozone CPI (EUR)",
+                "Инфляция - Рост индекса потребительских цен в Еврозоне (EUR, eop CPI)"
+              ],
+              [
+                "EUR/RUB eop",
+                "Курс рубля к EUR в конце года (eop EUR/RUB)"
+              ]
+            ],
+            "outputs": [
+              "Выручка (LTM)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T126",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "ECB policy rate",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ],
+              [
+                "USD/RUB eop",
+                "Курс рубля к доллару США в конце года (eop USD/RUB)"
+              ],
+              [
+                "ammonia FOB Black Sea",
+                "Аммиак (FOB Черное море)"
+              ],
+              [
+                "3m Libor",
+                "Ставка Libor 3m"
+              ]
+            ],
+            "outputs": [
+              "Рентабельность EBITDA (LTM)"
+            ]
+          },
+          "in": [
+            4,
+            5,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T115",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Henry Hub gas",
+                "Цена на природный газ на хабе Henry Hub"
+              ],
+              [
+                "methanol",
+                "Метанол на хабе FOB Rotterdam"
+              ],
+              [
+                "unit cost coefficient",
+                "Коэффициент удельных расходов"
+              ],
+              [
+                "RUB PPI",
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)"
+              ]
+            ],
+            "outputs": [
+              "Debt/EBITDA"
+            ]
+          },
+          "in": [
+            3,
+            4,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T072",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "TTF gas",
+                "Цена на природный газ на хабе TTF"
+              ],
+              [
+                "Capex coefficient",
+                "Коэффициент капитальных вложений"
+              ],
+              [
+                "Iron ore 62% CFR China",
+                "Железная руда (Iron Ore 62%, CFR China)"
+              ]
+            ],
+            "outputs": [
+              "OUT28 | Обслуживание долга (Debt Service)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T053",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "key policy rate (eop)",
+                "Ключевая ставка на конец года (eop)"
+              ],
+              [
+                "iron ore 62% CFR China",
+                "Железная руда (Iron Ore 62%, CFR China)"
+              ],
+              [
+                "methanol price",
+                "Метанол на хабе FOB Rotterdam"
+              ],
+              [
+                "potash price",
+                "Хлорид калия (CFR Ю-В Азия)"
+              ],
+              [
+                "ECB policy rate",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ]
+            ],
+            "outputs": [
+              "Выручка"
+            ]
+          },
+          "in": [
+            4,
+            5,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T280",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Ammonia FOB Black Sea",
+                "Аммиак (FOB Черное море)"
+              ],
+              [
+                "LME gold price",
+                "Золото (London Metals Exchange)"
+              ],
+              [
+                "Potash CFR SE Asia",
+                "Хлорид калия (CFR Ю-В Азия)"
+              ]
+            ],
+            "outputs": [
+              "Денежные средства, доступные для обслуживания долга (CFADS)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T045",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "LME nickel price",
+                "Никель (London Metals Exchange)"
+              ],
+              [
+                "unit cost coefficient",
+                "Коэффициент удельных расходов"
+              ],
+              [
+                "corporate income tax rate",
+                "Ставка налога на прибыль организаций"
+              ],
+              [
+                "Brent oil price",
+                "Нефть марки Brent"
+              ]
+            ],
+            "outputs": [
+              "ICR (LTM)"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T217",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "GDP growth",
+                "Рост реального ВВП"
+              ],
+              [
+                "Eurozone CPI (EUR)",
+                "Инфляция - Рост индекса потребительских цен в Еврозоне (EUR, eop CPI)"
+              ],
+              [
+                "potash price",
+                "Хлорид калия (CFR Ю-В Азия)"
+              ],
+              [
+                "US PPI (USD)",
+                "Инфляция - Рост индекса цен производителей в США, в долларах США (USD, eop PPI)"
+              ]
+            ],
+            "outputs": [
+              "ICR corr (LTM)"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T017",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "LME nickel price",
+                "Медь (London Metals Exchange)"
+              ],
+              [
+                "Uranium",
+                "Соевое масло"
+              ],
+              [
+                "Price coefficient",
+                "Коэффициент цены"
+              ]
+            ],
+            "outputs": [
+              "ICR (LTM)"
+            ]
+          },
+          "in": [
+            1,
+            3,
+            2
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T016",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Libor 3m rate",
+                "Ставка Libor 3m"
+              ],
+              [
+                "Volume coefficient",
+                "Коэффициент объема"
+              ],
+              [
+                "LME aluminium price",
+                "Алюминий (London Metals Exchange, без премии)"
+              ]
+            ],
+            "outputs": [
+              "Чистая прибыль (Net Income)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T048",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "ECB policy rate",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ],
+              [
+                "Henry Hub gas price",
+                "Цена на природный газ на хабе Henry Hub"
+              ],
+              [
+                "TTF gas",
+                "Цена на природный газ на хабе TTF"
+              ]
+            ],
+            "outputs": [
+              "ICR corr (LTM)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T112",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "uranium",
+                "Соевое масло"
+              ],
+              [
+                "unit cost coefficient",
+                "Коэффициент удельных расходов"
+              ],
+              [
+                "TTF gas price",
+                "Цена на природный газ на хабе TTF"
+              ],
+              [
+                "CO2 allowance price",
+                "Курс юаня к доллару (средний за период)"
+              ]
+            ],
+            "outputs": [
+              "OUT101 | Название: Минимальный годичный ISCR"
+            ]
+          },
+          "in": [
+            2,
+            4,
+            2
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T120",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "average USD/RUB",
+                "Средний за период курс рубля к доллару США (av USD/RUB)"
+              ],
+              [
+                "capex coefficient",
+                "Экспортная цена мороженых крабов"
+              ],
+              [
+                "urea FOB Yuzhny",
+                "Карбамид (FOB Южный)"
+              ]
+            ],
+            "outputs": [
+              "Выручка (OUT0)"
+            ]
+          },
+          "in": [
+            2,
+            3,
+            1
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T259",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Urals crude",
+                "Нефть марки Urals"
+              ],
+              [
+                "LME nickel price",
+                "Золото (London Metals Exchange)"
+              ],
+              [
+                "LME gold price",
+                "Серебро (London Metals Exchange)"
+              ],
+              [
+                "profit tax rate",
+                "Ставка налога на прибыль организаций"
+              ]
+            ],
+            "outputs": [
+              "Обслуживание долга (Debt Service)"
+            ]
+          },
+          "in": [
+            3,
+            4,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T014",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Euribor 3m rate",
+                "Ставка Libor 3m"
+              ],
+              [
+                "fixed cost coefficient",
+                "Коэффициент постоянных расходов"
+              ],
+              [
+                "3m Libor",
+                "Ставка Mosprime 3m"
+              ],
+              [
+                "LME gold price",
+                "Золото (London Metals Exchange)"
+              ]
+            ],
+            "outputs": [
+              "Выручка"
+            ]
+          },
+          "in": [
+            3,
+            4,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T288",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Key policy rate (eop)",
+                "Ключевая ставка на конец года (eop)"
+              ],
+              [
+                "Henry Hub gas price",
+                "Цена на природный газ на хабе Henry Hub"
+              ],
+              [
+                "GDP growth",
+                "Рост реального ВВП"
+              ],
+              [
+                "Price coefficient",
+                "Коэффициент цены"
+              ]
+            ],
+            "outputs": [
+              "Рентабельность EBITDA"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T102",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "year-end USD/RUB",
+                "Курс рубля к доллару США в конце года (eop USD/RUB)"
+              ],
+              [
+                "urea price",
+                "Карбамид (FOB Южный)"
+              ],
+              [
+                "uranium price",
+                "Средний за период курс рубля к доллару США (av USD/RUB)"
+              ]
+            ],
+            "outputs": [
+              "Рентабельность EBITDA (LTM)"
+            ]
+          },
+          "in": [
+            2,
+            3,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T215",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "urea price",
+                "Карбамид (FOB Южный)"
+              ],
+              [
+                "CO2 allowance price",
+                "Экспортная цена мороженых крабов"
+              ],
+              [
+                "Brent crude",
+                "Нефть марки Brent"
+              ],
+              [
+                "Russia PPI (RUB)",
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)"
+              ],
+              [
+                "Henry Hub gas price",
+                "Цена на природный газ на хабе Henry Hub"
+              ]
+            ],
+            "outputs": [
+              "Остаток денежных средств на конец периода"
+            ]
+          },
+          "in": [
+            4,
+            5,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "A113",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "LME gold price 2026",
+                "Окатыш (Pellet, FOB Black Sea)"
+              ],
+              [
+                "ethylene price 2026",
+                "Этилен, CFR Китай"
+              ],
+              [
+                "Henry Hub gas price за 2026",
+                "Цена на природный газ на хабе Henry Hub"
+              ]
+            ],
+            "outputs": [
+              "Чистый денежный поток накопительным итогом (NCCF)",
+              "Денежные средства, доступные для обслуживания долга (CFADS)",
+              "Денежные потоки от финансовых операций (CFF)"
+            ]
+          },
+          "in": [
+            2,
+            3,
+            1
+          ],
+          "out": [
+            2,
+            3,
+            1
+          ]
+        },
+        {
+          "id": "A230",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "US CPI (USD) 2030",
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)"
+              ],
+              [
+                "unit cost coefficient 2030",
+                "Коэффициент удельных расходов"
+              ],
+              [
+                "capex coefficient за 2030",
+                "Коэффициент капитальных вложений"
+              ],
+              [
+                "Urals crude 2030",
+                "Нефть марки Urals"
+              ],
+              [
+                "RUB CPI за 2030",
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)"
+              ]
+            ],
+            "outputs": [
+              "OUT30 | Платежи процентов по долговым обязательствам",
+              "OUT66 | Коэффициент покрытия процентов в i-ом периоде (ISCR)"
+            ]
+          },
+          "in": [
+            5,
+            5,
+            0
+          ],
+          "out": [
+            0,
+            2,
+            2
+          ]
+        },
+        {
+          "id": "A143",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "US PPI (USD)",
+                "Инфляция - Рост индекса цен производителей в США, в долларах США (USD, eop PPI)"
+              ]
+            ],
+            "outputs": [
+              "OUT13"
+            ]
+          },
+          "in": [
+            1,
+            1,
+            0
+          ],
+          "out": [
+            0,
+            5,
+            1
+          ]
+        },
+        {
+          "id": "A004",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            5,
+            0
+          ]
+        },
+        {
+          "id": "A082",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A217",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "EU ETS CO2 price 2028",
+                "Курс юаня к доллару (средний за период)"
+              ],
+              [
+                "real GDP growth 2028",
+                "Рост реального ВВП"
+              ],
+              [
+                "coking coal price 2028",
+                "Коксующийся уголь, FOB Vostochny port"
+              ]
+            ],
+            "outputs": [
+              "EBITDA"
+            ]
+          },
+          "in": [
+            1,
+            3,
+            2
+          ],
+          "out": [
+            1,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A175",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "LME gold price 2030",
+                "Золото (London Metals Exchange)"
+              ],
+              [
+                "hard coking coal FOB Australia 2030",
+                "Hard Coking Coal (FOB Australia)"
+              ],
+              [
+                "3m Libor 2030",
+                "Ставка Libor 3m"
+              ],
+              [
+                "ethylene price за 2030",
+                "Этилен, CFR Китай"
+              ],
+              [
+                "methanol price 2030",
+                "Регистрация автобусов (АБ)"
+              ]
+            ],
+            "outputs": [
+              "OUT23",
+              "OUT62",
+              "OUT81",
+              "OUT20"
+            ]
+          },
+          "in": [
+            4,
+            5,
+            1
+          ],
+          "out": [
+            0,
+            4,
+            4
+          ]
+        },
+        {
+          "id": "A080",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "methanol 2025",
+                "Ставка Roisfix 3M"
+              ],
+              [
+                "fixed cost coefficient 2025",
+                "Курс EUR к CHF в конце года (eop EUR/CHF)"
+              ],
+              [
+                "ECB policy rate 2025",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ],
+              [
+                "av USD/RUB 2025",
+                "Средний за период курс рубля к доллару США (av USD/RUB)"
+              ]
+            ],
+            "outputs": [
+              "OUT23"
+            ]
+          },
+          "in": [
+            2,
+            4,
+            2
+          ],
+          "out": [
+            0,
+            5,
+            1
+          ]
+        },
+        {
+          "id": "A111",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A173",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "CBR key rate eop 2028",
+                "Ключевая ставка на конец года (eop)"
+              ],
+              [
+                "capex coefficient за 2028",
+                "Коэффициент капитальных вложений"
+              ],
+              [
+                "copper (LME) 2028",
+                "Медь (London Metals Exchange)"
+              ],
+              [
+                "benzene price 2028",
+                "Бензол, CFR Япония"
+              ]
+            ],
+            "outputs": [
+              "OUT10",
+              "OUT9"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            2,
+            2
+          ]
+        }
+      ],
+      "seconds": 199.2
+    },
+    {
+      "check": "R4",
+      "ok_rate": "info",
+      "agree": {
+        "n": 44,
+        "precision": 0.977
+      },
+      "disagree": {
+        "n": 55,
+        "precision": 0.691
+      },
+      "seconds": 0.1
+    },
+    {
+      "check": "R2",
+      "ok_rate": "info",
+      "inputs": {
+        "accuracy": 0.664,
+        "hits": 73,
+        "total": 110,
+        "extra": 13
+      },
+      "outputs": {
+        "accuracy": 0.455,
+        "hits": 25,
+        "total": 55,
+        "extra": 14
+      },
+      "by_kind": {
+        "ift": {
+          "inputs": {
+            "accuracy": 0.828,
+            "hits": 53,
+            "total": 64,
+            "extra": 8
+          },
+          "outputs": {
+            "accuracy": 0.706,
+            "hits": 12,
+            "total": 17,
+            "extra": 5
+          }
+        },
+        "ema": {
+          "inputs": {
+            "accuracy": 0.8,
+            "hits": 20,
+            "total": 25,
+            "extra": 5
+          },
+          "outputs": {
+            "accuracy": 0.481,
+            "hits": 13,
+            "total": 27,
+            "extra": 9
+          }
+        }
+      },
+      "errors": [
+        {
+          "id": "T217",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T016",
+          "error": "KeyError: 'IN08'",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T112",
+          "error": "KeyError: 'IN4178'",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "A217",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A111",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A173",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            2,
+            0
+          ]
+        }
+      ],
+      "rate_limited_retries": 0,
+      "rows": [
+        {
+          "id": "T058",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "RUB PPI",
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)"
+              ],
+              [
+                "price coefficient",
+                "Коэффициент цены"
+              ],
+              [
+                "Russia CPI (RUB)",
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)"
+              ],
+              [
+                "year-end EUR/RUB",
+                "Курс рубля к EUR в конце года (eop EUR/RUB)"
+              ]
+            ],
+            "outputs": [
+              "Чистая прибыль"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T013",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "price coefficient",
+                "Коэффициент цены"
+              ],
+              [
+                "coking coal price",
+                "Hard Coking Coal (FOB Australia)"
+              ],
+              [
+                "urea price",
+                "Карбамид (FOB Южный)"
+              ],
+              [
+                "3m Euribor",
+                "Ставка Euribor 3m"
+              ]
+            ],
+            "outputs": [
+              "ICR corr (LTM)"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T141",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "copper (LME)",
+                "Медь (London Metals Exchange)"
+              ],
+              [
+                "Eurozone CPI (EUR)",
+                "Инфляция - Рост индекса потребительских цен в Еврозоне (EUR, eop CPI)"
+              ],
+              [
+                "EUR/RUB eop",
+                "Курс рубля к EUR в конце года (eop EUR/RUB)"
+              ]
+            ],
+            "outputs": [
+              "Выручка (LTM)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T126",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "ECB policy rate",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ],
+              [
+                "USD/RUB eop",
+                "Курс рубля к доллару США в конце года (eop USD/RUB)"
+              ],
+              [
+                "ammonia FOB Black Sea",
+                "Аммиак (FOB Черное море)"
+              ],
+              [
+                "price coefficient",
+                "Коэффициент цены"
+              ],
+              [
+                "3m Libor",
+                "Ставка Libor 3m"
+              ]
+            ],
+            "outputs": [
+              "Рентабельность EBITDA (LTM)"
+            ]
+          },
+          "in": [
+            5,
+            5,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T115",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Henry Hub gas",
+                "Цена на природный газ на хабе Henry Hub"
+              ],
+              [
+                "methanol",
+                "Метанол"
+              ],
+              [
+                "unit cost coefficient",
+                "Коэффициент удельных расходов"
+              ],
+              [
+                "RUB PPI",
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)"
+              ]
+            ],
+            "outputs": [
+              "Debt/EBITDA"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T072",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "TTF gas",
+                "Цена на природный газ на хабе TTF"
+              ],
+              [
+                "capex coefficient",
+                "Коэффициент капитальных вложений"
+              ],
+              [
+                "iron ore 62% CFR China",
+                "Железная руда (Iron Ore 62%, CFR China)"
+              ]
+            ],
+            "outputs": [
+              "OUT28 | Обслуживание долга (Debt Service)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T053",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "key policy rate (eop)",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ],
+              [
+                "iron ore 62% CFR China",
+                "Железная руда (Iron Ore 62%, CFR China)"
+              ],
+              [
+                "methanol price",
+                "Метанол"
+              ],
+              [
+                "potash price",
+                "Хлорид калия (CFR Ю-В Азия)"
+              ]
+            ],
+            "outputs": [
+              "Выручка"
+            ]
+          },
+          "in": [
+            4,
+            5,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T280",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "ammonia FOB Black Sea",
+                "Аммиак (FOB Черное море)"
+              ],
+              [
+                "LME gold price",
+                "Золото (London Metals Exchange)"
+              ],
+              [
+                "potash CFR SE Asia",
+                "Хлорид калия (CFR Ю-В Азия)"
+              ]
+            ],
+            "outputs": [
+              "OUT16 | Денежные средства, доступные для обслуживания долга (CFADS)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T045",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "LME nickel price",
+                "Золото (London Metals Exchange)"
+              ],
+              [
+                "unit cost coefficient",
+                "Коэффициент количества комнат"
+              ]
+            ],
+            "outputs": [
+              "ICR (LTM)"
+            ]
+          },
+          "in": [
+            0,
+            4,
+            2
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T217",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T017",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "LME nickel price",
+                "Золото (London Metals Exchange)"
+              ],
+              [
+                "uranium",
+                "Соевое масло"
+              ],
+              [
+                "price coefficient",
+                "Коэффициент цены"
+              ]
+            ],
+            "outputs": [
+              "ICR"
+            ]
+          },
+          "in": [
+            1,
+            3,
+            2
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T016",
+          "error": "KeyError: 'IN08'",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T048",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "ECB policy rate",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ],
+              [
+                "Henry Hub gas price",
+                "Цена на природный газ на хабе Henry Hub"
+              ],
+              [
+                "TTF gas",
+                "Цена на природный газ на хабе TTF"
+              ]
+            ],
+            "outputs": [
+              "ICR corr (LTM)"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T112",
+          "error": "KeyError: 'IN4178'",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T120",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "average USD/RUB",
+                "Средний за период курс рубля к доллару США (av USD/RUB)"
+              ],
+              [
+                "capex coefficient",
+                "Коэффициент капитальных вложений"
+              ],
+              [
+                "urea FOB Yuzhny",
+                "Карбамид (FOB Южный)"
+              ]
+            ],
+            "outputs": [
+              "Выручка"
+            ]
+          },
+          "in": [
+            3,
+            3,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T259",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Urals crude",
+                "Urals (Primorsk) FOB"
+              ],
+              [
+                "LME nickel price",
+                "Золото (London Metals Exchange)"
+              ],
+              [
+                "LME gold price",
+                "Окатыш (Pellet, FOB Black Sea)"
+              ],
+              [
+                "profit tax rate",
+                "Ставка налога на прибыль организаций"
+              ]
+            ],
+            "outputs": [
+              "Обслуживание долга"
+            ]
+          },
+          "in": [
+            2,
+            4,
+            2
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "T014",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "Euribor 3m rate",
+                "Ставка Euribor 3m"
+              ],
+              [
+                "fixed cost coefficient",
+                "Коэффициент постоянных расходов"
+              ],
+              [
+                "3m Libor",
+                "Ставка Libor 3m"
+              ],
+              [
+                "LME gold price",
+                "Окатыш (Pellet, FOB Black Sea)"
+              ]
+            ],
+            "outputs": [
+              "Выручка"
+            ]
+          },
+          "in": [
+            3,
+            4,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T288",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "key policy rate (eop)",
+                "Ключевая ставка на конец года (eop)"
+              ],
+              [
+                "Henry Hub gas price",
+                "Цена на природный газ на хабе Henry Hub"
+              ],
+              [
+                "GDP growth",
+                "Рост реального ВВП"
+              ],
+              [
+                "price coefficient",
+                "Коэффициент цены"
+              ]
+            ],
+            "outputs": [
+              "Рентабельность EBITDA"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T102",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "year-end USD/RUB",
+                "Курс рубля к доллару США в конце года (eop USD/RUB)"
+              ],
+              [
+                "urea price",
+                "Карбамид (FOB Южный)"
+              ],
+              [
+                "uranium price",
+                "Свинина в убойном весе, полутуши"
+              ]
+            ],
+            "outputs": [
+              "Рентабельность EBITDA (LTM)"
+            ]
+          },
+          "in": [
+            2,
+            3,
+            1
+          ],
+          "out": [
+            1,
+            1,
+            0
+          ]
+        },
+        {
+          "id": "T215",
+          "kind": "ift",
+          "pred": {
+            "inputs": [
+              [
+                "urea price",
+                "Карбамид (FOB Южный)"
+              ],
+              [
+                "CO2 allowance price",
+                "Стоимость квот на CO2 в EU ETS (Emissions Trading System)"
+              ],
+              [
+                "Brent crude",
+                "Нефть марки Brent"
+              ],
+              [
+                "Russia PPI (RUB)",
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)"
+              ],
+              [
+                "Henry Hub gas price",
+                "Цена на природный газ на хабе Henry Hub"
+              ]
+            ],
+            "outputs": [
+              "OUT10 | Название: Остаток денежных средств на конец периода"
+            ]
+          },
+          "in": [
+            5,
+            5,
+            0
+          ],
+          "out": [
+            0,
+            1,
+            1
+          ]
+        },
+        {
+          "id": "A113",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "LME gold price",
+                "Окатыш (Pellet, FOB Black Sea)"
+              ],
+              [
+                "ethylene price",
+                "Этилен, CFR Китай"
+              ],
+              [
+                "Henry Hub gas price",
+                "Цена на природный газ на хабе Henry Hub"
+              ]
+            ],
+            "outputs": [
+              "Чистый денежный поток накопительным итогом (NCCF)",
+              "Денежные средства, доступные для обслуживания долга (CFADS)",
+              "Денежные потоки от финансовых операций (CFF)"
+            ]
+          },
+          "in": [
+            2,
+            3,
+            1
+          ],
+          "out": [
+            2,
+            3,
+            1
+          ]
+        },
+        {
+          "id": "A230",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "US CPI (USD)",
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)"
+              ],
+              [
+                "unit cost coefficient",
+                "Коэффициент удельных расходов"
+              ],
+              [
+                "capex coefficient",
+                "Коэффициент капитальных вложений"
+              ],
+              [
+                "Urals crude",
+                "Нефть марки Urals"
+              ],
+              [
+                "RUB CPI",
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)"
+              ]
+            ],
+            "outputs": [
+              "Платежи процентов по долговым обязательствам (LTM)",
+              "ISCR (LTM)"
+            ]
+          },
+          "in": [
+            5,
+            5,
+            0
+          ],
+          "out": [
+            1,
+            2,
+            1
+          ]
+        },
+        {
+          "id": "A143",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "US PPI (USD)",
+                "Инфляция - Рост индекса цен производителей в США, в долларах США (USD, eop PPI)"
+              ]
+            ],
+            "outputs": [
+              "Денежные потоки от инвестиционных операций (CFI)",
+              "Свободный денежный поток (FCFF)",
+              "Платежи процентов по долговым обязательствам"
+            ]
+          },
+          "in": [
+            1,
+            1,
+            0
+          ],
+          "out": [
+            2,
+            5,
+            1
+          ]
+        },
+        {
+          "id": "A004",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "iron ore 62% CFR China",
+                "Железная руда (Iron Ore 62%, CFR China)"
+              ],
+              [
+                "US CPI (USD)",
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)"
+              ],
+              [
+                "urea price",
+                "Карбамид (FOB Южный)"
+              ],
+              [
+                "LME copper price",
+                "Медь (London Metals Exchange)"
+              ]
+            ],
+            "outputs": [
+              "ICR (LTM)",
+              "Рентабельность чистой прибыли"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            2,
+            5,
+            0
+          ]
+        },
+        {
+          "id": "A082",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "uranium",
+                "Свинина в убойном весе, полутуши"
+              ],
+              [
+                "Henry Hub gas",
+                "Цена на природный газ на хабе Henry Hub"
+              ],
+              [
+                "price coefficient",
+                "Коэффициент объема"
+              ]
+            ],
+            "outputs": [
+              "Платежи процентов по долговым обязательствам",
+              "Денежные потоки от финансовых операций (CFF)",
+              "Выручка (LTM)"
+            ]
+          },
+          "in": [
+            1,
+            3,
+            2
+          ],
+          "out": [
+            3,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A217",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A175",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "LME gold price",
+                "Окатыш (Pellet, FOB Black Sea)"
+              ],
+              [
+                "hard coking coal FOB Australia",
+                "Hard Coking Coal (FOB Australia)"
+              ],
+              [
+                "3m Libor",
+                "Ставка Libor 3m"
+              ],
+              [
+                "ethylene price",
+                "Этилен, CFR Китай"
+              ],
+              [
+                "methanol price",
+                "Курс рубля к CHF в конце года (eop CHF/RUB)"
+              ]
+            ],
+            "outputs": [
+              "Чистый долг (Net Debt)",
+              "Net Debt/EBITDA (LTM)",
+              "Коэффициент покрытия долга денежными потоками, доступными для обслуживания долга, в период до погашения долга (LLCR)",
+              "Долг (Debt)"
+            ]
+          },
+          "in": [
+            3,
+            5,
+            2
+          ],
+          "out": [
+            3,
+            4,
+            1
+          ]
+        },
+        {
+          "id": "A080",
+          "kind": "ema",
+          "pred": {
+            "inputs": [
+              [
+                "methanol",
+                "Метанол"
+              ],
+              [
+                "fixed cost coefficient",
+                "Коэффициент постоянных расходов"
+              ],
+              [
+                "ECB policy rate",
+                "ECB policy rate (Main Refinancing Operations rate)"
+              ],
+              [
+                "av USD/RUB",
+                "Средний за период курс рубля к доллару США (av USD/RUB)"
+              ]
+            ],
+            "outputs": [
+              "OUT23 | Net Debt",
+              "OUT80 | ISCR (LTM)",
+              "OUT16 | Денежные средства, доступные для обслуживания долга (CFADS)",
+              "OUT14 | Денежные потоки от финансовых операций (CFF)",
+              "OUT74 | Debt/EBITDA (LTM)"
+            ]
+          },
+          "in": [
+            4,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            5,
+            5
+          ]
+        },
+        {
+          "id": "A111",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            3,
+            0
+          ],
+          "out": [
+            0,
+            3,
+            0
+          ]
+        },
+        {
+          "id": "A173",
+          "error": "KeyError: ''",
+          "in": [
+            0,
+            4,
+            0
+          ],
+          "out": [
+            0,
+            2,
+            0
+          ]
+        }
+      ],
+      "seconds": 206.6
+    },
+    {
+      "check": "R3",
+      "ok_rate": "info",
+      "inputs": {
+        "n": 110,
+        "acc_at1": 0.4,
+        "acc_at3": 0.482,
+        "zero_score_share": 0.318,
+        "mean_top1_score_right": 0.354,
+        "mean_top1_score_wrong": 0.125
+      },
+      "outputs": {
+        "n": 55,
+        "acc_at1": 0.618,
+        "acc_at3": 0.764,
+        "zero_score_share": 0.091,
+        "mean_top1_score_right": 0.563,
+        "mean_top1_score_wrong": 0.349
+      },
+      "rows": {
+        "inputs": [
+          {
+            "alias": "RUB PPI",
+            "gold": "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+                0.25
+              ],
+              [
+                "Инфляция - Дефлятор ВВП (RUB, GDP Deflator)",
+                0.14285714285714285
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "price coefficient",
+            "gold": "Коэффициент цены",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Russia CPI (RUB)",
+            "gold": "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.222,
+            "top": [
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.2222222222222222
+              ],
+              [
+                "Арматура (Rebar, EXW Russia)",
+                0.16666666666666666
+              ],
+              [
+                "Бесшовные трубы (EXW Russia)",
+                0.16666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "year-end EUR/RUB",
+            "gold": "Курс рубля к EUR в конце года (eop EUR/RUB)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.182,
+            "top": [
+              [
+                "Курс рубля к EUR в конце года (eop EUR/RUB)",
+                0.18181818181818182
+              ],
+              [
+                "Средний за период курс рубля к EUR (av EUR/RUB)",
+                0.18181818181818182
+              ],
+              [
+                "Инфляция - Дефлятор ВВП (RUB, GDP Deflator)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "price coefficient",
+            "gold": "Коэффициент цены",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "coking coal price",
+            "gold": "Hard Coking Coal (FOB Australia)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Hard Coking Coal (FOB Australia)",
+                0.3333333333333333
+              ],
+              [
+                "Thermal Coal (FOB Newcastle)",
+                0.16666666666666666
+              ],
+              [
+                "PCI Coal Австралия, FOB",
+                0.16666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "urea price",
+            "gold": "Карбамид (FOB Южный)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "3m Euribor",
+            "gold": "Ставка Euribor 3m",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "Ставка Euribor 3m",
+                0.6666666666666666
+              ],
+              [
+                "Ставка Libor 3m",
+                0.25
+              ],
+              [
+                "Ставка Mosprime 3m",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "copper (LME)",
+            "gold": "Медь (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Платина (LME)",
+                0.3333333333333333
+              ],
+              [
+                "Палладий (LME)",
+                0.3333333333333333
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Eurozone CPI (EUR)",
+            "gold": "Инфляция - Рост индекса потребительских цен в Еврозоне (EUR, eop CPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.182,
+            "top": [
+              [
+                "Инфляция - Рост индекса потребительских цен в Еврозоне (EUR, eop CPI)",
+                0.18181818181818182
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в РС, в евро (EUR, eop CPI)",
+                0.16666666666666666
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.1
+              ]
+            ]
+          },
+          {
+            "alias": "EUR/RUB eop",
+            "gold": "Курс рубля к EUR в конце года (eop EUR/RUB)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Курс рубля к EUR в конце года (eop EUR/RUB)",
+                0.3333333333333333
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.2222222222222222
+              ],
+              [
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+                0.2222222222222222
+              ]
+            ]
+          },
+          {
+            "alias": "ECB policy rate",
+            "gold": "ECB policy rate (Main Refinancing Operations rate)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.5
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "USD/RUB eop",
+            "gold": "Курс рубля к доллару США в конце года (eop USD/RUB)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "USD/CHF eop",
+                0.5
+              ],
+              [
+                "Курс рубля к доллару США в конце года (eop USD/RUB)",
+                0.2727272727272727
+              ],
+              [
+                "Табак (USD)",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "ammonia FOB Black Sea",
+            "gold": "Аммиак (FOB Черное море)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.6,
+            "top": [
+              [
+                "Энергоуголь Black sea, FOB",
+                0.6
+              ],
+              [
+                "Арматура (Rebar, FOB Black Sea)",
+                0.5
+              ],
+              [
+                "Металлолом (Scrap, FOB Black sea)",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "price coefficient",
+            "gold": "Коэффициент цены",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "3m Libor",
+            "gold": "Ставка Libor 3m",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "Ставка Libor 3m",
+                0.6666666666666666
+              ],
+              [
+                "Ставка Mosprime 3m",
+                0.25
+              ],
+              [
+                "Ставка Euribor 3m",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "Henry Hub gas",
+            "gold": "Цена на природный газ на хабе Henry Hub",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Цена на природный газ на хабе Henry Hub",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "methanol",
+            "gold": "Метанол",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "unit cost coefficient",
+            "gold": "Коэффициент удельных расходов",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "RUB PPI",
+            "gold": "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+                0.25
+              ],
+              [
+                "Инфляция - Дефлятор ВВП (RUB, GDP Deflator)",
+                0.14285714285714285
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "TTF gas",
+            "gold": "Цена на природный газ на хабе TTF",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Цена на природный газ на хабе TTF",
+                0.14285714285714285
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "capex coefficient",
+            "gold": "Коэффициент капитальных вложений",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "iron ore 62% CFR China",
+            "gold": "Железная руда (Iron Ore 62%, CFR China)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.714,
+            "top": [
+              [
+                "Железная руда (Iron Ore 62%, CFR China)",
+                0.7142857142857143
+              ],
+              [
+                "Бензол, CFR Япония",
+                0.14285714285714285
+              ],
+              [
+                "Этилен, CFR Китай",
+                0.14285714285714285
+              ]
+            ]
+          },
+          {
+            "alias": "key policy rate (eop)",
+            "gold": "Ключевая ставка на конец года (eop)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.25
+              ],
+              [
+                "USD/CHF eop",
+                0.16666666666666666
+              ],
+              [
+                "Ключевая ставка на конец года (eop)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "iron ore 62% CFR China",
+            "gold": "Железная руда (Iron Ore 62%, CFR China)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.714,
+            "top": [
+              [
+                "Железная руда (Iron Ore 62%, CFR China)",
+                0.7142857142857143
+              ],
+              [
+                "Бензол, CFR Япония",
+                0.14285714285714285
+              ],
+              [
+                "Этилен, CFR Китай",
+                0.14285714285714285
+              ]
+            ]
+          },
+          {
+            "alias": "methanol price",
+            "gold": "Метанол",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "potash price",
+            "gold": "Хлорид калия (CFR Ю-В Азия)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ECB policy rate",
+            "gold": "ECB policy rate (Main Refinancing Operations rate)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.5
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ammonia FOB Black Sea",
+            "gold": "Аммиак (FOB Черное море)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.6,
+            "top": [
+              [
+                "Энергоуголь Black sea, FOB",
+                0.6
+              ],
+              [
+                "Арматура (Rebar, FOB Black Sea)",
+                0.5
+              ],
+              [
+                "Металлолом (Scrap, FOB Black sea)",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "LME gold price",
+            "gold": "Золото (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "potash CFR SE Asia",
+            "gold": "Хлорид калия (CFR Ю-В Азия)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.167,
+            "top": [
+              [
+                "Бензол, CFR Япония",
+                0.16666666666666666
+              ],
+              [
+                "Этилен, CFR Китай",
+                0.16666666666666666
+              ],
+              [
+                "Хлорид калия (CFR Ю-В Азия)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "LME nickel price",
+            "gold": "Никель (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "unit cost coefficient",
+            "gold": "Коэффициент удельных расходов",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "corporate income tax rate",
+            "gold": "Ставка налога на прибыль организаций",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.111,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.1111111111111111
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Brent oil price",
+            "gold": "Нефть марки Brent",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.2,
+            "top": [
+              [
+                "Нефть марки Brent",
+                0.2
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "GDP growth",
+            "gold": "Рост реального ВВП",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Инфляция - Дефлятор ВВП (RUB, GDP Deflator)",
+                0.14285714285714285
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Eurozone CPI (EUR)",
+            "gold": "Инфляция - Рост индекса потребительских цен в Еврозоне (EUR, eop CPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.182,
+            "top": [
+              [
+                "Инфляция - Рост индекса потребительских цен в Еврозоне (EUR, eop CPI)",
+                0.18181818181818182
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в РС, в евро (EUR, eop CPI)",
+                0.16666666666666666
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.1
+              ]
+            ]
+          },
+          {
+            "alias": "potash price",
+            "gold": "Хлорид калия (CFR Ю-В Азия)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "US PPI (USD)",
+            "gold": "Инфляция - Рост индекса цен производителей в США, в долларах США (USD, eop PPI)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Табак (USD)",
+                0.25
+              ],
+              [
+                "USD/CHF eop",
+                0.2
+              ],
+              [
+                "USD/CHF average",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "LME nickel price",
+            "gold": "Никель (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "uranium",
+            "gold": "Цена урана",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "price coefficient",
+            "gold": "Коэффициент цены",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Libor 3m rate",
+            "gold": "Ставка Libor 3m",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "Ставка Libor 3m",
+                0.5
+              ],
+              [
+                "Ставка Mosprime 3m",
+                0.2
+              ],
+              [
+                "Ставка Euribor 3m",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "volume coefficient",
+            "gold": "Коэффициент объема",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "LME aluminium price",
+            "gold": "Алюминий (London Metals Exchange, без премии)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ECB policy rate",
+            "gold": "ECB policy rate (Main Refinancing Operations rate)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.5
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Henry Hub gas price",
+            "gold": "Цена на природный газ на хабе Henry Hub",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.222,
+            "top": [
+              [
+                "Цена на природный газ на хабе Henry Hub",
+                0.2222222222222222
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "TTF gas",
+            "gold": "Цена на природный газ на хабе TTF",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Цена на природный газ на хабе TTF",
+                0.14285714285714285
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "uranium",
+            "gold": "Цена урана",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "unit cost coefficient",
+            "gold": "Коэффициент удельных расходов",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "TTF gas price",
+            "gold": "Цена на природный газ на хабе TTF",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.125,
+            "top": [
+              [
+                "Цена на природный газ на хабе TTF",
+                0.125
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "CO2 allowance price",
+            "gold": "Стоимость квот на CO2 в EU ETS (Emissions Trading System)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.083,
+            "top": [
+              [
+                "Стоимость квот на CO2 в EU ETS (Emissions Trading System)",
+                0.08333333333333333
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "average USD/RUB",
+            "gold": "Средний за период курс рубля к доллару США (av USD/RUB)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "USD/CHF average",
+                0.5
+              ],
+              [
+                "Табак (USD)",
+                0.25
+              ],
+              [
+                "USD/CHF eop",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "capex coefficient",
+            "gold": "Коэффициент капитальных вложений",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "urea FOB Yuzhny",
+            "gold": "Карбамид (FOB Южный)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.2,
+            "top": [
+              [
+                "Энергоуголь Baltic, FOB",
+                0.2
+              ],
+              [
+                "Карбамид (FOB Южный)",
+                0.2
+              ],
+              [
+                "Urals (Primorsk) FOB",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "Urals crude",
+            "gold": "Нефть марки Urals",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Нефть марки Urals",
+                0.25
+              ],
+              [
+                "Urals (Primorsk) FOB",
+                0.25
+              ],
+              [
+                "Urals (Novorossiysk) FOB",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "LME nickel price",
+            "gold": "Никель (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "LME gold price",
+            "gold": "Золото (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "profit tax rate",
+            "gold": "Ставка налога на прибыль организаций",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.125,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.125
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Euribor 3m rate",
+            "gold": "Ставка Euribor 3m",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "Ставка Euribor 3m",
+                0.5
+              ],
+              [
+                "Ставка Libor 3m",
+                0.2
+              ],
+              [
+                "Ставка Mosprime 3m",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "fixed cost coefficient",
+            "gold": "Коэффициент постоянных расходов",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "3m Libor",
+            "gold": "Ставка Libor 3m",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "Ставка Libor 3m",
+                0.6666666666666666
+              ],
+              [
+                "Ставка Mosprime 3m",
+                0.25
+              ],
+              [
+                "Ставка Euribor 3m",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "LME gold price",
+            "gold": "Золото (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "key policy rate (eop)",
+            "gold": "Ключевая ставка на конец года (eop)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.25
+              ],
+              [
+                "USD/CHF eop",
+                0.16666666666666666
+              ],
+              [
+                "Ключевая ставка на конец года (eop)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "Henry Hub gas price",
+            "gold": "Цена на природный газ на хабе Henry Hub",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.222,
+            "top": [
+              [
+                "Цена на природный газ на хабе Henry Hub",
+                0.2222222222222222
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "GDP growth",
+            "gold": "Рост реального ВВП",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Инфляция - Дефлятор ВВП (RUB, GDP Deflator)",
+                0.14285714285714285
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "price coefficient",
+            "gold": "Коэффициент цены",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "year-end USD/RUB",
+            "gold": "Курс рубля к доллару США в конце года (eop USD/RUB)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.2,
+            "top": [
+              [
+                "Табак (USD)",
+                0.2
+              ],
+              [
+                "USD/CHF eop",
+                0.16666666666666666
+              ],
+              [
+                "USD/CHF average",
+                0.16666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "urea price",
+            "gold": "Карбамид (FOB Южный)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "uranium price",
+            "gold": "Цена урана",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "urea price",
+            "gold": "Карбамид (FOB Южный)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "CO2 allowance price",
+            "gold": "Стоимость квот на CO2 в EU ETS (Emissions Trading System)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.083,
+            "top": [
+              [
+                "Стоимость квот на CO2 в EU ETS (Emissions Trading System)",
+                0.08333333333333333
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Brent crude",
+            "gold": "Нефть марки Brent",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Нефть марки Brent",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Russia PPI (RUB)",
+            "gold": "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.222,
+            "top": [
+              [
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+                0.2222222222222222
+              ],
+              [
+                "Арматура (Rebar, EXW Russia)",
+                0.16666666666666666
+              ],
+              [
+                "Бесшовные трубы (EXW Russia)",
+                0.16666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "Henry Hub gas price",
+            "gold": "Цена на природный газ на хабе Henry Hub",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.222,
+            "top": [
+              [
+                "Цена на природный газ на хабе Henry Hub",
+                0.2222222222222222
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "LME gold price",
+            "gold": "Золото (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ethylene price",
+            "gold": "Этилен, CFR Китай",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Henry Hub gas price",
+            "gold": "Цена на природный газ на хабе Henry Hub",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.222,
+            "top": [
+              [
+                "Цена на природный газ на хабе Henry Hub",
+                0.2222222222222222
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "US CPI (USD)",
+            "gold": "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Табак (USD)",
+                0.25
+              ],
+              [
+                "USD/CHF eop",
+                0.2
+              ],
+              [
+                "USD/CHF average",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "unit cost coefficient",
+            "gold": "Коэффициент удельных расходов",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "capex coefficient",
+            "gold": "Коэффициент капитальных вложений",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Urals crude",
+            "gold": "Нефть марки Urals",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Нефть марки Urals",
+                0.25
+              ],
+              [
+                "Urals (Primorsk) FOB",
+                0.25
+              ],
+              [
+                "Urals (Novorossiysk) FOB",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "RUB CPI",
+            "gold": "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.25
+              ],
+              [
+                "Инфляция - Дефлятор ВВП (RUB, GDP Deflator)",
+                0.14285714285714285
+              ],
+              [
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "US PPI (USD)",
+            "gold": "Инфляция - Рост индекса цен производителей в США, в долларах США (USD, eop PPI)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Табак (USD)",
+                0.25
+              ],
+              [
+                "USD/CHF eop",
+                0.2
+              ],
+              [
+                "USD/CHF average",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "iron ore 62% CFR China",
+            "gold": "Железная руда (Iron Ore 62%, CFR China)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.714,
+            "top": [
+              [
+                "Железная руда (Iron Ore 62%, CFR China)",
+                0.7142857142857143
+              ],
+              [
+                "Бензол, CFR Япония",
+                0.14285714285714285
+              ],
+              [
+                "Этилен, CFR Китай",
+                0.14285714285714285
+              ]
+            ]
+          },
+          {
+            "alias": "US CPI (USD)",
+            "gold": "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Табак (USD)",
+                0.25
+              ],
+              [
+                "USD/CHF eop",
+                0.2
+              ],
+              [
+                "USD/CHF average",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "urea price",
+            "gold": "Карбамид (FOB Южный)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "LME copper price",
+            "gold": "Медь (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "uranium",
+            "gold": "Цена урана",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Henry Hub gas",
+            "gold": "Цена на природный газ на хабе Henry Hub",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Цена на природный газ на хабе Henry Hub",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "price coefficient",
+            "gold": "Коэффициент цены",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "EU ETS CO2 price",
+            "gold": "Стоимость квот на CO2 в EU ETS (Emissions Trading System)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.273,
+            "top": [
+              [
+                "Стоимость квот на CO2 в EU ETS (Emissions Trading System)",
+                0.2727272727272727
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "real GDP growth",
+            "gold": "Рост реального ВВП",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.125,
+            "top": [
+              [
+                "Инфляция - Дефлятор ВВП (RUB, GDP Deflator)",
+                0.125
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "coking coal price",
+            "gold": "Hard Coking Coal (FOB Australia)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Hard Coking Coal (FOB Australia)",
+                0.3333333333333333
+              ],
+              [
+                "Thermal Coal (FOB Newcastle)",
+                0.16666666666666666
+              ],
+              [
+                "PCI Coal Австралия, FOB",
+                0.16666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "LME gold price",
+            "gold": "Золото (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Платина (LME)",
+                0.25
+              ],
+              [
+                "Палладий (LME)",
+                0.25
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "hard coking coal FOB Australia",
+            "gold": "Hard Coking Coal (FOB Australia)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "Hard Coking Coal (FOB Australia)",
+                1.0
+              ],
+              [
+                "Thermal Coal (FOB Newcastle)",
+                0.2857142857142857
+              ],
+              [
+                "PCI Coal Австралия, FOB",
+                0.2857142857142857
+              ]
+            ]
+          },
+          {
+            "alias": "3m Libor",
+            "gold": "Ставка Libor 3m",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "Ставка Libor 3m",
+                0.6666666666666666
+              ],
+              [
+                "Ставка Mosprime 3m",
+                0.25
+              ],
+              [
+                "Ставка Euribor 3m",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "ethylene price",
+            "gold": "Этилен, CFR Китай",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "methanol price",
+            "gold": "Метанол",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "methanol",
+            "gold": "Метанол",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "fixed cost coefficient",
+            "gold": "Коэффициент постоянных расходов",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ECB policy rate",
+            "gold": "ECB policy rate (Main Refinancing Operations rate)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.5
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "av USD/RUB",
+            "gold": "Средний за период курс рубля к доллару США (av USD/RUB)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.273,
+            "top": [
+              [
+                "Средний за период курс рубля к доллару США (av USD/RUB)",
+                0.2727272727272727
+              ],
+              [
+                "Табак (USD)",
+                0.25
+              ],
+              [
+                "Средний за период курс рубля к EUR (av EUR/RUB)",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "Russia CPI (RUB)",
+            "gold": "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.222,
+            "top": [
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.2222222222222222
+              ],
+              [
+                "Арматура (Rebar, EXW Russia)",
+                0.16666666666666666
+              ],
+              [
+                "Бесшовные трубы (EXW Russia)",
+                0.16666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "unit cost coefficient",
+            "gold": "Коэффициент удельных расходов",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "EUR/RUB eop",
+            "gold": "Курс рубля к EUR в конце года (eop EUR/RUB)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Курс рубля к EUR в конце года (eop EUR/RUB)",
+                0.3333333333333333
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.2222222222222222
+              ],
+              [
+                "Инфляция - Рост индекса цен производителей (RUB, eop PPI)",
+                0.2222222222222222
+              ]
+            ]
+          },
+          {
+            "alias": "CBR key rate eop",
+            "gold": "Ключевая ставка на конец года (eop)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.167,
+            "top": [
+              [
+                "USD/CHF eop",
+                0.16666666666666666
+              ],
+              [
+                "ECB policy rate (Main Refinancing Operations rate)",
+                0.1111111111111111
+              ],
+              [
+                "Ключевая ставка на конец года (eop)",
+                0.1111111111111111
+              ]
+            ]
+          },
+          {
+            "alias": "capex coefficient",
+            "gold": "Коэффициент капитальных вложений",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "copper (LME)",
+            "gold": "Медь (London Metals Exchange)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Платина (LME)",
+                0.3333333333333333
+              ],
+              [
+                "Палладий (LME)",
+                0.3333333333333333
+              ],
+              [
+                "Рост реального ВВП",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "benzene price",
+            "gold": "Бензол, CFR Япония",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Рост реального ВВП",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен (RUB, eop CPI)",
+                0.0
+              ],
+              [
+                "Инфляция - Рост индекса потребительских цен в США, в долларах США (USD, eop CPI)",
+                0.0
+              ]
+            ]
+          }
+        ],
+        "outputs": [
+          {
+            "alias": "net profit",
+            "gold": "Чистая прибыль",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Net Debt/EBITDA",
+                0.25
+              ],
+              [
+                "Net DebtR/EBITDA",
+                0.25
+              ],
+              [
+                "Чистый долг (Net Debt)",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "ICR corr (LTM)",
+            "gold": "ICR corr (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ICR corr (LTM)",
+                1.0
+              ],
+              [
+                "ICR (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "ICR corr",
+                0.6666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "revenue (LTM)",
+            "gold": "Выручка (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Выручка (LTM)",
+                0.3333333333333333
+              ],
+              [
+                "EBITDA (LTM)",
+                0.3333333333333333
+              ],
+              [
+                "ICR (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "EBITDA margin (LTM)",
+            "gold": "Рентабельность EBITDA (LTM)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "EBITDA (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "Рентабельность EBITDA (LTM)",
+                0.5
+              ],
+              [
+                "Debt/EBITDA (LTM)",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "Debt/EBITDA",
+            "gold": "Debt/EBITDA",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "Debt/EBITDA",
+                1.0
+              ],
+              [
+                "Net Debt/EBITDA",
+                0.6666666666666666
+              ],
+              [
+                "Debt/EBITDA (LTM)",
+                0.6666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "debt service",
+            "gold": "Обслуживание долга (Debt Service)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "Обслуживание долга (Debt Service)",
+                0.5
+              ],
+              [
+                "Обслуживание долга (Debt Service) (LTM)",
+                0.4
+              ],
+              [
+                "Долг (Debt)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "revenue",
+            "gold": "Выручка",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ],
+              [
+                "Коммерческие и управленческие расходы",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "CFADS",
+            "gold": "Денежные средства, доступные для обслуживания долга (CFADS)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Денежные средства, доступные для обслуживания долга (CFADS)",
+                0.14285714285714285
+              ],
+              [
+                "Денежные средства, доступные для обслуживания долга - скорректированный (CFADS корр.)",
+                0.1111111111111111
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ICR (LTM)",
+            "gold": "ICR (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ICR (LTM)",
+                1.0
+              ],
+              [
+                "ICR corr (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "Выручка (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "ICR corr",
+            "gold": "ICR corr",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ICR corr",
+                1.0
+              ],
+              [
+                "ICR corr (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "ICR (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "ICR",
+            "gold": "Коэффициент покрытия процентов в i-ом периоде (ICR)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "ICR (LTM)",
+                0.5
+              ],
+              [
+                "ICR corr",
+                0.5
+              ],
+              [
+                "ICR corr (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "net income",
+            "gold": "Чистая прибыль",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.286,
+            "top": [
+              [
+                "Чистая операционная прибыль (Net Operating Income, NOI)",
+                0.2857142857142857
+              ],
+              [
+                "Net Debt/EBITDA",
+                0.25
+              ],
+              [
+                "Net DebtR/EBITDA",
+                0.25
+              ]
+            ]
+          },
+          {
+            "alias": "ICR corr (LTM)",
+            "gold": "ICR corr (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ICR corr (LTM)",
+                1.0
+              ],
+              [
+                "ICR (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "ICR corr",
+                0.6666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "minimum annual ISCR",
+            "gold": "Минимальный годичный ISCR",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "ISCR (LTM)",
+                0.25
+              ],
+              [
+                "Средневзвешенный ISCR",
+                0.25
+              ],
+              [
+                "Минимальный годичный ISCR",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "revenue",
+            "gold": "Выручка",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ],
+              [
+                "Коммерческие и управленческие расходы",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "debt service",
+            "gold": "Обслуживание долга (Debt Service)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "Обслуживание долга (Debt Service)",
+                0.5
+              ],
+              [
+                "Обслуживание долга (Debt Service) (LTM)",
+                0.4
+              ],
+              [
+                "Долг (Debt)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "revenue",
+            "gold": "Выручка",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ],
+              [
+                "Коммерческие и управленческие расходы",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "EBITDA margin",
+            "gold": "Рентабельность EBITDA",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "EBITDA",
+                0.5
+              ],
+              [
+                "Рентабельность EBITDA",
+                0.3333333333333333
+              ],
+              [
+                "Debt/EBITDA",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "EBITDA margin (LTM)",
+            "gold": "Рентабельность EBITDA (LTM)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "EBITDA (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "Рентабельность EBITDA (LTM)",
+                0.5
+              ],
+              [
+                "Debt/EBITDA (LTM)",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "ending cash",
+            "gold": "Остаток денежных средств на конец периода",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ],
+              [
+                "Коммерческие и управленческие расходы",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "net cash flow (NCF)",
+            "gold": "Чистый денежный поток за период (NCF)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.167,
+            "top": [
+              [
+                "Net Debt/EBITDA",
+                0.16666666666666666
+              ],
+              [
+                "Net DebtR/EBITDA",
+                0.16666666666666666
+              ],
+              [
+                "Чистый долг (Net Debt)",
+                0.14285714285714285
+              ]
+            ]
+          },
+          {
+            "alias": "CFADS",
+            "gold": "Денежные средства, доступные для обслуживания долга (CFADS)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Денежные средства, доступные для обслуживания долга (CFADS)",
+                0.14285714285714285
+              ],
+              [
+                "Денежные средства, доступные для обслуживания долга - скорректированный (CFADS корр.)",
+                0.1111111111111111
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "CFF",
+            "gold": "Денежные потоки от финансовых операций (CFF)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.167,
+            "top": [
+              [
+                "Денежные потоки от финансовых операций (CFF)",
+                0.16666666666666666
+              ],
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "interest payments",
+            "gold": "Платежи процентов по долговым обязательствам",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Процентные и прочие платежи  (Sberbank interest/other payments)",
+                0.25
+              ],
+              [
+                "Лизинговые платежи Сбербанку (Sberbank leasing payments)",
+                0.14285714285714285
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ISCR (LTM)",
+            "gold": "ISCR (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ISCR (LTM)",
+                1.0
+              ],
+              [
+                "Выручка (LTM)",
+                0.3333333333333333
+              ],
+              [
+                "EBITDA (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "CFI",
+            "gold": "Денежные потоки от инвестиционных операций (CFI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.167,
+            "top": [
+              [
+                "Денежные потоки от инвестиционных операций (CFI)",
+                0.16666666666666666
+              ],
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "free cash flow (FCFF)",
+            "gold": "Свободный денежный поток (FCFF)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Свободный денежный поток (FCFF)",
+                0.14285714285714285
+              ],
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "interest payable",
+            "gold": "Проценты к уплате",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.2,
+            "top": [
+              [
+                "Кредиторская задолженность (Accounts payable)",
+                0.2
+              ],
+              [
+                "Процентные и прочие платежи  (Sberbank interest/other payments)",
+                0.1111111111111111
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "ICR corr",
+            "gold": "ICR corr",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ICR corr",
+                1.0
+              ],
+              [
+                "ICR corr (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "ICR (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "Debt/EBITDA (LTM)",
+            "gold": "Debt/EBITDA (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "Debt/EBITDA (LTM)",
+                1.0
+              ],
+              [
+                "Net Debt/EBITDA (LTM)",
+                0.75
+              ],
+              [
+                "Debt/EBITDA",
+                0.6666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "ICR (LTM)",
+            "gold": "ICR (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ICR (LTM)",
+                1.0
+              ],
+              [
+                "ICR corr (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "Выручка (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "net profit margin",
+            "gold": "Рентабельность чистой прибыли",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.2,
+            "top": [
+              [
+                "Net Debt/EBITDA",
+                0.2
+              ],
+              [
+                "Net DebtR/EBITDA",
+                0.2
+              ],
+              [
+                "Чистый долг (Net Debt)",
+                0.16666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "CFI",
+            "gold": "Денежные потоки от инвестиционных операций (CFI)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.167,
+            "top": [
+              [
+                "Денежные потоки от инвестиционных операций (CFI)",
+                0.16666666666666666
+              ],
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "DSCR",
+            "gold": "Коэффициент покрытия долга в i-ом периоде (DSCR)",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "DSCR (LTM)",
+                0.5
+              ],
+              [
+                "Средневзвешенный DSCR",
+                0.5
+              ],
+              [
+                "Минимальный годичный DSCR",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "net debt",
+            "gold": "Чистый долг (Net Debt)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "Net Debt/EBITDA",
+                0.6666666666666666
+              ],
+              [
+                "Чистый долг (Net Debt)",
+                0.5
+              ],
+              [
+                "Net Debt/EBITDA (LTM)",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "interest payments",
+            "gold": "Платежи процентов по долговым обязательствам",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "Процентные и прочие платежи  (Sberbank interest/other payments)",
+                0.25
+              ],
+              [
+                "Лизинговые платежи Сбербанку (Sberbank leasing payments)",
+                0.14285714285714285
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "cash flow from financing (CFF)",
+            "gold": "Денежные потоки от финансовых операций (CFF)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.1,
+            "top": [
+              [
+                "Денежные потоки от финансовых операций (CFF)",
+                0.1
+              ],
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "revenue (LTM)",
+            "gold": "Выручка (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.333,
+            "top": [
+              [
+                "Выручка (LTM)",
+                0.3333333333333333
+              ],
+              [
+                "EBITDA (LTM)",
+                0.3333333333333333
+              ],
+              [
+                "ICR (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "EBITDA",
+            "gold": "EBITDA",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "EBITDA",
+                1.0
+              ],
+              [
+                "Рентабельность EBITDA",
+                0.5
+              ],
+              [
+                "Debt/EBITDA",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "CFADS",
+            "gold": "Денежные средства, доступные для обслуживания долга (CFADS)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Денежные средства, доступные для обслуживания долга (CFADS)",
+                0.14285714285714285
+              ],
+              [
+                "Денежные средства, доступные для обслуживания долга - скорректированный (CFADS корр.)",
+                0.1111111111111111
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "debt service",
+            "gold": "Обслуживание долга (Debt Service)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "Обслуживание долга (Debt Service)",
+                0.5
+              ],
+              [
+                "Обслуживание долга (Debt Service) (LTM)",
+                0.4
+              ],
+              [
+                "Долг (Debt)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "net debt",
+            "gold": "Чистый долг (Net Debt)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "Net Debt/EBITDA",
+                0.6666666666666666
+              ],
+              [
+                "Чистый долг (Net Debt)",
+                0.5
+              ],
+              [
+                "Net Debt/EBITDA (LTM)",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "Net Debt/EBITDA (LTM)",
+            "gold": "Net Debt/EBITDA (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "Net Debt/EBITDA (LTM)",
+                1.0
+              ],
+              [
+                "Net Debt/EBITDA",
+                0.75
+              ],
+              [
+                "Debt/EBITDA (LTM)",
+                0.75
+              ]
+            ]
+          },
+          {
+            "alias": "DSCR (LTM)",
+            "gold": "DSCR (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "DSCR (LTM)",
+                1.0
+              ],
+              [
+                "DSCR с долгом (LTM)",
+                0.5
+              ],
+              [
+                "Выручка (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "debt",
+            "gold": "Долг (Debt)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.5,
+            "top": [
+              [
+                "Долг (Debt)",
+                0.5
+              ],
+              [
+                "Debt/EBITDA",
+                0.5
+              ],
+              [
+                "Net Debt/EBITDA",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "net debt",
+            "gold": "Чистый долг (Net Debt)",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.667,
+            "top": [
+              [
+                "Net Debt/EBITDA",
+                0.6666666666666666
+              ],
+              [
+                "Чистый долг (Net Debt)",
+                0.5
+              ],
+              [
+                "Net Debt/EBITDA (LTM)",
+                0.5
+              ]
+            ]
+          },
+          {
+            "alias": "ISCR (LTM)",
+            "gold": "ISCR (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ISCR (LTM)",
+                1.0
+              ],
+              [
+                "Выручка (LTM)",
+                0.3333333333333333
+              ],
+              [
+                "EBITDA (LTM)",
+                0.3333333333333333
+              ]
+            ]
+          },
+          {
+            "alias": "CFADS",
+            "gold": "Денежные средства, доступные для обслуживания долга (CFADS)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.143,
+            "top": [
+              [
+                "Денежные средства, доступные для обслуживания долга (CFADS)",
+                0.14285714285714285
+              ],
+              [
+                "Денежные средства, доступные для обслуживания долга - скорректированный (CFADS корр.)",
+                0.1111111111111111
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "CFF",
+            "gold": "Денежные потоки от финансовых операций (CFF)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 0.167,
+            "top": [
+              [
+                "Денежные потоки от финансовых операций (CFF)",
+                0.16666666666666666
+              ],
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "Debt/EBITDA",
+            "gold": "Debt/EBITDA",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "Debt/EBITDA",
+                1.0
+              ],
+              [
+                "Net Debt/EBITDA",
+                0.6666666666666666
+              ],
+              [
+                "Debt/EBITDA (LTM)",
+                0.6666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "interest payable",
+            "gold": "Проценты к уплате",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.2,
+            "top": [
+              [
+                "Кредиторская задолженность (Accounts payable)",
+                0.2
+              ],
+              [
+                "Процентные и прочие платежи  (Sberbank interest/other payments)",
+                0.1111111111111111
+              ],
+              [
+                "Выручка",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "minimum annual ISCR",
+            "gold": "Минимальный годичный ISCR",
+            "at1": false,
+            "at3": true,
+            "top1_score": 0.25,
+            "top": [
+              [
+                "ISCR (LTM)",
+                0.25
+              ],
+              [
+                "Средневзвешенный ISCR",
+                0.25
+              ],
+              [
+                "Минимальный годичный ISCR",
+                0.2
+              ]
+            ]
+          },
+          {
+            "alias": "ICR corr (LTM)",
+            "gold": "ICR corr (LTM)",
+            "at1": true,
+            "at3": true,
+            "top1_score": 1.0,
+            "top": [
+              [
+                "ICR corr (LTM)",
+                1.0
+              ],
+              [
+                "ICR (LTM)",
+                0.6666666666666666
+              ],
+              [
+                "ICR corr",
+                0.6666666666666666
+              ]
+            ]
+          },
+          {
+            "alias": "cash balance (eop)",
+            "gold": "Остаток денежных средств на конец периода",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.0,
+            "top": [
+              [
+                "Выручка",
+                0.0
+              ],
+              [
+                "Операционные расходы (без амортизации)",
+                0.0
+              ],
+              [
+                "Коммерческие и управленческие расходы",
+                0.0
+              ]
+            ]
+          },
+          {
+            "alias": "net profit margin",
+            "gold": "Рентабельность чистой прибыли",
+            "at1": false,
+            "at3": false,
+            "top1_score": 0.2,
+            "top": [
+              [
+                "Net Debt/EBITDA",
+                0.2
+              ],
+              [
+                "Net DebtR/EBITDA",
+                0.2
+              ],
+              [
+                "Чистый долг (Net Debt)",
+                0.16666666666666666
+              ]
+            ]
+          }
+        ]
+      },
+      "seconds": 0.1
+    }
+  ]
+}
