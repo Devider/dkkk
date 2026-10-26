@@ -76,6 +76,7 @@ requires-poetry = "2.3.4"
 packages = [
     { include = "aigw_service", from = "src" },
     { include = "aigw_modules_custom", from = "src" },
+    { include = "excel_engine", from = "src" },
 ]
 
 # [[tool.poetry.source]]
@@ -96,6 +97,8 @@ line-length = 119
 indent-width = 4
 target-version = "py311"
 src = ["src"]
+# verbatim copy of v1 code, must stay AST-identical to the original until v1 is removed (S5.4)
+extend-exclude = ["src/excel_engine"]
 
 [tool.ruff.lint]
 extend-select = [
