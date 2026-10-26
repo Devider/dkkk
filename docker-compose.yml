@@ -1,6 +1,10 @@
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # internal PyPI mirror for builds in the closed network; defaults to public PyPI
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
     ports:
       - "${APP_PORT:-8080}:8080"
     # .env (git-ignored, holds GIGACHAT_CREDENTIALS etc.) overrides docker.env

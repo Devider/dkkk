@@ -14,6 +14,7 @@ from aigw_service.config import APP_CONFIG, Secrets
 from aigw_service.config import get_store as _get_store
 from aigw_service.core.llm_executor import Agent
 from aigw_service.core.tracing.tracing import AEFTracingHandler, TracingManager
+from aigw_service.exceptions import StopEventError
 from aigw_service.logger import ContextVarsContainer, LoggerConfigurator
 
 _STOP_EVENT_MARKER = b"temporarily unavailable due to technical reasons"

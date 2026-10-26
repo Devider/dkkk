@@ -1,15 +1,20 @@
 FROM python:3.12-slim AS builder
 
-RUN pip install --no-cache-dir poetry==2.3.4
+# PyPI or the internal mirror; pip reads it from the environment of every RUN below
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
+RUN pip install --no-cache-dir poetry==2.3.4 poetry-plugin-export==1.10.1
 WORKDIR /app
 
+# Install exactly what poetry.lock pins (with hashes), from PIP_INDEX_URL
 COPY pyproject.toml poetry.lock ./
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --no-root --only main
+RUN poetry export --only main -f requirements.txt -o requirements.txt \
+    && pip install --no-cache-dir --require-hashes -r requirements.txt
 
+# --no-deps: dependencies are already installed from the lock, don't re-resolve them
 COPY src/ ./src/
 RUN poetry build --no-interaction -f wheel && \
-    pip install --no-cache-dir dist/*.whl
+    pip install --no-cache-dir --no-deps dist/*.whl
 
 # ---- runtime ----
 FROM python:3.12-slim
