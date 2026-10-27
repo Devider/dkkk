@@ -5,7 +5,8 @@ Never stored by the checkpointer and never shown to the model. The router fills 
 from ``runtime.context`` (``ToolContext``).
 """
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
 from typing import Any
 
 from aigw_service.api.v2.tools.context import ModelIndex
@@ -20,7 +21,9 @@ class RequestContext:  # pylint: disable=too-many-instance-attributes  # fields 
     trace_id: str = ""
     client_id: str = ""
     deadline: float | None = None
-    """Monotonic time the turn must finish by (S2.8)."""
+    """Monotonic time the turn must finish by; ``AgentV2.answer`` sets it from AGENT_TURN_TIMEOUT (S2.8)."""
+    cancel: asyncio.Event = field(default_factory=asyncio.Event)
+    """Set when the client disconnects: the turn stops after the current call (AR-Q12)."""
     file_path: str = ""
     model_index: ModelIndex | None = None
     card: dict[str, Any] | None = None

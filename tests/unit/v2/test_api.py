@@ -1,6 +1,7 @@
 """S4.2 (FR-15, FR-20, AR-Q7): /invoke-agent at AGENT_ENGINE=v2 — ZIP, no workbook, 409, 503, user isolation."""
 
 import asyncio
+import contextlib
 import io
 import threading
 import zipfile
@@ -19,10 +20,13 @@ from tests.unit.v2.test_prechecks import INDEX
 from tests.unit.v2.test_turn_context import HEADERS
 
 from aigw_service.api.v2.factory import AgentFactory
+from aigw_service.api.v2.middleware import cancellation
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
+from aigw_service.api.v2.middleware.cancellation import Cancellation
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.stop_event import STOP_EVENT_MESSAGE, StopEventGuard, stop_event
 from aigw_service.api.v2.middleware.turn_context import NO_MODEL_ANSWER
+from aigw_service.api.v2.prompts.middleware import CANCELLED_ANSWER
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
 from aigw_service.api.v2.service import AgentV2
 from aigw_service.api.v2.tools import calc_tools
@@ -210,7 +214,9 @@ class TestStopEvent:
     def test_place_in_stack(self, tmp_path: Path) -> None:
         stack = AgentFactory(ScriptedChatModel(steps=[]), default_catalog(), store=InMemoryStore()).middleware()
         names = [type(m) for m in stack]
-        assert names.index(StopEventGuard) == names.index(LanguageGuard) + 1
+        # S2.8: Cancellation (§8 №3) sits between LanguageGuard and StopEventGuard
+        assert names.index(Cancellation) == names.index(LanguageGuard) + 1
+        assert names.index(StopEventGuard) == names.index(Cancellation) + 1
         # S2.5: retries and tool errors sit inside the guard, so a StopEvent is neither retried nor an envelope
         assert names.index(StopEventGuard) < names.index(ModelRetryMiddleware)
         assert names.index(StopEventGuard) < names.index(ToolErrorMiddleware) < names.index(ToolRetryMiddleware)
@@ -260,3 +266,67 @@ class TestIsolation:
             ["Вопрос второго"],
             ["Секрет первого пользователя", "Снова первый"],
         ]
+
+
+class TestCancellationAtApi:
+    """AR-Q12 «Разрыв соединения», «Чекпоинт цел»; AR-Q10 «Ответ клиенту при таймауте» — at the API."""
+
+    @staticmethod
+    def engine(monkeypatch: pytest.MonkeyPatch, during_calc: Any) -> list[int]:
+        runs: list[int] = []
+
+        def run(**_kw: Any) -> ExcelAnalysisToolResult:
+            runs.append(1)
+            during_calc()
+            return ExcelAnalysisToolResult(status="OK", result="1 сценарий", content={})
+
+        monkeypatch.setattr(calc_tools, "analyze_excel_model", run)
+        return runs
+
+    async def test_disconnect_ends_turn_and_frees_session(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        from aigw_service.api.v1 import router  # pylint: disable=import-outside-toplevel
+
+        events: list[asyncio.Event] = []
+
+        @contextlib.asynccontextmanager
+        async def watch(_request: Any, event: asyncio.Event) -> Any:
+            events.append(event)
+            yield
+
+        monkeypatch.setattr(router, "disconnect_watch", watch)
+        runs = self.engine(monkeypatch, lambda: events[-1].set())  # the client leaves during the calculation
+        args = {"inputs": [{"id": "IN1", "min": 300, "max": 300, "step": 1}], "outputs": ["OUT0"], "year": 2026}
+        model = ScriptedChatModel(
+            steps=[
+                tool_call("run_scenarios", "c1", **args),
+                tool_call("run_scenarios", "c2", **args),
+                AIMessage("Привет!"),
+            ]
+        )
+        locks = TurnLocks()
+        store = await uploaded_store("u1", INDEX, str(tmp_path))
+        api = Api(monkeypatch, v2(model, store, tmp_path, locks=locks, plan_mode="off", checkpointer=InMemorySaver()))
+        first = await api.ask("EBITDA 2026 при 300?", session="9b2f6c1e-1d2a-4b3c-8d4e-5f6a7b8c9d0e")
+        assert first.status_code == 200
+        assert answer_text(first) == CANCELLED_ANSWER
+        assert len(runs) == 1
+        assert len(model.calls) == 1
+        assert locks.busy == frozenset()
+        second = await api.ask(
+            "Привет", session="9b2f6c1e-1d2a-4b3c-8d4e-5f6a7b8c9d0e"
+        )  # the scripted model answers the next turn
+        assert second.status_code == 200
+        assert answer_text(second) == "Привет!"
+
+    async def test_timeout_is_200_with_partial_answer(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        self.engine(monkeypatch, lambda: monkeypatch.setattr(cancellation, "_now", lambda: float("inf")))
+        args = {"inputs": [{"id": "IN1", "min": 300, "max": 300, "step": 1}], "outputs": ["OUT0"], "year": 2026}
+        model = ScriptedChatModel(steps=[tool_call("run_scenarios", "c1", **args), AIMessage("Частичный ответ.")])
+        store = await uploaded_store("u1", INDEX, str(tmp_path))
+        api = Api(monkeypatch, v2(model, store, tmp_path, plan_mode="off"))
+        response = await api.ask("EBITDA 2026 при 300?")
+        assert response.status_code == 200
+        assert answer_text(response) == "Частичный ответ."
+        assert model.calls[-1]["tools"] == []

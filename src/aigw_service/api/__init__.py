@@ -8,6 +8,7 @@ from aigw_service.api.middleware import log_requests
 from aigw_service.api.os_router import router as service_router
 from aigw_service.api.v1.router import router as main_router
 from aigw_service.api.v2.factory import get_agent_v2
+from aigw_service.api.v2.tools.engine_gate import default_gate
 from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
 from aigw_service.core.tracing.langsmith_guard import forbid_langsmith
@@ -21,6 +22,7 @@ async def lifespan(_) -> tp.AsyncContextManager:  # type: ignore
         get_agent_v2()  # AR-Q15: a broken skill or agent wiring stops the start, not the first request
     yield
     await APP_CTX.on_shutdown()
+    await default_gate().shutdown()  # AR-Q12: no pool worker or soffice outlives the service; lazy, no-op on v1
 
 
 app_main = FastAPI(

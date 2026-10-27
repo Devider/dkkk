@@ -58,3 +58,17 @@ LIMIT_FALLBACK = "Лимит вызовов на этот ход исчерпа�
 
 LIMIT_REASON = "Исчерпан лимит хода"
 """Reason of the plan steps PlanCompletionGuard closes as ``skipped`` after a limit (FR-8)."""
+
+# Cancellation (AR-Q10, AR-Q12): the last call after the turn deadline and the end after a client disconnect
+TIMEOUT_PROMPT = """\
+Время на этот ход истекло. Инструменты больше не вызывай. Дай пользователю частичный ответ \
+только по уже полученным результатам, с их цифрами и единицами, оговори, что время хода истекло, \
+и коротко перечисли, что выполнить не удалось.
+"""
+
+TIMEOUT_FALLBACK = "Время на этот ход истекло, поэтому ответ неполный. Повторите вопрос, сузив его."
+
+TIMEOUT_REASON = "Истекло время хода"
+
+CANCELLED_ANSWER = "Ход прерван: соединение с клиентом закрыто до получения ответа."
+"""Stays in the session history, so the next turn sees the previous one was not finished."""

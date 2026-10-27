@@ -9,7 +9,7 @@ from uuid import uuid4
 import aiofiles
 import gigachat.context as gc_ctx
 import pandas as pd
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from langchain_core.messages import HumanMessage
 from langfuse.langchain import CallbackHandler
@@ -19,6 +19,7 @@ from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependen
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.service import AgentV2
+from aigw_service.api.v2.turn.disconnect import disconnect_watch
 from aigw_service.api.v2.turn.lock import TURN_BUSY_MESSAGE, TurnBusyError
 from aigw_service.api.v2.turn.registry import ModelRegistry
 from aigw_service.config import APP_CONFIG
@@ -184,6 +185,7 @@ def get_cb_handler():
 )
 async def invoke_agent(
     request: CopilotAgentRequest,
+    http_request: Request,
     headers: dict = Depends(common_headers),
     agent: AgentGraph | AgentV2 = Depends(get_agent),
     cb_handler: Optional[CallbackHandler] = Depends(get_cb_handler()),
@@ -231,7 +233,8 @@ async def invoke_agent(
                 trace_id=headers.get("x-trace-id") or "",
                 client_id=x_client_id or "",
             )
-            result_content = await agent.answer(request.message, context, config)
+            async with disconnect_watch(http_request, context.cancel):  # AR-Q12: stop after the current call
+                result_content = await agent.answer(request.message, context, config)
         else:
             result = await agent.graph.ainvoke(
                 {

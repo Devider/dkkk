@@ -20,9 +20,9 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-from aigw_service.api.v2.middleware.limits import limit_hit
+from aigw_service.api.v2.middleware.limits import limit_hit, turn_timeout
 from aigw_service.api.v2.middleware.todos import OPEN, PlanState, plan_text
-from aigw_service.api.v2.prompts.middleware import LIMIT_REASON
+from aigw_service.api.v2.prompts.middleware import LIMIT_REASON, TIMEOUT_REASON
 from aigw_service.api.v2.tools.envelope import ErrorCode, failure, to_json
 
 PlanMode = Literal["always", "auto"]
@@ -164,7 +164,7 @@ class PlanCompletionGuard(AgentMiddleware):
                 "jump_to": "model",
             }
         listed = "\n".join(f"- {t['content']}" for t in open_steps)
-        reason = LIMIT_REASON if exhausted else NOT_DONE_REASON
+        reason = (TIMEOUT_REASON if turn_timeout(state) else LIMIT_REASON) if exhausted else NOT_DONE_REASON
         closed = [{**t, "status": "skipped", "reason": reason} if t.get("status") in OPEN else t for t in todos]
         final = AIMessage(f"{answer.text.rstrip()}\n\n**{NOT_DONE}:**\n{listed}", id=answer.id)
         return {"messages": [final], "todos": closed}

@@ -63,6 +63,12 @@ class AgentSettings(BaseAppSettings):
         ge=1,
         validation_alias="AGENT_MAX_CALCS",
     )
+    # Turn timeout of agent v2 (AR-Q10), seconds: then one model call without tools for a partial answer
+    turn_timeout: float = Field(
+        default=300.0,
+        gt=0,
+        validation_alias="AGENT_TURN_TIMEOUT",
+    )
 
     # Loop prevention — лимиты на итерации, сообщения, токены
     max_iterations: int = Field(

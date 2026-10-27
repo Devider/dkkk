@@ -1,5 +1,6 @@
 """Agent v2 behind the router (ADR-12): one turn in, the answer text out."""
 
+import time
 from typing import Any
 
 from langchain_core.messages import HumanMessage
@@ -7,6 +8,7 @@ from langchain_core.messages import HumanMessage
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import get_agent_v2
 from aigw_service.api.v2.turn.lock import TURN_LOCKS, TurnLocks
+from aigw_service.config import APP_CONFIG
 
 
 class AgentV2:
@@ -24,6 +26,8 @@ class AgentV2:
 
     async def answer(self, message: str, context: RequestContext, config: dict[str, Any]) -> str:
         with self._locks.hold(context.thread_id):  # TurnBusyError → HTTP 409 (FR-15)
+            if context.deadline is None:  # AR-Q10, design D1: the whole turn, TurnContext included
+                context.deadline = time.monotonic() + APP_CONFIG.agent.turn_timeout
             result = await self.agent.ainvoke({"messages": [HumanMessage(message)]}, config=config, context=context)
         last = result["messages"][-1]
         return last.content if isinstance(last.content, str) else str(last.content)

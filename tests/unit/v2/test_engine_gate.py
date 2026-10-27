@@ -167,3 +167,53 @@ class TestCalcToolsThroughGate:
         env = await self.envelope(self.scenarios_call())
         assert env["code"] == code.value
         assert env["hint"]
+
+
+class TestNoOrphans:
+    """AR-Q12 «Без сирот soffice»: «Остановка сервиса», «Отмена во время расчёта»."""
+
+    async def test_cancelled_calculation_leaves_nothing_after_shutdown(self, tmp_path: Path) -> None:
+        gate = EngineGate(workers=1, timeout=60)
+        pid_file = tmp_path / "child.pid"
+        task = asyncio.create_task(gate.run("u1:s1", engine_jobs.hang_with_child, pid_file=str(pid_file)))
+        deadline = time.monotonic() + 15
+        while not pid_file.exists() and time.monotonic() < deadline:
+            await asyncio.sleep(0.1)
+        child = int(pid_file.read_text(encoding="utf-8"))
+        workers = gate._worker_pids(gate._pool)  # pylint: disable=protected-access
+        task.cancel()  # the turn is gone mid-calculation
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        await gate.shutdown()
+        deadline = time.monotonic() + 5
+        while any(alive(p) for p in [child, *workers]) and time.monotonic() < deadline:
+            await asyncio.sleep(0.1)
+        assert not alive(child), "the stand-in soffice survived the service stop"
+        assert not any(alive(p) for p in workers)
+        assert gate._pool is None  # pylint: disable=protected-access
+
+    async def test_shutdown_without_pool_creates_nothing(self) -> None:
+        gate = EngineGate(workers=1, timeout=10)
+        await gate.shutdown()
+        assert gate._pool is None  # pylint: disable=protected-access
+
+    async def test_lifespan_stops_the_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from aigw_service import api  # pylint: disable=import-outside-toplevel
+        from aigw_service.context import APP_CTX  # pylint: disable=import-outside-toplevel
+
+        stopped: list[int] = []
+
+        class Gate:
+            async def shutdown(self) -> None:
+                stopped.append(1)
+
+        async def noop() -> None:
+            return None
+
+        monkeypatch.setattr(api, "default_gate", Gate)
+        monkeypatch.setattr(APP_CTX, "on_startup", noop)
+        monkeypatch.setattr(APP_CTX, "on_shutdown", noop)
+        monkeypatch.setattr(api.APP_CONFIG.agent, "engine", "v1")
+        async with api.lifespan(api.app_main):
+            assert stopped == []
+        assert stopped == [1]

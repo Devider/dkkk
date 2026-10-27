@@ -11,6 +11,7 @@ from langchain_core.language_models import BaseChatModel
 
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
+from aigw_service.api.v2.middleware.cancellation import Cancellation
 from aigw_service.api.v2.middleware.files import file_backend, files_middleware, skills_middleware
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
@@ -68,6 +69,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             # §8 №1: workbook, index and card; no workbook — answer without LLM; pins skills (FR-12)
             TurnContext(store=self.store, upload_dir=self.upload_dir, pinned_skills=self.pinned_skills),
             LanguageGuard(),  # §8 №2: ru / en only, no LLM
+            Cancellation(),  # §8 №3: turn deadline and client disconnect stop the turn after the current call
             StopEventGuard(),  # §8 №4: GigaChat StopEvent → StopEventError → HTTP 503, never retried
             skills_middleware(backend, self.catalog.skill_tools()),  # §8 №8: catalogue of skills, skill tools
             files_middleware(backend),  # §8 №9: read_file only (AR-Q14)

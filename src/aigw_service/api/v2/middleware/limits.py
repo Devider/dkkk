@@ -15,19 +15,26 @@ from langchain.agents import AgentState
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from aigw_service.api.v2.prompts.middleware import LIMIT_FALLBACK, LIMIT_PROMPT
+from aigw_service.api.v2.prompts.middleware import LIMIT_FALLBACK, LIMIT_PROMPT, TIMEOUT_FALLBACK, TIMEOUT_PROMPT
 from aigw_service.api.v2.tools.envelope import ErrorCode, failure, to_json
 from aigw_service.context import APP_CTX
 
 logger = APP_CTX.get_logger()
 
 LIMIT_HIT = "limit_hit"
+TURN_TIMEOUT = "turn_timeout"
+"""Set together with ``limit_hit`` by ``Cancellation`` when the turn deadline passed (S2.8)."""
 MODEL_CALLS, TOOL_CALLS, CALC_CALLS = "model_calls", "tool_calls", "calc_calls"
 
 
 def limit_hit(state: Any) -> bool:
     """A limit of this turn is exhausted: the next model call is the last one, without tools."""
     return bool(((state or {}).get("guard_counters") or {}).get(LIMIT_HIT))
+
+
+def turn_timeout(state: Any) -> bool:
+    """The turn ends because its time is over, not because of a call limit."""
+    return bool(((state or {}).get("guard_counters") or {}).get(TURN_TIMEOUT))
 
 
 class LimitsState(AgentState):
@@ -95,14 +102,16 @@ class TurnLimits(AgentMiddleware):
     ) -> ModelResponse | AIMessage:
         if not limit_hit(request.state):
             return handler(request)
-        return _final(handler(_last_call(request)))
+        timeout = turn_timeout(request.state)
+        return _final(handler(_last_call(request, timeout)), timeout)
 
     async def awrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[ModelResponse]]
     ) -> ModelResponse | AIMessage:
         if not limit_hit(request.state):
             return await handler(request)
-        return _final(await handler(_last_call(request)))
+        timeout = turn_timeout(request.state)
+        return _final(await handler(_last_call(request, timeout)), timeout)
 
 
 def _limit_exceeded(call: dict[str, Any]) -> ToolMessage:
@@ -111,23 +120,25 @@ def _limit_exceeded(call: dict[str, Any]) -> ToolMessage:
     )
 
 
-def _last_call(request: ModelRequest) -> ModelRequest:
+def _last_call(request: ModelRequest, timeout: bool) -> ModelRequest:
     """No tools, and the instruction only in this request — the history keeps the dialog as it was."""
-    return request.override(tools=[], tool_choice=None, messages=[*request.messages, HumanMessage(LIMIT_PROMPT)])
+    prompt = TIMEOUT_PROMPT if timeout else LIMIT_PROMPT
+    return request.override(tools=[], tool_choice=None, messages=[*request.messages, HumanMessage(prompt)])
 
 
-def _final(response: ModelResponse | AIMessage) -> ModelResponse | AIMessage:
+def _final(response: ModelResponse | AIMessage, timeout: bool) -> ModelResponse | AIMessage:
     """The answer ends the turn: a tool call it may still carry is dropped, an empty text gets a fixed one."""
+    fallback = TIMEOUT_FALLBACK if timeout else LIMIT_FALLBACK
     if isinstance(response, AIMessage):
-        return _without_calls(response)
+        return _without_calls(response, fallback)
     return ModelResponse(
-        result=[_without_calls(m) if isinstance(m, AIMessage) else m for m in response.result],
+        result=[_without_calls(m, fallback) if isinstance(m, AIMessage) else m for m in response.result],
         structured_response=response.structured_response,
     )
 
 
-def _without_calls(message: AIMessage) -> AIMessage:
+def _without_calls(message: AIMessage, fallback: str) -> AIMessage:
     if not message.tool_calls and message.text.strip():
         return message
-    text = message.text.strip() or LIMIT_FALLBACK
+    text = message.text.strip() or fallback
     return AIMessage(text, id=message.id, response_metadata=message.response_metadata)
