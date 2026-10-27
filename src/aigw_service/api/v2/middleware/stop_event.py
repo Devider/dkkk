@@ -21,11 +21,18 @@ logger = APP_CTX.get_logger()
 STOP_EVENT_MESSAGE = "Выбранная модель GigaChat временно недоступна. Попробуйте позже."
 
 
+def is_stop_event(exc: BaseException) -> bool:
+    """GigaChat StopEvent (403 + marker) or an already raised ``StopEventError``; no logging."""
+    if isinstance(exc, StopEventError):
+        return True
+    return isinstance(exc, ForbiddenError) and _STOP_EVENT_MARKER in (exc.content or b"").lower()
+
+
 def stop_event(exc: BaseException) -> StopEventError | None:
     """The StopEventError for a GigaChat StopEvent, ``None`` for any other error."""
     if isinstance(exc, StopEventError):
         return exc
-    if not isinstance(exc, ForbiddenError) or _STOP_EVENT_MARKER not in (exc.content or b"").lower():
+    if not isinstance(exc, ForbiddenError) or not is_stop_event(exc):
         return None
     logger.error("StopEvent detected: HTTP 403 from {}", str(exc.url))
     return StopEventError(user_message=STOP_EVENT_MESSAGE, url=str(exc.url), status_code=403, reason=str(exc.content))

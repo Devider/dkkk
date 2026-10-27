@@ -13,6 +13,8 @@ from tests.unit.v2 import engine_jobs
 from tests.unit.v2.fakes import FakeContext, ScriptedChatModel, tool_call
 from tests.unit.v2.test_prechecks import INDEX
 
+from aigw_service.api.v2.middleware import resilience
+from aigw_service.api.v2.middleware.resilience import engine_retry, tool_errors
 from aigw_service.api.v2.tools import calc_tools
 from aigw_service.api.v2.tools.catalog import default_catalog
 from aigw_service.api.v2.tools.engine_gate import EngineGate
@@ -120,10 +122,13 @@ class TestCalcToolsThroughGate:
 
     @staticmethod
     async def envelope(call: object, thread_id: str = "alice:s7") -> dict:
+        catalog = default_catalog()
         agent = create_agent(
             ScriptedChatModel(steps=[call, AIMessage("ок")]),
-            default_catalog().base_tools(),
+            catalog.base_tools(),
             context_schema=FakeContext,
+            # S2.5: engine_unavailable leaves the adapter as an exception; the real stack turns it into the envelope
+            middleware=[tool_errors(), engine_retry(catalog.engine_tool_names())],
         )
         out = await agent.ainvoke(
             {"messages": [HumanMessage("ход")]}, context=FakeContext(thread_id=thread_id, model_index=INDEX)
@@ -154,7 +159,10 @@ class TestCalcToolsThroughGate:
         assert inline_gate.sessions == []
 
     @pytest.mark.parametrize("code", [ErrorCode.ENGINE_TIMEOUT, ErrorCode.ENGINE_UNAVAILABLE])
-    async def test_gate_failures_become_envelopes(self, inline_gate: object, code: ErrorCode) -> None:
+    async def test_gate_failures_become_envelopes(
+        self, inline_gate: object, code: ErrorCode, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(resilience, "ENGINE_RETRY_DELAY", 0.0)
         inline_gate.error = ToolError(code)
         env = await self.envelope(self.scenarios_call())
         assert env["code"] == code.value

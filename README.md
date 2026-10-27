@@ -192,8 +192,11 @@ for scenario in combinations:
 | `AGENT_ENGINE` | `v1` | Движок агента: `v1` — граф `main_graph.py`, `v2` — `create_agent` (`api/v2/`) |
 | `AGENT_MODEL` | `gigachat` | Модель v2: `gigachat` (api_key или сертификаты — по `LOCAL` и `GIGACHAT_*`) или `scripted` |
 | `AGENT_SCRIPT_PATH` | — | JSON-сценарий скриптовой модели: `[{"tool": "имя", "args": {...}} \| {"content": "текст"}]` |
-| `AGENT_LLM_RETRY_ATTEMPTS` | `3` | Повторы вызова LLM при временных ошибках и 429 |
-| `AGENT_LLM_RETRY_WAIT` | `2.0` | Первая пауза между повторами, с (дальше удваивается) |
+| `AGENT_LLM_RETRY_ATTEMPTS` | `3` | v2: повторы вызова модели агента при сетевых ошибках, 5xx и 429; повторы 429 смыслового слоя (`resolve_terms`) |
+| `AGENT_LLM_RETRY_WAIT` | `2.0` | v2: первая пауза между повторами, с (дальше удваивается) |
+| `AGENT_MAX_MODEL_CALLS` | `40` | v2: вызовов модели за ход, включая последний вызов для частичного ответа |
+| `AGENT_MAX_TOOL_CALLS` | `30` | v2: вызовов инструментов за ход; сверх лимита — `limit_exceeded` и частичный ответ |
+| `AGENT_MAX_CALCS` | `10` | v2: вызовов расчётных инструментов за ход (включая отданные из кэша) |
 | `AGENT_MAX_ITERATIONS` | `10` | v1: лимит итераций оркестратора |
 | `AGENT_MAX_MESSAGES` | `30` | v1: лимит сообщений в истории |
 | `AGENT_MAX_PROMPT_TOKENS` | `30000` | Бюджет запроса к модели, токенов |

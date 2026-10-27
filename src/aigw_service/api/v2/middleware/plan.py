@@ -20,7 +20,9 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
+from aigw_service.api.v2.middleware.limits import limit_hit
 from aigw_service.api.v2.middleware.todos import OPEN, PlanState, plan_text
+from aigw_service.api.v2.prompts.middleware import LIMIT_REASON
 from aigw_service.api.v2.tools.envelope import ErrorCode, failure, to_json
 
 PlanMode = Literal["always", "auto"]
@@ -84,7 +86,7 @@ class ForcePlanFirst(AgentMiddleware):
     def wrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], ModelResponse]
     ) -> ModelResponse | AIMessage:
-        if has_plan(request.state):
+        if has_plan(request.state) or limit_hit(request.state):  # the last call of a turn is not forced (D2)
             return handler(request)
         narrowed = self._narrow(request)
         response = handler(narrowed)
@@ -95,7 +97,7 @@ class ForcePlanFirst(AgentMiddleware):
     async def awrap_model_call(
         self, request: ModelRequest, handler: Callable[[ModelRequest], Awaitable[ModelResponse]]
     ) -> ModelResponse | AIMessage:
-        if has_plan(request.state):
+        if has_plan(request.state) or limit_hit(request.state):
             return await handler(request)
         narrowed = self._narrow(request)
         response = await handler(narrowed)
@@ -154,16 +156,16 @@ class PlanCompletionGuard(AgentMiddleware):
             return None
         counters = state.get("guard_counters") or {}
         returns = counters.get("plan_returns", 0)
-        if returns < self.max_returns:
+        exhausted = limit_hit(state)  # FR-9: the partial answer is final, no reminders
+        if returns < self.max_returns and not exhausted:
             return {
                 "messages": [HumanMessage(REMINDER.format(steps=plan_text(open_steps)))],
                 "guard_counters": {**counters, "plan_returns": returns + 1},
                 "jump_to": "model",
             }
         listed = "\n".join(f"- {t['content']}" for t in open_steps)
-        closed = [
-            {**t, "status": "skipped", "reason": NOT_DONE_REASON} if t.get("status") in OPEN else t for t in todos
-        ]
+        reason = LIMIT_REASON if exhausted else NOT_DONE_REASON
+        closed = [{**t, "status": "skipped", "reason": reason} if t.get("status") in OPEN else t for t in todos]
         final = AIMessage(f"{answer.text.rstrip()}\n\n**{NOT_DONE}:**\n{listed}", id=answer.id)
         return {"messages": [final], "todos": closed}
 

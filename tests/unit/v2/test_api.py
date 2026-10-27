@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from gigachat.exceptions import ForbiddenError
 from httpx import ASGITransport, AsyncClient
+from langchain.agents.middleware import ModelRetryMiddleware, ToolErrorMiddleware, ToolRetryMiddleware
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
@@ -18,16 +19,19 @@ from tests.unit.v2.test_prechecks import INDEX
 from tests.unit.v2.test_turn_context import HEADERS
 
 from aigw_service.api.v2.factory import AgentFactory
+from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.stop_event import STOP_EVENT_MESSAGE, StopEventGuard, stop_event
 from aigw_service.api.v2.middleware.turn_context import NO_MODEL_ANSWER
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
 from aigw_service.api.v2.service import AgentV2
+from aigw_service.api.v2.tools import calc_tools
 from aigw_service.api.v2.tools import resolve_terms as rt
 from aigw_service.api.v2.tools.catalog import default_catalog
 from aigw_service.api.v2.turn.lock import TURN_BUSY_MESSAGE, TurnBusyError, TurnLocks
 from aigw_service.config import APP_CONFIG
 from aigw_service.exceptions import StopEventError
+from excel_engine import ExcelAnalysisToolResult
 
 STOP_BODY = b'{"status": 403, "message": "Model is temporarily unavailable due to technical reasons"}'
 
@@ -207,6 +211,30 @@ class TestStopEvent:
         stack = AgentFactory(ScriptedChatModel(steps=[]), default_catalog(), store=InMemoryStore()).middleware()
         names = [type(m) for m in stack]
         assert names.index(StopEventGuard) == names.index(LanguageGuard) + 1
+        # S2.5: retries and tool errors sit inside the guard, so a StopEvent is neither retried nor an envelope
+        assert names.index(StopEventGuard) < names.index(ModelRetryMiddleware)
+        assert names.index(StopEventGuard) < names.index(ToolErrorMiddleware) < names.index(ToolRetryMiddleware)
+        assert names.index(CalcCache) < names.index(ToolErrorMiddleware)
+
+
+class TestTurnLimitsAtApi:
+    """FR-9 at the API: a looping model ends with HTTP 200 and a partial answer."""
+
+    async def test_loop_gives_partial_answer(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        monkeypatch.setattr(APP_CONFIG.agent, "max_tool_calls", 3)
+        monkeypatch.setattr(
+            calc_tools,
+            "analyze_excel_model",
+            lambda **_kw: ExcelAnalysisToolResult(status="OK", result="1 сценарий", content={}),
+        )
+        args = {"inputs": [{"id": "IN1", "min": 300, "max": 300, "step": 1}], "outputs": ["OUT0"], "year": 2026}
+        loop = [tool_call("run_scenarios", f"c{i}", **args) for i in range(5)]
+        model = ScriptedChatModel(steps=[*loop[:4], AIMessage("Частичный ответ по полученному сценарию.")])
+        api = Api(monkeypatch, v2(model, await uploaded_store("u1", INDEX, str(tmp_path)), tmp_path, plan_mode="off"))
+        response = await api.ask("EBITDA 2026 при цене метанола 300?")
+        assert response.status_code == 200
+        assert answer_text(response) == "Частичный ответ по полученному сценарию."
+        assert model.calls[-1]["tools"] == []
 
 
 class TestIsolation:

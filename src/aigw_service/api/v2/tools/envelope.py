@@ -29,6 +29,9 @@ class ErrorCode(StrEnum):
     INTERNAL_ERROR = "internal_error"
 
 
+TRANSIENT_CODES = frozenset({ErrorCode.ENGINE_UNAVAILABLE})
+"""Failures the system fixes by repeating the call (``ToolRetryMiddleware``, AR-Q11); the model never sees a retry."""
+
 ERROR_TEXT: dict[ErrorCode, str] = {
     ErrorCode.INVALID_ARGS: "Аргументы вызова не прошли проверку",
     ErrorCode.UNKNOWN_ID: "ID нет в индексе модели",

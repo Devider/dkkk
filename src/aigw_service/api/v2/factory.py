@@ -10,9 +10,12 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
 
 from aigw_service.api.v2.context import RequestContext
+from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.files import file_backend, files_middleware, skills_middleware
 from aigw_service.api.v2.middleware.language import LanguageGuard
+from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
+from aigw_service.api.v2.middleware.resilience import engine_retry, model_retry, tool_errors
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.todos import PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
@@ -58,6 +61,8 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         planned = self.plan_mode != "off"  # FR-4: off installs neither ForcePlanFirst nor PlanCompletionGuard
         force = [ForcePlanFirst(self.plan_mode)] if planned else []  # §8 №11
         guard = [PlanCompletionGuard(APP_CONFIG.agent.plan_max_returns)] if planned else []  # §8 №19, FR-8
+        settings = APP_CONFIG.agent
+        engine_tools = self.catalog.engine_tool_names()
         backend = file_backend(self.skills_dir, self.store if self.store is not None else APP_CTX.agent_memory.store)
         return [
             # §8 №1: workbook, index and card; no workbook — answer without LLM; pins skills (FR-12)
@@ -68,6 +73,12 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             files_middleware(backend),  # §8 №9: read_file only (AR-Q14)
             PlanTodoList(),  # §8 №10: write_todos with skipped / blocked and a reason (FR-5)
             *force,
+            # §8 №12–13 (design D1): per-turn limits; once hit — one model call without tools
+            TurnLimits(settings.max_model_calls, settings.max_tool_calls, settings.max_calcs, engine_tools),
+            model_retry(settings.llm_retry_attempts, settings.llm_retry_wait),  # §8 №14: inside StopEventGuard
+            CalcCache(engine_tools, store=self.store),  # §8 №15: a hit runs neither the engine nor a retry
+            tool_errors(),  # §8 №16: exception → envelope; StopEvent passes through
+            engine_retry(engine_tools),  # §8 №17: one retry on engine_unavailable
             *self.extra_middleware,
             *guard,  # after_* hooks run bottom-up, the plan is checked first
             TurnSummary(),  # §8 №20: dialog memory in the prompt, the turn's digest after it (FR-16)

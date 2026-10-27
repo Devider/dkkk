@@ -38,11 +38,30 @@ class AgentSettings(BaseAppSettings):
     # Retry — количество попыток вызова LLM при транзитных ошибках
     llm_retry_attempts: int = Field(
         default=3,
+        ge=0,
         validation_alias="AGENT_LLM_RETRY_ATTEMPTS",
     )
     llm_retry_wait: float = Field(
         default=2.0,
+        ge=0,
         validation_alias="AGENT_LLM_RETRY_WAIT",
+    )
+
+    # Turn limits of agent v2 (FR-9): counted per turn; once one is hit — one model call without tools
+    max_model_calls: int = Field(
+        default=40,
+        ge=1,
+        validation_alias="AGENT_MAX_MODEL_CALLS",
+    )
+    max_tool_calls: int = Field(
+        default=30,
+        ge=1,
+        validation_alias="AGENT_MAX_TOOL_CALLS",
+    )
+    max_calcs: int = Field(
+        default=10,
+        ge=1,
+        validation_alias="AGENT_MAX_CALCS",
     )
 
     # Loop prevention — лимиты на итерации, сообщения, токены

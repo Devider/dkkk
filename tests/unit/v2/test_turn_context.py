@@ -209,7 +209,7 @@ class TestTurnContext:
         second = await turn(agent, **cfg)
         assert second["todos"] == []
         assert second["step_results"] == []
-        assert second["guard_counters"] == {}
+        assert second["guard_counters"] == {"model_calls": 1}  # reset: the first turn made two model calls
         assert second["turn_id"] != first["turn_id"]
 
     def test_blocked_plan_survives(self) -> None:

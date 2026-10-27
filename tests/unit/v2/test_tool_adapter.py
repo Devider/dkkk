@@ -14,7 +14,7 @@ from aigw_service.api.v2.tools import calc_tools
 from aigw_service.api.v2.tools.adapter import ToolContextError, ToolSpec, build_tool
 from aigw_service.api.v2.tools.catalog import ToolCatalog, default_catalog
 from aigw_service.api.v2.tools.context import ModelIndex
-from aigw_service.api.v2.tools.envelope import ToolError, ToolSuccess
+from aigw_service.api.v2.tools.envelope import ErrorCode, ToolError, ToolSuccess, failure
 from excel_engine import ExcelAnalysisToolResult, ModelInputAnalysisToolResult
 
 SERVICE_FIELDS = {"user_id", "session_id", "thread_id", "file_name", "file_path", "model_index"}
@@ -101,6 +101,35 @@ class TestAdapter:
 
         with pytest.raises(ToolContextError):
             await run_turn([tool], [tool_call("probe", output_id="OUT0"), AIMessage("ок")], NoIndex())
+
+
+class TestTransientFailures:
+    """S2.5 design D4: engine_unavailable leaves the adapter as an exception, so ToolRetryMiddleware sees it."""
+
+    @staticmethod
+    def failing(code: ErrorCode, raised: bool) -> Any:
+        def call(_args: ProbeArgs, _ctx: Any) -> Any:
+            if raised:
+                raise ToolError(code)
+            return failure(code)
+
+        return build_tool(ToolSpec("probe", "Проба", ProbeArgs, call))
+
+    @pytest.mark.parametrize("raised", [True, False], ids=["raised", "returned"])
+    async def test_engine_unavailable_is_raised(self, raised: bool) -> None:
+        tool = self.failing(ErrorCode.ENGINE_UNAVAILABLE, raised)
+        with pytest.raises(ToolError) as exc_info:
+            await run_turn(
+                [tool], [tool_call("probe", output_id="OUT0"), AIMessage("ок")], FakeContext(model_index=INDEX)
+            )
+        assert exc_info.value.code == ErrorCode.ENGINE_UNAVAILABLE
+
+    @pytest.mark.parametrize("raised", [True, False], ids=["raised", "returned"])
+    async def test_other_codes_stay_envelopes(self, raised: bool) -> None:
+        tool = self.failing(ErrorCode.ENGINE_TIMEOUT, raised)
+        steps = [tool_call("probe", output_id="OUT0"), AIMessage("ок")]
+        messages = await run_turn([tool], steps, FakeContext(model_index=INDEX))
+        assert json.loads(tool_messages(messages)[0].content)["code"] == "engine_timeout"
 
 
 class TestCatalog:

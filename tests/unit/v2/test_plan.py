@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 from deepagents.middleware import FilesystemMiddleware, SkillsMiddleware
 from langchain.agents import create_agent
+from langchain.agents.middleware import ModelRetryMiddleware, ToolErrorMiddleware, ToolRetryMiddleware
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import InMemorySaver
@@ -17,7 +18,9 @@ from tests.unit.v2.test_prechecks import INDEX
 from aigw_service.api.v2.answer_check import hygiene_issues
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import AgentFactory
+from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.language import LanguageGuard
+from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.todos import PlanStep, PlanTodoList
@@ -265,6 +268,11 @@ class TestFactory:
             FilesystemMiddleware,
             PlanTodoList,
             ForcePlanFirst,
+            TurnLimits,  # S2.5: §8 №12–17
+            ModelRetryMiddleware,
+            CalcCache,
+            ToolErrorMiddleware,
+            ToolRetryMiddleware,
             PlanCompletionGuard,
             TurnSummary,
         ]

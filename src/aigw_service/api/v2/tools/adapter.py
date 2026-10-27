@@ -2,7 +2,8 @@
 
 The model sees only the arguments of ``ToolSpec.args_schema``. The user, the workbook path and the model
 index come from the turn context in ``runtime.context`` and never appear in a tool schema. Every result is
-an envelope (``envelope.py``); unexpected exceptions propagate to ``ToolErrorMiddleware`` (S2.5).
+an envelope (``envelope.py``); unexpected exceptions propagate to ``ToolErrorMiddleware`` (S2.5). A transient
+failure (``engine_unavailable``) is raised as ``ToolError`` so ``ToolRetryMiddleware`` can repeat the call.
 """
 
 import asyncio
@@ -17,7 +18,7 @@ from langgraph.types import Command
 from pydantic import BaseModel
 
 from aigw_service.api.v2.tools.context import ToolContext
-from aigw_service.api.v2.tools.envelope import ToolError, ToolFailure, ToolSuccess, to_json
+from aigw_service.api.v2.tools.envelope import TRANSIENT_CODES, ToolError, ToolFailure, ToolSuccess, to_json
 
 BASE = "base"
 """Availability of a tool the model always sees; a skill tool carries the skill name instead."""
@@ -70,6 +71,8 @@ def build_tool(spec: ToolSpec) -> StructuredTool:
                 envelope = await asyncio.to_thread(spec.call, args, context)
         except ToolError as exc:
             envelope = exc.failure()
+        if isinstance(envelope, ToolFailure) and envelope.code in TRANSIENT_CODES:
+            raise ToolError(envelope.code, envelope.error, envelope.hint)
         text = to_json(envelope)
         if isinstance(envelope, ToolSuccess) and envelope.state_update:
             message = ToolMessage(text, tool_call_id=runtime.tool_call_id, name=spec.name)

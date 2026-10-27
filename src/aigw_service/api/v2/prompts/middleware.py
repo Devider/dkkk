@@ -46,3 +46,15 @@ READ_FILE_DESCRIPTION = """\
 расчёта (`/results/...`). Другие пути недоступны. По умолчанию читает первые 100 строк; для длинных файлов \
 передавай `limit` (например, 400) и `offset`. Над содержимым идёт служебная строка `@@ ... @@`.
 """
+
+# TurnLimits (FR-9): the last model call of a turn whose limit is exhausted, without tools
+LIMIT_PROMPT = """\
+Лимит вызовов на этот ход исчерпан. Инструменты больше не вызывай. Дай пользователю частичный ответ \
+только по уже полученным результатам, с их цифрами и единицами, и коротко перечисли, что выполнить не удалось.
+"""
+
+LIMIT_FALLBACK = "Лимит вызовов на этот ход исчерпан, поэтому ответ неполный. Повторите вопрос, сузив его."
+"""Answer of the last call when the model returned no text."""
+
+LIMIT_REASON = "Исчерпан лимит хода"
+"""Reason of the plan steps PlanCompletionGuard closes as ``skipped`` after a limit (FR-8)."""
