@@ -95,7 +95,8 @@ def crossing(points: list[tuple[float, float]], threshold: float) -> float | Non
         if d2 == 0:
             return x2
         if (d1 < 0) != (d2 < 0):
-            return x1 + (threshold - y1) * (x2 - x1) / (y2 - y1)
+            x = x1 + (threshold - y1) * (x2 - x1) / (y2 - y1)
+            return min(max(x, x1), x2)  # float rounding can land 1 ulp outside the segment
     return None
 
 

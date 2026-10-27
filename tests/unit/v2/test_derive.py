@@ -98,6 +98,13 @@ class TestArithmetic:
             return
         assert ordered[0][0] <= found <= ordered[-1][0]
 
+    def test_crossing_at_segment_end_stays_inside(self) -> None:
+        """Rounding of the interpolation must not push x past the segment (hypothesis example, 1 ulp past x2)."""
+        x2 = 936914848.8242188
+        found = crossing([(0.0, 0.01), (x2, 0.0)], 6.590178805951137e-82)
+        assert found is not None
+        assert 0.0 <= found <= x2
+
     @given(nonzero, nonzero, nonzero)
     def test_elasticity_of_proportional_line_is_one(self, k: float, x1: float, x2: float) -> None:
         assume(abs(x1 - x2) > 1e-6 * max(abs(x1), abs(x2)))
