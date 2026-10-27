@@ -57,7 +57,7 @@
 | --- | --- | --- |
 | S0.2 | Spike | ✓ 2026-10-26: решения по ADR-3, ADR-9, ADR-10, StopEvent — `archive/2026-10-26-s0-2-gigachat-agent-spike/design.md`; режим сертификатов не проверен |
 | S0.3 | Spike | ✓ 2026-10-26: решения по ADR-2, ADR-4, ADR-7, FR-5, FR-6, AR-Q15 — `archive/2026-10-26-s0-3-skills-resolve-spike/design.md` |
-| S0.4 | Замер базовой линии v1 | Метрики и тестовая книга (`skip_specs`) |
+| S0.4 | Замер базовой линии v1 | ✓ 2026-10-27: закрыта решением владельца; замеры на GigaChat — вместе с эпиком 5 во внутреннем контуре (`skip_specs`) |
 | S0.5 | Каркас OpenSpec | `openspec/config.yaml`, этот файл; сделано без change |
 | S0.6 | Инструменты разработки | MCP LangChain в `.mcp.json`, описание в CLAUDE.md / AGENTS.md (`skip_specs`) |
 | S0.7 | Копия движка в `src/excel_engine/` | ✓ 2026-10-26: полное замыкание, AST-идентичность и паритет на Methanex (Docker) (`skip_specs`) |
