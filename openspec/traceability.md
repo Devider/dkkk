@@ -39,8 +39,8 @@
 | AR-Q2 | Тесты без сети и LibreOffice | agent-eval | S5.2 | — | — |
 | AR-Q3 | LangChain только в рантайме и адаптере | agent-tools | S1.1 | — | S1.1 ✓ |
 | AR-Q4 | Зафиксированные версии, сборка из зеркала | agent-platform | S0.1 | — | S0.1 ✓ (сборка в контуре не проверена) |
-| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.8, S3.5 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`) |
-| AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | S1.6 ✓ (вынос > `AGENT_RESULT_MAX_CHARS`, `ref`, полные `numbers` в `step_results`; замер слоёв в токенах — S2.7) |
+| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.7, S2.8, S3.5 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`), S2.7 ✓ (`AGENT_MAX_PROMPT_TOKENS`, `AGENT_SUMMARY_TRIGGER`, `AGENT_SUMMARY_KEEP`) |
+| AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | S1.6 ✓ (вынос > `AGENT_RESULT_MAX_CHARS`, `ref`, полные `numbers` в `step_results`), S2.7 ✓ (сжатие запроса, а не состояния — design D1; замер слоёв `CONTEXT LAYERS` в `ContextMeter` — design D5; счёт токенов приближённый, калибровка на GigaChat — S5.1) |
 | AR-Q7 | Изоляция пользователей | agent-tools | S1.6 | S4.2 | S1.6 ✓ (`/results/` по `user_id` из контекста; пространство без `thread_id` — design D4), S4.2 ✓ (история на уровне API) |
 | AR-Q8 | Конкурентность движка | agent-tools | S1.5 | — | S1.5 ✓ (размер пула — по замеру S0.4) |
 | AR-Q9 | Event loop не блокируется | agent-tools | S1.5 | S1.7 | S1.5 ✓, S1.7 ✓ (`get_values`, `describe_model`, `derive` в рабочем потоке) |

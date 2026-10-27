@@ -245,9 +245,9 @@ Oct 23, 2026 · @Aleksei
 | 2 | `LanguageGuard` | свой | `before_agent` | Русский или английский; иначе фиксированный отказ | — |
 | 3 | `Cancellation` | свой | `before_model`, `wrap_tool_call` | Дедлайн и флаг отмены → частичный ответ | `AGENT_TURN_TIMEOUT=300` |
 | 4 | `StopEventGuard` | свой | `wrap_model_call` | StopEvent GigaChat (403 + маркер) → `StopEventError` → HTTP 503 с первого вызова; стоит снаружи `ModelRetryMiddleware` | — |
-| 5 | `Telemetry` | свой | `wrap_model_call`, `wrap_tool_call` | Время, токены, размер слоёв контекста, коды ошибок, строки `TOOL ARGS` | — |
+| 5 | `Telemetry` | свой | `wrap_model_call`, `wrap_tool_call` | Время, токены, коды ошибок, строки `TOOL ARGS`. Размер слоёв контекста пишет отдельный `ContextMeter` — самый внутренний `wrap_model_call` в конце стека: только он видит запрос со всеми блоками промпта и после сжатия (S2.7) | — |
 | 6 | `PreviewModelCheck` | свой | `wrap_model_call` | A/B c preview-моделью в фоне (перенос из `llm_executor.Agent`) | Выключен |
-| 7 | `SummarizationMiddleware` | deepagents | `before_model` | Сжатие истории по порогу; план и карточку не трогает | Порог 70 % от `AGENT_MAX_PROMPT_TOKENS` |
+| 7 | `SummarizationMiddleware` | deepagents | `wrap_model_call` | Сжатие истории по порогу: старая часть заменяется в запросе русской сводкой, `messages` в состоянии не удаляются (deepagents 0.7), полная история — в `/results/conversation_history/`; план и карточку не трогает. Вызов сводки — один, без повтора, вне лимитов хода (S2.7) | Порог `AGENT_SUMMARY_TRIGGER` = 70 %, хвост `AGENT_SUMMARY_KEEP` = 30 % от `AGENT_MAX_PROMPT_TOKENS` |
 | 8 | `SkillsMiddleware` | deepagents | `before_agent`, `wrap_model_call` | Каталог skills в промпте, `AGENT_PINNED_SKILLS` (через `pinned_skills` только для skills, текста которых ещё нет в сообщениях — иначе копии копятся каждый ход), открытие инструментов skill | `/skills/` |
 | 9 | `FilesystemMiddleware` | deepagents | инструмент `read_file` | Чтение skills и вынесенных результатов; `tools=["read_file"]`, запись и `execute` выключены; встроенный вынос — страховка с высоким порогом, `artifacts_root="/results/"` | `/skills/`, `/results/` |
 | 10 | `TodoListMiddleware` | langchain | инструмент `write_todos`, `wrap_model_call` | Состояние плана; промпт переопределён на русском; схема `Todo` расширена статусами `skipped` / `blocked` и полем `reason` (FR-5) | — |
@@ -303,7 +303,7 @@ Oct 23, 2026 · @Aleksei
 2. Новая загрузка файла в той же сессии (другой `file_hash`) сбрасывает `resolved_terms`, кэш расчётов и план. В контекст добавляется заметка «модель заменена», чтобы агент не ссылался на старые цифры.
 3. Результат длиннее порога (ADR-7) пишется в store по ключу `("results", user_id, thread_id)` / `<turn_id>/<call_id>.json` и читается через `read_file /results/...`. В сообщения попадает только сводка.
 4. Выжимку хода строит `TurnSummary` из `step_results` и `todos` без вызова LLM. В следующем ходе выжимки подаются компактным блоком в динамическом промпте.
-5. Суммаризация сжимает только `messages`. План, карточка модели, `resolved_terms` и выжимки живут вне сообщений и не теряются.
+5. Суммаризация сжимает только историю `messages` в запросе к модели (в состоянии сообщения остаются). План, карточка модели, `resolved_terms`, выжимки и `step_results` живут вне сообщений и не теряются. Закреплённый skill, выпавший при сжатии, закрепляется снова до следующего вызова модели.
 6. Размер каждого слоя в токенах пишется в журнал при каждом вызове LLM (AR-Q6, AR-Q13).
 7. `MemorySaver` и `InMemoryStore` живут в памяти процесса: перезапуск контейнера теряет историю (как сейчас). При нескольких репликах сервиса нужен либо sticky-роутинг по `x-user-id`, либо общий checkpointer (открытый вопрос).
 
