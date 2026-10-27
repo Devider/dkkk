@@ -30,7 +30,10 @@ class InputRange(BaseModel):
     id: str = Field(description="ID входа из resolve_terms, например IN12")
     min: float | None = Field(default=None, description="Начало диапазона; не придумывай, если пользователь не задал")
     max: float | None = Field(default=None, description="Конец диапазона; для одной точки равен началу")
-    step: float | None = Field(default=None, description="Шаг сетки; не придумывай, если пользователь не задал")
+    step: float | None = Field(
+        default=None,
+        description="Шаг сетки; если пользователь не назвал — (конец − начало) / 4, в оговорках перечисли точки сетки",
+    )
 
 
 class RunScenariosArgs(BaseModel):

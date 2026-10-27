@@ -1,0 +1,57 @@
+# Примеры запросов skill scenario-analysis с ожидаемым поведением (spec §11 «Структура»). Модель этот файл не читает.
+# expect.plan_includes и expect.caveat_includes — подстроки (регистр не важен) шагов плана и раздела «Оговорки».
+# expect.answer: analytic — ответ с разделами; question — один вопрос о недостающем, без расчёта.
+
+- id: SA1
+  query: "Как изменится EBITDA в 2026 году при цене метанола от 300 до 500 с шагом 100?"
+  expect:
+    skill: scenario-analysis
+    plan_includes: [сопостав, сетк]
+    tools: [resolve_terms, run_scenarios]
+    answer: analytic
+    caveat_includes: []
+
+- id: SA2
+  query: "Посчитай EBITDA 2027 при изменении цены метанола на ±20 % от базы."
+  expect:
+    skill: scenario-analysis
+    plan_includes: [сопостав, базов, сетк]
+    tools: [resolve_terms, get_values, run_scenarios]
+    answer: analytic
+    caveat_includes: ["20", шаг]
+
+- id: SA3
+  query: "Что будет с EBITDA и чистой прибылью в 2026 году при падении цены метанола на 10–30 %?"
+  expect:
+    skill: scenario-analysis
+    plan_includes: [базов, сетк]
+    tools: [resolve_terms, get_values, run_scenarios]
+    answer: analytic
+    caveat_includes: [шаг]
+
+- id: SA4
+  query: "Посчитай EBITDA 2026 при цене метанола от 300 до 500."
+  expect:
+    skill: scenario-analysis
+    plan_includes: [сетк]
+    tools: [resolve_terms, run_scenarios]
+    answer: analytic
+    caveat_includes: [шаг]
+
+- id: SA5
+  query: "А если цена метанола будет 500, какой будет EBITDA в 2026 году?"
+  expect:
+    skill: scenario-analysis
+    plan_includes: [базов]
+    tools: [resolve_terms, get_values, run_scenarios]
+    answer: analytic
+    caveat_includes: []
+
+- id: SA6
+  query: "Посчитай EBITDA при цене метанола от 300 до 500 с шагом 100."
+  expect:
+    skill: scenario-analysis
+    plan_includes: []
+    tools: []
+    answer: question
+    caveat_includes: []

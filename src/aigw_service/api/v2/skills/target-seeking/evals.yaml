@@ -1,0 +1,39 @@
+# Примеры запросов skill target-seeking с ожидаемым поведением (spec §11 «Структура»). Модель этот файл не читает.
+# expect.plan_includes и expect.caveat_includes — подстроки (регистр не важен) шагов плана и раздела «Оговорки».
+# expect.answer: analytic — ответ с разделами; question — один вопрос о недостающем, без расчёта.
+
+- id: TS1
+  query: "Какой должна быть цена метанола, чтобы EBITDA в 2026 году была 1000?"
+  expect:
+    skill: target-seeking
+    plan_includes: [сопостав, базов, подбор]
+    tools: [resolve_terms, get_values, find_input_for_target]
+    answer: analytic
+    caveat_includes: []
+
+- id: TS2
+  query: "При какой цене метанола DSCR в 2026 году будет равен 5?"
+  expect:
+    skill: target-seeking
+    plan_includes: [подбор]
+    tools: [resolve_terms, find_input_for_target]
+    answer: analytic
+    caveat_includes: []
+
+- id: TS3
+  query: "Какой должна быть цена метанола, чтобы EBITDA была 1000?"
+  expect:
+    skill: target-seeking
+    plan_includes: []
+    tools: []
+    answer: question
+    caveat_includes: []
+
+- id: TS4
+  query: "What methanol price gives EBITDA of 1200 in 2027?"
+  expect:
+    skill: target-seeking
+    plan_includes: [подбор]
+    tools: [resolve_terms, find_input_for_target]
+    answer: analytic
+    caveat_includes: []
