@@ -10,8 +10,9 @@ A result longer than ``AGENT_RESULT_MAX_CHARS`` is offloaded to ``/results/`` an
 """
 
 import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any
 
 from langchain.tools import ToolRuntime
@@ -30,22 +31,27 @@ BASE = "base"
 
 
 @dataclass(frozen=True)
-class ToolSpec:
+class ToolSpec:  # pylint: disable=too-many-instance-attributes  # catalog fields of spec §10
     """Everything the adapter needs to expose one domain function as a tool."""
 
     name: str
     description: str
     args_schema: type[BaseModel]
-    call: Callable[[BaseModel, ToolContext], ToolSuccess | ToolFailure] | None = None
-    """Sync mapping of model arguments + turn context to the domain call and its envelope; runs in a worker thread."""
+    call: Callable[..., ToolSuccess | ToolFailure] | None = None
+    """Sync mapping of model arguments + turn context (+ state, see ``needs_state``) to the domain call and its
+    envelope; runs in a worker thread."""
     acall: Callable[[BaseModel, ToolContext], Awaitable[ToolSuccess | ToolFailure]] | None = None
     """Async alternative to ``call`` (e.g. a semantic-layer LLM call); runs on the event loop."""
     availability: str = BASE
     uses_engine: bool = False
+    needs_state: bool = False
+    """``call(args, ctx, state)`` gets a read-only snapshot of the agent state (``derive`` reads the turn's numbers)."""
 
     def __post_init__(self) -> None:
         if (self.call is None) == (self.acall is None):
             raise ValueError(f"tool {self.name!r}: set exactly one of call / acall")
+        if self.needs_state and self.call is None:
+            raise ValueError(f"tool {self.name!r}: needs_state is supported for a sync call only")
 
 
 class ToolContextError(RuntimeError):
@@ -61,6 +67,11 @@ def turn_context(runtime: ToolRuntime) -> ToolContext:
     if context.model_index is None:
         raise ToolContextError("runtime.context has no model_index: TurnContext must load the workbook first")
     return context
+
+
+def state_snapshot(runtime: ToolRuntime) -> Mapping[str, Any]:
+    """Agent state as the tool sees it: top level read-only, the tool cannot change what the graph holds."""
+    return MappingProxyType(dict(runtime.state or {}))
 
 
 def step_entry(
@@ -97,6 +108,8 @@ def build_tool(spec: ToolSpec) -> StructuredTool:
         try:
             if spec.acall is not None:
                 envelope = await spec.acall(args, context)
+            elif spec.needs_state:
+                envelope = await asyncio.to_thread(spec.call, args, context, state_snapshot(runtime))
             else:
                 envelope = await asyncio.to_thread(spec.call, args, context)
         except ToolError as exc:
@@ -122,6 +135,13 @@ def build_tool(spec: ToolSpec) -> StructuredTool:
             update.update(envelope.state_update)
         return Command(update=update)
 
+    if not spec.args_schema.model_fields:
+        # langchain-core drops every argument, the injected runtime too, for a schema without fields;
+        # a schema inferred from ``(runtime)`` keeps the runtime and still shows the model no arguments.
+        async def run_without_args(runtime: ToolRuntime[Any, Any]) -> Command:
+            return await run(runtime)
+
+        return StructuredTool.from_function(coroutine=run_without_args, name=spec.name, description=spec.description)
     return StructuredTool.from_function(
         coroutine=run,
         name=spec.name,

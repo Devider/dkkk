@@ -103,6 +103,47 @@ class TestAdapter:
             await run_turn([tool], [tool_call("probe", output_id="OUT0"), AIMessage("ок")], NoIndex())
 
 
+class TestNeedsState:
+    """S1.7 design D2: a tool that reads the agent state (``derive``)."""
+
+    @staticmethod
+    def tools(seen: dict) -> list:
+        def numbers(args: ProbeArgs, ctx: Any) -> ToolSuccess:
+            return ToolSuccess(result="ok", numbers=[{"value": 2.8, "label": args.output_id}])
+
+        def reader(args: ProbeArgs, ctx: Any, state: Any) -> ToolSuccess:
+            seen["steps"] = [n["value"] for s in state.get("step_results", []) for n in s["numbers"]]
+            seen["read_only"] = not hasattr(state, "__setitem__")
+            return ToolSuccess(result="read")
+
+        return [
+            build_tool(ToolSpec("numbers", "Числа", ProbeArgs, numbers)),
+            build_tool(ToolSpec("reader", "Чтение", ProbeArgs, reader, needs_state=True)),
+        ]
+
+    async def test_sees_step_results_of_the_turn(self) -> None:
+        from aigw_service.api.v2.tools.state import ToolsState
+
+        seen: dict = {}
+        steps = [tool_call("numbers", output_id="OUT0"), tool_call("reader", output_id="OUT0"), AIMessage("ок")]
+        agent = create_agent(
+            ScriptedChatModel(steps=steps), self.tools(seen), state_schema=ToolsState, context_schema=FakeContext
+        )
+        await agent.ainvoke({"messages": [HumanMessage("ход")]}, context=FakeContext(model_index=INDEX))
+        assert seen == {"steps": [2.8], "read_only": True}
+
+    def test_schema_has_no_state_fields(self) -> None:
+        reader = self.tools({})[1]
+        assert set(reader.tool_call_schema.model_json_schema()["properties"]) == {"output_id"}
+
+    def test_async_tool_cannot_need_state(self) -> None:
+        async def acall(args: ProbeArgs, ctx: Any) -> ToolSuccess:
+            return ToolSuccess(result="x")
+
+        with pytest.raises(ValueError, match="needs_state"):
+            ToolSpec("bad", "Плохо", ProbeArgs, acall=acall, needs_state=True)
+
+
 class TestTransientFailures:
     """S2.5 design D4: engine_unavailable leaves the adapter as an exception, so ToolRetryMiddleware sees it."""
 
@@ -158,6 +199,30 @@ class TestCatalog:
         catalog = default_catalog()
         assert {t.name for t in catalog.base_tools()} >= {"run_scenarios", "find_input_for_target"}
         assert catalog.engine_tool_names() >= {"run_scenarios", "find_input_for_target"}
+
+    def test_reads_and_derive_are_base_without_engine(self) -> None:
+        """S1.7 «Чтения и derive в базовом наборе»."""
+        catalog = default_catalog()
+        reads = {"get_values", "describe_model", "derive"}
+        assert {t.name for t in catalog.base_tools()} >= reads
+        assert not reads & catalog.engine_tool_names()
+
+    async def test_model_sees_at_most_eight_tools(self, tmp_path: Any) -> None:
+        """AR-Q6: base catalog + plan and file tools of the assembled agent."""
+        from tests.unit.v2.fakes import uploaded_store
+
+        from aigw_service.api.v2.context import RequestContext
+        from aigw_service.api.v2.factory import AgentFactory
+
+        model = ScriptedChatModel(steps=[AIMessage("ок")])
+        store = await uploaded_store("u1", INDEX, str(tmp_path))
+        agent = AgentFactory(
+            model, default_catalog(), store=store, upload_dir=str(tmp_path), plan_mode="off", pinned_skills=()
+        ).build()
+        await agent.ainvoke({"messages": [HumanMessage("ход")]}, context=RequestContext(user_id="u1", session_id="s1"))
+        tools = set(model.calls[0]["tools"])
+        assert {"write_todos", "read_file", "get_values", "describe_model", "derive"} <= tools
+        assert len(tools) <= 8
 
     def test_no_service_fields_in_any_schema(self) -> None:
         catalog = default_catalog()

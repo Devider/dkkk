@@ -61,6 +61,33 @@ class TestIndexBuilder:
         assert methanex.output_years[ebitda][0] == 2018
         assert methanex.output_years[empty] == ()
 
+    def test_output_values_units_and_types(self, methanex: ModelIndex) -> None:
+        revenue = next(k for k, v in methanex.outputs.items() if v == "Выручка")
+        assert methanex.output_values[revenue][2018] == pytest.approx(3931.847)
+        assert methanex.units[revenue] == "USD млн"
+        assert methanex.output_types[revenue] == "Общий (обязательный)"
+        growth = next(k for k, v in methanex.inputs.items() if v == "Рост реального ВВП")
+        assert methanex.units[growth] == "%"
+
+    def test_placeholder_unit_is_skipped(self, methanex: ModelIndex) -> None:
+        assert "[требуется заполнить]" not in set(methanex.units.values())
+
+    def test_registry_round_trip_keeps_new_fields(self, methanex: ModelIndex) -> None:
+        from aigw_service.api.v2.turn.registry import _dump, _load
+
+        restored = _load(_dump(methanex))
+        assert restored.output_values == methanex.output_values
+        assert restored.units == methanex.units
+        assert restored.output_types == methanex.output_types
+
+    def test_registry_record_without_new_fields(self) -> None:
+        from aigw_service.api.v2.turn.registry import _load
+
+        old = {"inputs": {"IN0": "a"}, "outputs": {"OUT0": "b"}, "input_values": {}, "output_years": {"OUT0": [2026]}}
+        index = _load(old)
+        assert dict(index.output_values) == {}
+        assert dict(index.units) == {}
+
 
 class TestMaxGridSetting:
     def test_default_and_override(self, monkeypatch: pytest.MonkeyPatch) -> None:

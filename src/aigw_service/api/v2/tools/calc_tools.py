@@ -72,7 +72,7 @@ async def run_scenarios(args: RunScenariosArgs, ctx: ToolContext) -> ToolSuccess
         steps=[i.step for i in args.inputs],
         user_id=None,  # the path already identifies the user's file (S0.7 D2)
     )
-    return scenarios_envelope(result, input_names)
+    return scenarios_envelope(result, input_names, [index.unit(i.id) for i in args.inputs])
 
 
 async def find_input_for_target(args: FindInputForTargetArgs, ctx: ToolContext) -> ToolSuccess | ToolFailure:
@@ -104,11 +104,19 @@ def _finite(value: Any) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def scenarios_envelope(result: ExcelAnalysisToolResult, input_names: list[str]) -> ToolSuccess | ToolFailure:
+def _grid_values(rows: list[dict[str, Any]], name: str) -> list[float]:
+    """Distinct finite values of one input over the grid, in grid order."""
+    values = (_finite(row.get(name)) for row in rows)
+    return list(dict.fromkeys(v for v in values if v is not None))
+
+
+def scenarios_envelope(
+    result: ExcelAnalysisToolResult, input_names: list[str], input_units: list[str | None] | None = None
+) -> ToolSuccess | ToolFailure:
     """Grid rows in ``data.rows``; every output value in ``numbers`` labelled with its scenario.
 
     ``numbers`` start with the minimum and maximum of each output, so a cut list in an offloaded result keeps them
-    (S1.6 design D3).
+    (S1.6 design D3); then each grid value of each input once, so ``derive`` and the answer can rely on it (S1.7 D5).
     """
     failed = classify_v1(result.status, result.result)
     if failed:
@@ -130,7 +138,13 @@ def scenarios_envelope(result: ExcelAnalysisToolResult, input_names: list[str]) 
             high = at if number > numbers[high].value else high
             extremes[column] = (low, high)
     first = list(dict.fromkeys(i for pair in extremes.values() for i in pair))
-    ordered = [numbers[i] for i in first] + [n for i, n in enumerate(numbers) if i not in set(first)]
+    units = input_units or [None] * len(input_names)
+    grid = [
+        Number(value=value, label=f"{name}, значение в сетке", unit=unit)
+        for name, unit in zip(input_names, units, strict=True)
+        for value in _grid_values(rows, name)
+    ]
+    ordered = [numbers[i] for i in first] + grid + [n for i, n in enumerate(numbers) if i not in set(first)]
     summary = f"Сценариев: {len(rows)}." + "".join(
         f" {col}: от {numbers[lo].value} до {numbers[hi].value}." for col, (lo, hi) in extremes.items()
     )

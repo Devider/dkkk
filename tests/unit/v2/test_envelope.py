@@ -167,6 +167,28 @@ class TestCalcEnvelopes:
         assert ebitda == [714.427, 1435.268, 1074.847]  # S1.6 design D3: minimum and maximum first
         assert Number(value=714.427, label="EBITDA_2026 при Метанол = 300.0") in envelope.numbers
 
+    def test_grid_values_follow_extremes(self) -> None:
+        """S1.7 design D5: each grid value once, after the minimum and maximum of every output."""
+        envelope = scenarios_envelope(ema_result(), ["Метанол"], ["USD/т"])
+        labels = [n.label for n in envelope.numbers]
+        grid_at = [i for i, label in enumerate(labels) if label == "Метанол, значение в сетке"]
+        outputs = {label.split(" при ")[0] for label in labels if " при " in label}
+        assert grid_at == list(range(2 * len(outputs), 2 * len(outputs) + 3))
+        grid = [envelope.numbers[i] for i in grid_at]
+        assert [n.value for n in grid] == sorted({n.value for n in grid}, key=[n.value for n in grid].index)
+        assert {n.unit for n in grid} == {"USD/т"}
+
+    def test_derive_crossing_over_scenarios(self) -> None:
+        """Every x and y of a run_scenarios result is a source for derive (S1.7 task 5.1)."""
+        from aigw_service.api.v2.tools.derive import DeriveArgs, derive
+
+        envelope = scenarios_envelope(ema_result(), ["Метанол"])
+        step = {"numbers": [n.model_dump() for n in envelope.numbers]}
+        points = [{"x": row["Метанол"], "y": row["EBITDA_2026"]} for row in envelope.data["rows"]]
+        args = DeriveArgs(operation="crossing", threshold=points[0]["y"], points=points)
+        out = derive(args, None, {"step_results": [step]})  # type: ignore[arg-type]
+        assert out.numbers[0].value == points[0]["x"]
+
     def test_scenarios_without_frame_keep_summary(self) -> None:
         envelope = scenarios_envelope(ema_result(with_frame=False), ["Метанол"])
         assert envelope.data["rows"] == []

@@ -30,15 +30,26 @@ def _dump(index: ModelIndex) -> dict[str, Any]:
         "outputs": dict(index.outputs),
         "input_values": {k: {str(y): v for y, v in vals.items()} for k, vals in index.input_values.items()},
         "output_years": {k: list(v) for k, v in index.output_years.items()},
+        "output_values": {k: {str(y): v for y, v in vals.items()} for k, vals in index.output_values.items()},
+        "units": dict(index.units),
+        "output_types": dict(index.output_types),
     }
 
 
+def _years(raw: dict[str, Any]) -> dict[str, dict[int, float]]:
+    return {k: {int(y): v for y, v in vals.items()} for k, vals in raw.items()}
+
+
 def _load(raw: dict[str, Any]) -> ModelIndex:
+    # Records written before S1.7 have no values, units or types of outputs
     return ModelIndex(
         raw["inputs"],
         raw["outputs"],
-        {k: {int(y): v for y, v in vals.items()} for k, vals in raw["input_values"].items()},
+        _years(raw["input_values"]),
         {k: tuple(v) for k, v in raw["output_years"].items()},
+        _years(raw.get("output_values") or {}),
+        raw.get("units") or {},
+        raw.get("output_types") or {},
     )
 
 

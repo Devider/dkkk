@@ -243,10 +243,10 @@ class TestInAgent:
         ]
         (step,) = first["step_results"]
         assert step["ref"] == ref
-        assert len(step["numbers"]) == 201
+        assert len(step["numbers"]) == 201 * 2  # outputs by scenario + grid values (S1.7 D5)
 
         steps = [
-            tool_call("read_file", "r1", file_path=ref, limit=2000),
+            tool_call("read_file", "r1", file_path=ref, limit=5000),
             tool_call("read_file", "r2", file_path=ref, offset=10, limit=5),
             AIMessage("ок"),
         ]
@@ -254,7 +254,7 @@ class TestInAgent:
         whole, page = messages_of(second, "read_file")
         full = json.loads(file_text(whole))
         assert len(full["data"]["rows"]) == 201
-        assert len(full["numbers"]) == 201
+        assert len(full["numbers"]) == 201 * 2
         assert len(file_text(page).splitlines()) == 5
 
     async def test_short_result_has_no_ref(self, tmp_path: Path, domain: list) -> None:
@@ -291,7 +291,7 @@ class TestInAgent:
         (step,) = second["step_results"]
         assert step["call_id"] == "c2"
         assert step["ref"] == first["step_results"][0]["ref"]
-        assert len(step["numbers"]) == 201
+        assert len(step["numbers"]) == 201 * 2  # outputs by scenario + grid values (S1.7 D5)
 
     async def test_runtime_store_is_the_service_store(self, tmp_path: Path) -> None:
         store = await uploaded_store("u1", INDEX, str(tmp_path))
