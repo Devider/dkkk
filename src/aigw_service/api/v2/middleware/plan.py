@@ -16,7 +16,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any, Literal, NotRequired
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse, hook_config
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
@@ -24,6 +24,7 @@ from aigw_service.api.v2.middleware.limits import limit_hit, turn_timeout
 from aigw_service.api.v2.middleware.todos import OPEN, PlanState, plan_text
 from aigw_service.api.v2.prompts.middleware import LIMIT_REASON, TIMEOUT_REASON
 from aigw_service.api.v2.tools.envelope import ErrorCode, failure, to_json
+from aigw_service.api.v2.tools.grounding import agent_note
 
 PlanMode = Literal["always", "auto"]
 
@@ -51,6 +52,13 @@ def _allowed_without_plan(tool_call: dict[str, Any]) -> bool:
     args = tool_call.get("args") or {}
     path = str(args.get("file_path") or args.get("path") or "")
     return path.startswith(SKILLS_ROOT) and ".." not in path
+
+
+def final_answer(state: dict[str, Any]) -> AIMessage | None:
+    """The last message when it is a model answer without tool calls (what the ``after_model`` guards check)."""
+    messages = state.get("messages") or []
+    answer = messages[-1] if messages else None
+    return answer if isinstance(answer, AIMessage) and not answer.tool_calls else None
 
 
 def _has_tool_calls(response: ModelResponse | AIMessage) -> bool:
@@ -146,9 +154,8 @@ class PlanCompletionGuard(AgentMiddleware):
 
     @hook_config(can_jump_to=["model"])
     def after_model(self, state: dict[str, Any], runtime: Any) -> dict[str, Any] | None:
-        messages = state.get("messages") or []
-        answer = messages[-1] if messages else None
-        if not isinstance(answer, AIMessage) or answer.tool_calls:
+        answer = final_answer(state)
+        if answer is None:
             return None
         todos = state.get("todos") or []
         open_steps = [t for t in todos if t.get("status") in OPEN]
@@ -159,7 +166,7 @@ class PlanCompletionGuard(AgentMiddleware):
         exhausted = limit_hit(state)  # FR-9: the partial answer is final, no reminders
         if returns < self.max_returns and not exhausted:
             return {
-                "messages": [HumanMessage(REMINDER.format(steps=plan_text(open_steps)))],
+                "messages": [agent_note(REMINDER.format(steps=plan_text(open_steps)))],
                 "guard_counters": {**counters, "plan_returns": returns + 1},
                 "jump_to": "model",
             }

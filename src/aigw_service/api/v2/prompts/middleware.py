@@ -72,3 +72,15 @@ TIMEOUT_REASON = "Истекло время хода"
 
 CANCELLED_ANSWER = "Ход прерван: соединение с клиентом закрыто до получения ответа."
 """Stays in the session history, so the next turn sees the previous one was not finished."""
+
+# AnswerGroundingGuard (FR-13): the return to the model and the caveat after unconfirmed numbers are removed
+GROUNDING_REMINDER = """\
+В ответе есть числа, которых нет в результатах инструментов и в сообщениях пользователя: {numbers}. \
+Получи каждое инструментом (разницу, процент изменения, запас до порога — через `derive`) или убери его из ответа. \
+Затем дай финальный ответ заново.
+"""
+
+GROUNDING_CAVEAT = "Часть чисел убрана из ответа: они не подтверждены результатами расчёта."
+
+GROUNDING_PLACEHOLDER = "н/д"
+"""Replaces each unconfirmed number, with its ``%`` sign."""

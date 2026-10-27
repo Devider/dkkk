@@ -34,6 +34,13 @@ class AgentSettings(BaseAppSettings):
         ge=0,
         validation_alias="AGENT_PLAN_MAX_RETURNS",
     )
+    # AnswerGroundingGuard (FR-13): how many times an answer with unconfirmed numbers goes back to the model;
+    # then each such number becomes «н/д» with a caveat (0 — at once)
+    grounding_max_returns: int = Field(
+        default=1,
+        ge=0,
+        validation_alias="AGENT_GROUNDING_MAX_RETURNS",
+    )
 
     # Retry — количество попыток вызова LLM при транзитных ошибках
     llm_retry_attempts: int = Field(

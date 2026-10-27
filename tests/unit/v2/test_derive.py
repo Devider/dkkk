@@ -31,7 +31,7 @@ from aigw_service.api.v2.tools.derive import (
     pct_change,
 )
 from aigw_service.api.v2.tools.envelope import ErrorCode, ToolError
-from aigw_service.api.v2.tools.grounding import Source, collect_sources, match, numbers_in_text
+from aigw_service.api.v2.tools.grounding import Source, agent_note, collect_sources, match, numbers_in_text
 
 finite = st.floats(min_value=-1e9, max_value=1e9, allow_nan=False, allow_infinity=False)
 nonzero = finite.filter(lambda v: abs(v) > 1e-6)
@@ -140,6 +140,18 @@ class TestSources:
     )
     def test_numbers_in_text(self, text: str, values: list[float]) -> None:
         assert [s.value for s in numbers_in_text(text, "msg")] == values
+
+    def test_match_keeps_the_sign(self) -> None:
+        """S4.1 regression: the answer check ignores the sign, ``derive`` operands do not."""
+        assert match(30.0, [Source(-30.0, "a")]) is None
+        assert match(-30.0, [Source(-30.0, "a")]) == Source(-30.0, "a")
+        assert match(2.81, [Source(2.8134, "a")]) == Source(2.8134, "a")
+
+    def test_agent_notes_are_not_sources(self) -> None:
+        """S4.1: guard reminders and pinned skill texts are in the user's role but are not the user's words."""
+        skill = HumanMessage("Вывод — 1–3 предложения, порог 4,5", additional_kwargs={"lc_source": "pinned_skill"})
+        messages = [HumanMessage("Порог 3,5x"), skill, agent_note("Чисел 57,4 нет в результатах")]
+        assert [s.value for s in collect_sources({"messages": messages})] == [3.5]
 
     def test_percent_after_number_is_a_unit(self) -> None:
         assert numbers_in_text("15 %", "msg")[0].unit == "%"

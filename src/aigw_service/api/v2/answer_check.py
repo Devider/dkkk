@@ -1,12 +1,14 @@
-"""Answer checks shared by tests and eval (FR-12 structure, FR-14 hygiene); deterministic, no LLM.
+"""Answer checks shared by tests, eval and AnswerGroundingGuard (FR-12, FR-13, FR-14); deterministic, no LLM.
 
 ``structure_issues`` applies to an analytic answer (one with at least one section heading, ``is_analytic``);
 ``hygiene_issues`` applies to every answer. Each returns human-readable violations, empty when the answer passes.
+``unconfirmed_numbers`` returns the numbers of an answer no source of the turn confirms (FR-13).
 """
 
 import re
 
 from aigw_service.api.v2.tools.envelope import ErrorCode
+from aigw_service.api.v2.tools.grounding import Mention, Source, answer_numbers, confirm
 
 SECTIONS = ("Вывод", "Ключевые цифры", "Анализ", "Где в модели", "Оговорки")
 MAX_CONCLUSION_SENTENCES = 3
@@ -31,7 +33,7 @@ _TRACEBACK = re.compile(r"Traceback \(most recent call last\)|File \"[^\"]+\", l
 _CYRILLIC = re.compile(r"[а-яё]", re.IGNORECASE)
 
 
-def _sections(text: str) -> list[tuple[str, int, int]]:
+def sections(text: str) -> list[tuple[str, int, int]]:
     """Known section headings in order of appearance: ``(name, heading_start, body_start)``."""
     found = []
     for match in _HEADING.finditer(text):
@@ -43,7 +45,7 @@ def _sections(text: str) -> list[tuple[str, int, int]]:
 
 
 def is_analytic(text: str) -> bool:
-    return bool(_sections(text))
+    return bool(sections(text))
 
 
 def _sentences(text: str) -> int:
@@ -56,7 +58,7 @@ def _sentences(text: str) -> int:
 
 def structure_issues(text: str) -> list[str]:
     """FR-12: «Вывод» first, sections in order and once each, 1–3 sentence conclusion, a table in the numbers."""
-    found = _sections(text)
+    found = sections(text)
     names = [name for name, _, _ in found]
     issues: list[str] = []
     if "Вывод" not in names:
@@ -94,3 +96,8 @@ def hygiene_issues(text: str) -> list[str]:
         issues.append("ID индекса: " + ", ".join(ids))
     issues.extend(f"имя инструмента {t}" for t in SERVICE_TOOLS if re.search(rf"\b{t}\b", text))
     return issues
+
+
+def unconfirmed_numbers(text: str, sources: list[Source]) -> list[Mention]:
+    """FR-13: checked numbers of the answer with no source (``collect_sources`` of the turn), in order."""
+    return [m for m in answer_numbers(text) if confirm(m, sources) is None]

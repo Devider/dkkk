@@ -20,6 +20,7 @@ from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import AgentFactory
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.cancellation import Cancellation
+from aigw_service.api.v2.middleware.grounding import AnswerGroundingGuard
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
@@ -275,6 +276,7 @@ class TestFactory:
             CalcCache,
             ToolErrorMiddleware,
             ToolRetryMiddleware,
+            AnswerGroundingGuard,  # S4.1: §8 №18, above PlanCompletionGuard
             PlanCompletionGuard,
             TurnSummary,
         ]

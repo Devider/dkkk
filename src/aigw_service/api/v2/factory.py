@@ -13,6 +13,7 @@ from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.cancellation import Cancellation
 from aigw_service.api.v2.middleware.files import file_backend, files_middleware, skills_middleware
+from aigw_service.api.v2.middleware.grounding import AnswerGroundingGuard
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
@@ -86,6 +87,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             tool_errors(),  # §8 №16: exception → envelope; StopEvent passes through
             engine_retry(engine_tools),  # §8 №17: one retry on engine_unavailable
             *self.extra_middleware,
+            AnswerGroundingGuard(settings.grounding_max_returns),  # §8 №18, FR-13: in every plan mode
             *guard,  # after_* hooks run bottom-up, the plan is checked first
             TurnSummary(),  # §8 №20: dialog memory in the prompt, the turn's digest after it (FR-16)
         ]
