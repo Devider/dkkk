@@ -19,6 +19,7 @@ from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import AgentFactory
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
+from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.todos import PlanStep, PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.middleware.turn_summary import TurnSummary
@@ -259,6 +260,7 @@ class TestFactory:
         assert [type(m) for m in stack] == [
             TurnContext,
             LanguageGuard,
+            StopEventGuard,
             SkillsMiddleware,
             FilesystemMiddleware,
             PlanTodoList,
@@ -266,7 +268,7 @@ class TestFactory:
             PlanCompletionGuard,
             TurnSummary,
         ]
-        assert stack[5].mode == "always"
+        assert stack[6].mode == "always"
 
     def test_off_installs_nothing(self) -> None:
         from aigw_service.api.v2.tools.catalog import default_catalog  # pylint: disable=import-outside-toplevel

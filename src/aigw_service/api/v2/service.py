@@ -6,13 +6,15 @@ from langchain_core.messages import HumanMessage
 
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import get_agent_v2
+from aigw_service.api.v2.turn.lock import TURN_LOCKS, TurnLocks
 
 
 class AgentV2:
     """What ``router.get_agent`` returns when ``AGENT_ENGINE=v2``."""
 
-    def __init__(self, agent: Any = None) -> None:
+    def __init__(self, agent: Any = None, locks: TurnLocks = TURN_LOCKS) -> None:
         self._agent = agent
+        self._locks = locks
 
     @property
     def agent(self) -> Any:
@@ -21,6 +23,7 @@ class AgentV2:
         return self._agent
 
     async def answer(self, message: str, context: RequestContext, config: dict[str, Any]) -> str:
-        result = await self.agent.ainvoke({"messages": [HumanMessage(message)]}, config=config, context=context)
+        with self._locks.hold(context.thread_id):  # TurnBusyError → HTTP 409 (FR-15)
+            result = await self.agent.ainvoke({"messages": [HumanMessage(message)]}, config=config, context=context)
         last = result["messages"][-1]
         return last.content if isinstance(last.content, str) else str(last.content)

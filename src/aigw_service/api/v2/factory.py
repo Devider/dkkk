@@ -13,6 +13,7 @@ from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.middleware.files import file_backend, files_middleware, skills_middleware
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
+from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.todos import PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.middleware.turn_summary import TurnSummary
@@ -62,6 +63,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             # §8 №1: workbook, index and card; no workbook — answer without LLM; pins skills (FR-12)
             TurnContext(store=self.store, upload_dir=self.upload_dir, pinned_skills=self.pinned_skills),
             LanguageGuard(),  # §8 №2: ru / en only, no LLM
+            StopEventGuard(),  # §8 №4: GigaChat StopEvent → StopEventError → HTTP 503, never retried
             skills_middleware(backend, self.catalog.skill_tools()),  # §8 №8: catalogue of skills, skill tools
             files_middleware(backend),  # §8 №9: read_file only (AR-Q14)
             PlanTodoList(),  # §8 №10: write_todos with skipped / blocked and a reason (FR-5)

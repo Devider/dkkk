@@ -19,6 +19,7 @@ from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependen
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.service import AgentV2
+from aigw_service.api.v2.turn.lock import TURN_BUSY_MESSAGE, TurnBusyError
 from aigw_service.api.v2.turn.registry import ModelRegistry
 from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
@@ -262,6 +263,12 @@ async def invoke_agent(
             headers={"Content-Disposition": f"attachment; filename=agent_response_{session_id}.zip"},
         )
 
+    except TurnBusyError:
+        logger.warning("Turn of {} is still running, request rejected with 409", thread_id)
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content=FailedDependencyResponse(error_description=TURN_BUSY_MESSAGE).model_dump(),
+        )
     except StopEventError as e:
         logger.error(
             "StopEvent: %s (url=%s, timestamp=%s)",
