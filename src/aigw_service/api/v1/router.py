@@ -218,6 +218,9 @@ async def invoke_agent(
                 "client_id": x_client_id,
                 "langfuse_session_id": thread_id,
                 "endpoint": "/invoke-agent",
+                # AR-Q13 (S4.3 D2): keys the Langfuse handler reads; the old ones above stay for dashboards
+                "langfuse_user_id": user_id,
+                "langfuse_tags": [f"agent_engine={'v2' if isinstance(agent, AgentV2) else 'v1'}"],
             },
         }
         if cb_handler is not None:

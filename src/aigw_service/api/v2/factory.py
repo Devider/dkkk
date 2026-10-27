@@ -21,6 +21,7 @@ from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGu
 from aigw_service.api.v2.middleware.resilience import engine_retry, model_retry, tool_errors
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.summarization import ContextBudget, summarization_middleware
+from aigw_service.api.v2.middleware.telemetry import Telemetry
 from aigw_service.api.v2.middleware.todos import PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.middleware.turn_summary import TurnSummary
@@ -80,6 +81,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             LanguageGuard(),  # §8 №2: ru / en only, no LLM
             Cancellation(),  # §8 №3: turn deadline and client disconnect stop the turn after the current call
             StopEventGuard(),  # §8 №4: GigaChat StopEvent → StopEventError → HTTP 503, never retried
+            Telemetry(),  # §8 №5 (S4.3 design D1): LLM CALL / TOOL CALL lines, one per logical call
             # §8 №7 (S2.7, design D1): compresses the request's history; inside StopEventGuard, outside limits
             summarization_middleware(self.model, backend, self.prompt_budget),
             skills_middleware(backend, self.catalog.skill_tools()),  # §8 №8: catalogue of skills, skill tools
