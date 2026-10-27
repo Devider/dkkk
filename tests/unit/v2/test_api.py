@@ -23,8 +23,10 @@ from aigw_service.api.v2.factory import AgentFactory
 from aigw_service.api.v2.middleware import cancellation
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.cancellation import Cancellation
+from aigw_service.api.v2.middleware.context_meter import ContextMeter
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.stop_event import STOP_EVENT_MESSAGE, StopEventGuard, stop_event
+from aigw_service.api.v2.middleware.summarization import CopilotSummarization
 from aigw_service.api.v2.middleware.turn_context import NO_MODEL_ANSWER
 from aigw_service.api.v2.prompts.middleware import CANCELLED_ANSWER
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
@@ -221,6 +223,9 @@ class TestStopEvent:
         assert names.index(StopEventGuard) < names.index(ModelRetryMiddleware)
         assert names.index(StopEventGuard) < names.index(ToolErrorMiddleware) < names.index(ToolRetryMiddleware)
         assert names.index(CalcCache) < names.index(ToolErrorMiddleware)
+        # S2.7: compression right inside StopEventGuard (§8 №7), the meter innermost (design D5)
+        assert names.index(CopilotSummarization) == names.index(StopEventGuard) + 1
+        assert names[-1] is ContextMeter
 
 
 class TestTurnLimitsAtApi:

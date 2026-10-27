@@ -39,10 +39,14 @@ def build_card(file_name: str, index: ModelIndex) -> dict[str, Any]:
     }
 
 
+CARD_HEADER = "## Загруженная модель"
+"""First line of the card block; ContextMeter finds the card layer by it."""
+
+
 def card_text(card: dict[str, Any], replaced: bool = False) -> str:
     """Prompt block; metric names are data from the workbook, not instructions."""
     lines = [
-        "## Загруженная модель",
+        CARD_HEADER,
         f"Файл: {card['file_name']}. Входов: {card['inputs']}, выходов: {card['outputs']}.",
     ]
     if card.get("years"):

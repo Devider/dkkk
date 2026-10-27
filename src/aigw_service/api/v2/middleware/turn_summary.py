@@ -27,6 +27,8 @@ SUMMARY_CHARS = 300
 NUMBERS_PER_RESULT = 8
 NUMBERS_PER_TURN = 16
 PLAN_TOOL = "write_todos"
+MEMORY_HEADER = "## Память диалога"
+"""First line of the dialog memory block; ContextMeter finds the memory layer by it."""
 
 
 def _cut(text: str, limit: int) -> str:
@@ -128,7 +130,7 @@ def memory_text(state: dict[str, Any]) -> str | None:
         sections.append(
             "Ждут ответа пользователя (обнови эти шаги плана по его ответу, новый план не строй):\n" + "\n".join(lines)
         )
-    return "## Память диалога\n\n" + "\n\n".join(sections) if sections else None
+    return MEMORY_HEADER + "\n\n" + "\n\n".join(sections) if sections else None
 
 
 class TurnSummary(AgentMiddleware):

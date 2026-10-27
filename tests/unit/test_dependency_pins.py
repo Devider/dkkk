@@ -77,3 +77,14 @@ class TestV2ApiEntryPoints:
     @pytest.mark.parametrize(("module", "attribute"), V2_API_ENTRY_POINTS)
     def test_entry_point_exists(self, module: str, attribute: str) -> None:
         assert hasattr(importlib.import_module(module), attribute), f"{module}.{attribute} is missing"
+
+    def test_summarization_internals_used_by_v2(self) -> None:
+        """S2.7 design D2, D4: the Russian summary message overrides a private method, TurnContext reads the event."""
+        import inspect  # pylint: disable=import-outside-toplevel
+
+        from deepagents.middleware import summarization  # pylint: disable=import-outside-toplevel
+
+        method = summarization.SummarizationMiddleware._build_new_messages_with_path  # pylint: disable=protected-access
+        assert list(inspect.signature(method).parameters) == ["self", "summary", "file_path"]
+        assert summarization.SUMMARIZATION_EVENT_KEY == "_summarization_event"
+        assert "summarizer" in inspect.signature(summarization.SummarizationMiddleware.__init__).parameters

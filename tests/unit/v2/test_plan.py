@@ -20,11 +20,13 @@ from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import AgentFactory
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.cancellation import Cancellation
+from aigw_service.api.v2.middleware.context_meter import ContextMeter
 from aigw_service.api.v2.middleware.grounding import AnswerGroundingGuard
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
+from aigw_service.api.v2.middleware.summarization import CopilotSummarization
 from aigw_service.api.v2.middleware.todos import PlanStep, PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.middleware.turn_summary import TurnSummary
@@ -267,6 +269,7 @@ class TestFactory:
             LanguageGuard,
             Cancellation,  # S2.8: §8 №3
             StopEventGuard,
+            CopilotSummarization,  # S2.7: §8 №7
             SkillsMiddleware,
             FilesystemMiddleware,
             PlanTodoList,
@@ -279,8 +282,9 @@ class TestFactory:
             AnswerGroundingGuard,  # S4.1: §8 №18, above PlanCompletionGuard
             PlanCompletionGuard,
             TurnSummary,
+            ContextMeter,  # S2.7: innermost model wrapper (design D5)
         ]
-        assert stack[7].mode == "always"
+        assert stack[8].mode == "always"
 
     def test_off_installs_nothing(self) -> None:
         from aigw_service.api.v2.tools.catalog import default_catalog  # pylint: disable=import-outside-toplevel

@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
@@ -19,12 +18,8 @@ from aigw_service.api.v2.middleware.prompt import append_block
 from aigw_service.api.v2.middleware.turn_summary import TurnSummary, build_summary, memory_text
 from aigw_service.api.v2.prompts.middleware import TODO_SYSTEM_PROMPT
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
-from aigw_service.api.v2.tools import calc_tools
-from aigw_service.api.v2.tools import resolve_terms as rt
 from aigw_service.api.v2.tools.catalog import default_catalog
-from aigw_service.api.v2.tools.resolve_terms import Pick
 from aigw_service.context import APP_CTX
-from excel_engine import ExcelAnalysisToolResult
 
 TERMS = [{"text": "метанол", "role": "input"}, {"text": "EBITDA", "role": "output"}]
 GRID = [{"id": "IN1", "min": 300, "max": 500, "step": 100}]
@@ -37,24 +32,6 @@ STEPS = [
 def plan(status: str, reason: str | None = None) -> list[dict]:
     step = {"content": "Сценарии EBITDA", "status": status} | ({"reason": reason} if reason else {})
     return [STEPS[0], step]
-
-
-@pytest.fixture
-def domain(monkeypatch: pytest.MonkeyPatch, inline_gate: Any) -> list[dict]:
-    """resolve_terms and the engine without LLM and LibreOffice; returns the engine calls."""
-    calls: list[dict] = []
-
-    async def analyzer(_message: str, _index: Any) -> list[Pick]:
-        return [Pick("input", "метанол", "IN1"), Pick("output", "EBITDA", "OUT0")]
-
-    def engine(**kw: Any) -> ExcelAnalysisToolResult:
-        calls.append(kw)
-        frame = pd.DataFrame({"Метанол": [300, 400, 500], "EBITDA": [1200.0, 1350.5, 1501.0]})
-        return ExcelAnalysisToolResult(status="OK", result="", content={"result_df": frame})
-
-    monkeypatch.setattr(rt, "analyze_with_v1", analyzer)
-    monkeypatch.setattr(calc_tools, "analyze_excel_model", engine)
-    return calls
 
 
 class Session:
@@ -335,4 +312,4 @@ class TestWiring:
 
     def test_summary_also_in_mode_off(self) -> None:
         stack = AgentFactory(ScriptedChatModel(steps=[]), default_catalog(), plan_mode="off").middleware()
-        assert isinstance(stack[-1], TurnSummary)
+        assert isinstance(stack[-2], TurnSummary)  # S2.7: only ContextMeter (no after_* hooks) is below it

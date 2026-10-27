@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from ..base_config import BaseAppSettings
 
@@ -86,9 +86,25 @@ class AgentSettings(BaseAppSettings):
         default=30,
         validation_alias="AGENT_MAX_MESSAGES",
     )
+    # Context budget of agent v2 (AR-Q6), tokens: history is summarized at summary_trigger of it,
+    # keeping a verbatim tail of summary_keep of it; the request without history is already ~5.6k tokens, so a budget
+    # under 20k would summarize on almost every call
     max_prompt_tokens: int = Field(
         default=30000,
+        ge=20000,
         validation_alias="AGENT_MAX_PROMPT_TOKENS",
+    )
+    summary_trigger: float = Field(
+        default=0.7,
+        gt=0,
+        lt=1,
+        validation_alias="AGENT_SUMMARY_TRIGGER",
+    )
+    summary_keep: float = Field(
+        default=0.3,
+        gt=0,
+        lt=1,
+        validation_alias="AGENT_SUMMARY_KEEP",
     )
     # Scenario grid size checked before the engine runs (spec §10 «Контракт» п. 2)
     max_grid: int = Field(
@@ -125,3 +141,10 @@ class AgentSettings(BaseAppSettings):
         default=False,
         validation_alias="AGENT_STOP_ON_ERROR",
     )
+
+    @model_validator(mode="after")
+    def _tail_below_trigger(self) -> "AgentSettings":
+        """The kept tail must be smaller than the threshold, or every call would summarize again (AR-Q6)."""
+        if self.summary_keep >= self.summary_trigger:
+            raise ValueError("AGENT_SUMMARY_KEEP must be less than AGENT_SUMMARY_TRIGGER")
+        return self

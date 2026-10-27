@@ -2,7 +2,8 @@
 
 ``before_agent`` puts the user's workbook path and the registry's index into ``RequestContext`` (the object the
 tools read) or ends the turn without an LLM call when nothing is uploaded; ``wrap_model_call`` appends the model
-card to the system prompt of every model call.
+card to the system prompt of every model call. ``before_model`` pins a pinned skill again once history compression
+pushed its text out of what the model sees (S2.7 design D4).
 """
 
 import asyncio
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from deepagents.middleware.summarization import SUMMARIZATION_EVENT_KEY
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, hook_config
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -70,10 +72,20 @@ class TurnContext(AgentMiddleware):
         index, card = found
         ctx.file_path, ctx.model_index, ctx.card = str(path), index, card
         update = self._turn_update(state, digest, card)
-        pins = [n for n in self.pinned_skills if not _pinned_in(state.get("messages") or [], n)]
+        pins = [n for n in self.pinned_skills if not _pinned_in(visible_messages(state), n)]
         if pins:  # §11 «Активация» п. 2: once per session, or again once history lost it (no piling copies)
             update["pinned_skills"] = pins
         return update
+
+    def before_model(self, state: dict[str, Any], runtime: Any) -> dict[str, Any] | None:
+        """Compression may hide a pinned skill mid-turn: SkillsMiddleware (№8, later) pins it before the call."""
+        waiting = set(state.get("pinned_skills") or [])
+        visible = visible_messages(state)
+        pins = [n for n in self.pinned_skills if n not in waiting and not _pinned_in(visible, n)]
+        return {"pinned_skills": pins} if pins else None
+
+    async def abefore_model(self, state: dict[str, Any], runtime: Any) -> dict[str, Any] | None:
+        return self.before_model(state, runtime)
 
     @staticmethod
     def _turn_update(state: dict[str, Any], digest: str, card: dict[str, Any]) -> dict[str, Any]:
@@ -103,6 +115,14 @@ class TurnContext(AgentMiddleware):
             replaced = model_ref.get("replaced_in_turn") == request.state.get("turn_id")
             request = request.override(system_message=append_block(request.system_message, card_text(card, replaced)))
         return await handler(request)
+
+
+def visible_messages(state: dict[str, Any]) -> list[Any]:
+    """The part of history the model sees: after the cutoff of the last compression (deepagents keeps the rest)."""
+    messages = list(state.get("messages") or [])
+    event = state.get(SUMMARIZATION_EVENT_KEY) or {}
+    cutoff = event.get("cutoff_index") if isinstance(event, dict) else None
+    return messages[cutoff:] if isinstance(cutoff, int) and cutoff > 0 else messages
 
 
 def _pinned_in(messages: list[Any], name: str) -> bool:

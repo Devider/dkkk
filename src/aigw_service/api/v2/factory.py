@@ -12,6 +12,7 @@ from langchain_core.language_models import BaseChatModel
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
 from aigw_service.api.v2.middleware.cancellation import Cancellation
+from aigw_service.api.v2.middleware.context_meter import ContextMeter
 from aigw_service.api.v2.middleware.files import file_backend, files_middleware, skills_middleware
 from aigw_service.api.v2.middleware.grounding import AnswerGroundingGuard
 from aigw_service.api.v2.middleware.language import LanguageGuard
@@ -19,6 +20,7 @@ from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
 from aigw_service.api.v2.middleware.resilience import engine_retry, model_retry, tool_errors
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
+from aigw_service.api.v2.middleware.summarization import ContextBudget, summarization_middleware
 from aigw_service.api.v2.middleware.todos import PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.middleware.turn_summary import TurnSummary
@@ -48,6 +50,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         plan_mode: str | None = None,
         skills_dir: Path | None = None,
         pinned_skills: Sequence[str] = DEFAULT_PINNED,
+        prompt_budget: ContextBudget | None = None,
     ) -> None:
         self.model = model
         self.store = store
@@ -58,6 +61,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         self.plan_mode = plan_mode or APP_CONFIG.agent.plan_mode
         self.skills_dir = skills_dir or SKILLS_DIR
         self.pinned_skills = tuple(pinned_skills)
+        self.prompt_budget = prompt_budget or ContextBudget.from_settings()
 
     def service_store(self) -> Any:
         """One store for ``/results/`` (read and write, S1.6), the registry and the calculation cache."""
@@ -76,6 +80,8 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             LanguageGuard(),  # §8 №2: ru / en only, no LLM
             Cancellation(),  # §8 №3: turn deadline and client disconnect stop the turn after the current call
             StopEventGuard(),  # §8 №4: GigaChat StopEvent → StopEventError → HTTP 503, never retried
+            # §8 №7 (S2.7, design D1): compresses the request's history; inside StopEventGuard, outside limits
+            summarization_middleware(self.model, backend, self.prompt_budget),
             skills_middleware(backend, self.catalog.skill_tools()),  # §8 №8: catalogue of skills, skill tools
             files_middleware(backend),  # §8 №9: read_file only (AR-Q14)
             PlanTodoList(),  # §8 №10: write_todos with skipped / blocked and a reason (FR-5)
@@ -90,6 +96,8 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             AnswerGroundingGuard(settings.grounding_max_returns),  # §8 №18, FR-13: in every plan mode
             *guard,  # after_* hooks run bottom-up, the plan is checked first
             TurnSummary(),  # §8 №20: dialog memory in the prompt, the turn's digest after it (FR-16)
+            # S2.7 design D5: innermost model wrapper, logs the layers of the request the model really gets
+            ContextMeter(self.prompt_budget.max_prompt_tokens),
         ]
 
     def build(self) -> Any:
