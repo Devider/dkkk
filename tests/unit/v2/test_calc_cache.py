@@ -9,6 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.store.memory import InMemoryStore
+from langgraph.types import Command
 from tests.unit.v2.fakes import uploaded_store
 from tests.unit.v2.test_prechecks import INDEX
 
@@ -182,4 +183,41 @@ class TestOtherWorkbook:
 
         await cache.awrap_tool_call(self.request("hash-a", "c1"), handler)
         await cache.awrap_tool_call(self.request("hash-a", "c2"), handler)
+        assert runs == ["c1", "c2"]
+
+
+class TestCommandResults:
+    """S1.6 design D7: the adapter answers with a Command; its message and step record are cached together."""
+
+    @staticmethod
+    def request(call_id: str) -> ToolCallRequest:
+        return TestOtherWorkbook.request("hash-a", call_id)
+
+    async def test_hit_replays_message_and_step(self) -> None:
+        cache = CalcCache({"run_scenarios"}, store=InMemoryStore())
+        ref = "/results/t1/c1.json"
+
+        async def handler(request: ToolCallRequest) -> Command:
+            call_id = request.tool_call["id"]
+            message = ToolMessage(f'{{"status": "ok", "result": "x", "ref": "{ref}"}}', tool_call_id=call_id)
+            return Command(update={"messages": [message], "step_results": [{"call_id": call_id, "ref": ref}]})
+
+        await cache.awrap_tool_call(self.request("c1"), handler)
+        hit = await cache.awrap_tool_call(self.request("c2"), lambda _r: pytest.fail("engine ran"))
+        assert isinstance(hit, Command)
+        (message,) = hit.update["messages"]
+        assert message.tool_call_id == "c2"
+        assert hit.update["step_results"] == [{"call_id": "c2", "ref": ref}]
+
+    async def test_other_state_updates_are_not_cached(self) -> None:
+        cache = CalcCache({"run_scenarios"}, store=InMemoryStore())
+        runs: list[str] = []
+
+        async def handler(request: ToolCallRequest) -> Command:
+            runs.append(request.tool_call["id"])
+            message = ToolMessage('{"status": "ok", "result": "x"}', tool_call_id=request.tool_call["id"])
+            return Command(update={"messages": [message], "resolved_terms": {"x": {}}})
+
+        await cache.awrap_tool_call(self.request("c1"), handler)
+        await cache.awrap_tool_call(self.request("c2"), handler)
         assert runs == ["c1", "c2"]

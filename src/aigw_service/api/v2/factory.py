@@ -58,13 +58,17 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         self.skills_dir = skills_dir or SKILLS_DIR
         self.pinned_skills = tuple(pinned_skills)
 
+    def service_store(self) -> Any:
+        """One store for ``/results/`` (read and write, S1.6), the registry and the calculation cache."""
+        return self.store if self.store is not None else APP_CTX.agent_memory.store
+
     def middleware(self) -> list[AgentMiddleware]:
         planned = self.plan_mode != "off"  # FR-4: off installs neither ForcePlanFirst nor PlanCompletionGuard
         force = [ForcePlanFirst(self.plan_mode)] if planned else []  # §8 №11
         guard = [PlanCompletionGuard(APP_CONFIG.agent.plan_max_returns)] if planned else []  # §8 №19, FR-8
         settings = APP_CONFIG.agent
         engine_tools = self.catalog.engine_tool_names()
-        backend = file_backend(self.skills_dir, self.store if self.store is not None else APP_CTX.agent_memory.store)
+        backend = file_backend(self.skills_dir, self.service_store())
         return [
             # §8 №1: workbook, index and card; no workbook — answer without LLM; pins skills (FR-12)
             TurnContext(store=self.store, upload_dir=self.upload_dir, pinned_skills=self.pinned_skills),
@@ -101,6 +105,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             state_schema=CopilotAgentState,
             context_schema=RequestContext,
             checkpointer=self.checkpointer,
+            store=self.service_store(),  # ToolRuntime.store: the adapter offloads long results here (ADR-7)
         )
 
 

@@ -14,16 +14,17 @@ from deepagents.middleware import FilesystemMiddleware, SkillsMiddleware
 from langchain_core.tools import BaseTool
 
 from aigw_service.api.v2.prompts.middleware import READ_FILE_DESCRIPTION, SKILLS_SYSTEM_PROMPT
+from aigw_service.api.v2.tools import offload
+from aigw_service.api.v2.tools.offload import RESULTS_ROUTE
 
 SKILLS_ROUTE = "/skills/"
-RESULTS_ROUTE = "/results/"
 EVICT_TOKENS = 20000
 """Built-in offload of long tool results: only a safety net, the adapter offloads first (ADR-7, S1.6)."""
 
 
 def results_namespace(runtime: Any) -> tuple[str, ...]:
     """Per user from the runtime context, so nobody reads another user's results (AR-Q7)."""
-    return ("results", runtime.context.user_id)
+    return offload.results_namespace(runtime.context.user_id)
 
 
 def file_backend(skills_dir: Path, store: Any) -> CompositeBackend:

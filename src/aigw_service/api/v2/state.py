@@ -1,6 +1,6 @@
 """Agent state of v2 (spec §9 «Состояние агента»), saved by the checkpointer.
 
-``todos`` comes from ``TodoListMiddleware``'s own state schema, ``resolved_terms`` from ``ToolsState``;
+``todos`` comes from ``TodoListMiddleware``'s own state schema, ``resolved_terms`` and ``step_results`` from ``ToolsState``;
 the remaining fields are declared here and written by the stories that own them.
 """
 
@@ -18,8 +18,6 @@ class CopilotAgentState(ToolsState):
     """Id of the user message this turn started with: the turn's messages follow it (TurnContext, S2.6)."""
     model_ref: NotRequired[dict[str, Any]]
     """``{file_name, file_hash}`` of the workbook the session works with (S2.2)."""
-    step_results: NotRequired[list[dict[str, Any]]]
-    """Compact results of this turn's tool calls (S1.6)."""
     guard_counters: NotRequired[dict[str, int]]
     """Per-turn counters of the guard middleware (S2.4, S4.1)."""
     turn_summaries: NotRequired[list[dict[str, Any]]]

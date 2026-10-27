@@ -17,7 +17,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from aigw_service.api.v2.middleware.prompt import append_block
 from aigw_service.api.v2.state import CopilotAgentState
-from aigw_service.api.v2.tools.state import RESET
+from aigw_service.api.v2.tools.state import RESET, STEPS_RESET
 from aigw_service.api.v2.turn.card import card_text
 from aigw_service.api.v2.turn.registry import ModelRegistry, file_hash
 from aigw_service.context import APP_CTX
@@ -79,7 +79,7 @@ class TurnContext(AgentMiddleware):
     def _turn_update(state: dict[str, Any], digest: str, card: dict[str, Any]) -> dict[str, Any]:
         """Spec §9 правила 1–2: per-turn fields reset; a new workbook drops terms and plan of the old one."""
         turn_id = uuid4().hex
-        update: dict[str, Any] = {"turn_id": turn_id, "step_results": [], "guard_counters": {}}
+        update: dict[str, Any] = {"turn_id": turn_id, "step_results": list(STEPS_RESET), "guard_counters": {}}
         asked = next((m for m in reversed(state.get("messages") or []) if isinstance(m, HumanMessage)), None)
         update["turn_message_id"] = asked.id if asked else None  # where this turn starts (TurnSummary)
         if not any(t.get("status") == BLOCKED for t in state.get("todos") or []):

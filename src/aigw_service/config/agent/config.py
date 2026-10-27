@@ -88,6 +88,12 @@ class AgentSettings(BaseAppSettings):
         default=400,
         validation_alias="AGENT_MAX_GRID",
     )
+    # Tool result offload (ADR-7, AR-Q6): a longer serialized envelope goes to /results/, the model gets a summary
+    result_max_chars: int = Field(
+        default=1500,
+        ge=500,
+        validation_alias="AGENT_RESULT_MAX_CHARS",
+    )
     # Engine pool (ADR-6): concurrent LibreOffice recalculations in the service and per-call timeout, seconds
     calc_workers: int = Field(
         default=2,

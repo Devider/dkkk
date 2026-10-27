@@ -248,6 +248,7 @@ class TestNoWriteOrExecute:
         )
         assert "/skills/" in READ_FILE_DESCRIPTION
         assert "/results/" in READ_FILE_DESCRIPTION
+        assert "`ref`" in READ_FILE_DESCRIPTION  # S1.6: where the path of a full result comes from
 
     @pytest.mark.parametrize(
         ("env", "stops"),

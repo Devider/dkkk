@@ -284,6 +284,17 @@ class TestMemoryBlock:
         )
         assert "Ждут ответа пользователя" in text
 
+    def test_offloaded_result_keeps_ref(self) -> None:
+        """FR-16 «Детали прошлого результата»: the summary and the memory block point to the full result."""
+        ref = "/results/t1/c1.json"
+        messages = [
+            HumanMessage("Сетка по метанолу", id="h1"),
+            ToolMessage(envelope(status="ok", result="Сценариев: 400.", ref=ref), tool_call_id="c1", name="run"),
+        ]
+        summary = build_summary(state_with(messages))
+        assert summary["results"][0]["ref"] == ref
+        assert f"Полный результат: {ref}." in memory_text({"turn_summaries": [summary]})
+
     def test_empty(self) -> None:
         assert memory_text({}) is None
 

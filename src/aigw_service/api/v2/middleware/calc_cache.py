@@ -3,6 +3,9 @@
 Key: the session (namespace), the workbook hash, the tool and its arguments normalised by the tool's schema — field
 order and explicit defaults do not matter. Only successful results are kept. It wraps the engine tools outside
 ``ToolErrorMiddleware`` and ``ToolRetryMiddleware``, so a hit runs neither the engine nor a retry.
+
+The adapter returns a ``Command`` with the message and its ``step_results`` entry (S1.6 design D7): both are kept, and
+a hit gives them back under the new call id with the same ``ref`` — the offloaded file stays in the user's store.
 """
 
 import hashlib
@@ -67,18 +70,37 @@ class CalcCache(AgentMiddleware):
         name = request.tool_call["name"]
         if cached is not None:
             logger.info("CalcCache hit {} [{}]", name, namespace[1])
-            return ToolMessage(cached.value["content"], tool_call_id=request.tool_call["id"], name=name)
+            return _replay(cached.value, request.tool_call["id"], name)
         result = await handler(request)
-        if _successful(result):
-            await self.store.aput(namespace, key, {"tool": name, "content": result.content})
+        entry = _cacheable(result)
+        if entry is not None:
+            await self.store.aput(namespace, key, {"tool": name, **entry})
         return result
 
 
-def _successful(result: ToolMessage | Command) -> bool:
-    """Only a plain successful envelope; errors and results with state updates are not cached."""
+def _replay(value: dict[str, Any], call_id: str, name: str) -> ToolMessage | Command:
+    message = ToolMessage(value["content"], tool_call_id=call_id, name=name)
+    step = value.get("step")
+    if step is None:  # an entry without the step record: just the message
+        return message
+    return Command(update={"messages": [message], "step_results": [{**step, "call_id": call_id}]})
+
+
+def _cacheable(result: ToolMessage | Command) -> dict[str, Any] | None:
+    """``{content, step}`` of a successful envelope; errors and other state updates (e.g. terms) are not cached."""
+    step = None
+    if isinstance(result, Command):
+        update = result.update if isinstance(result.update, dict) else None
+        if not update or set(update) - {"messages", "step_results"}:
+            return None
+        messages, steps = update.get("messages") or [], update.get("step_results") or []
+        if len(messages) != 1 or len(steps) > 1:
+            return None
+        result, step = messages[0], (steps[0] if steps else None)
     if not isinstance(result, ToolMessage) or result.status == "error" or not isinstance(result.content, str):
-        return False
+        return None
     try:
-        return json.loads(result.content).get("status") == "ok"
+        ok = json.loads(result.content).get("status") == "ok"
     except (ValueError, AttributeError):
-        return False
+        return None
+    return {"content": result.content, "step": step} if ok else None

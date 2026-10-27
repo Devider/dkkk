@@ -4,7 +4,8 @@
 each one logged); ``wrap_model_call`` shows the model resolved term IDs, past summaries and steps waiting for the
 user as a block of the system prompt — they live outside ``messages``, so history compression cannot drop them.
 
-Source of results until S1.6 brings ``step_results``: the turn's ``ToolMessage`` envelopes.
+Source of results: the turn's ``ToolMessage`` envelopes. An offloaded result keeps its ``ref``, so a later turn can
+read the full result with ``read_file`` instead of recalculating (S1.6 design D8).
 """
 
 import json
@@ -61,6 +62,8 @@ def _result(message: ToolMessage, budget: int) -> dict[str, Any]:
     ]
     if numbers:
         result["numbers"] = numbers
+    if envelope.get("ref"):
+        result["ref"] = envelope["ref"]
     return result
 
 
@@ -103,6 +106,8 @@ def _summary_line(i: int, summary: dict[str, Any]) -> str:
         parts.append(f"{r['tool']}{code} — {r['summary']}")
         if r.get("numbers"):
             parts.append("Числа: " + "; ".join(f"{n['label']}: {_number(n['value'])}" for n in r["numbers"]) + ".")
+        if r.get("ref"):
+            parts.append(f"Полный результат: {r['ref']}.")
     return " ".join(parts)
 
 

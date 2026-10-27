@@ -4,6 +4,9 @@ The model sees only the arguments of ``ToolSpec.args_schema``. The user, the wor
 index come from the turn context in ``runtime.context`` and never appear in a tool schema. Every result is
 an envelope (``envelope.py``); unexpected exceptions propagate to ``ToolErrorMiddleware`` (S2.5). A transient
 failure (``engine_unavailable``) is raised as ``ToolError`` so ``ToolRetryMiddleware`` can repeat the call.
+
+A result longer than ``AGENT_RESULT_MAX_CHARS`` is offloaded to ``/results/`` and the model gets a compact envelope
+(``offload.py``, ADR-7). Every call also records a ``step_results`` entry with all the numbers of the result (S1.6).
 """
 
 import asyncio
@@ -19,6 +22,8 @@ from pydantic import BaseModel
 
 from aigw_service.api.v2.tools.context import ToolContext
 from aigw_service.api.v2.tools.envelope import TRANSIENT_CODES, ToolError, ToolFailure, ToolSuccess, to_json
+from aigw_service.api.v2.tools.offload import offload
+from aigw_service.config import APP_CONFIG
 
 BASE = "base"
 """Availability of a tool the model always sees; a skill tool carries the skill name instead."""
@@ -58,10 +63,35 @@ def turn_context(runtime: ToolRuntime) -> ToolContext:
     return context
 
 
+def step_entry(
+    tool: str, runtime: ToolRuntime, envelope: ToolSuccess | ToolFailure, shown: ToolSuccess | ToolFailure
+) -> dict[str, Any]:
+    """``step_results`` record (spec §9): ``numbers`` come from the full envelope, ``ref`` from what the model saw."""
+    if isinstance(envelope, ToolFailure):
+        return {
+            "call_id": runtime.tool_call_id,
+            "tool": tool,
+            "status": envelope.status,
+            "code": str(envelope.code),
+            "summary": envelope.error,
+            "ref": None,
+            "numbers": [],
+        }
+    return {
+        "call_id": runtime.tool_call_id,
+        "tool": tool,
+        "status": envelope.status,
+        "code": None,
+        "summary": envelope.result,
+        "ref": shown.ref if isinstance(shown, ToolSuccess) else None,
+        "numbers": [n.model_dump(mode="json", exclude_none=True) for n in envelope.numbers],
+    }
+
+
 def build_tool(spec: ToolSpec) -> StructuredTool:
     """``StructuredTool`` whose schema is ``spec.args_schema``; ``runtime`` is injected by LangChain."""
 
-    async def run(runtime: ToolRuntime, **kwargs: Any) -> str | Command:
+    async def run(runtime: ToolRuntime, **kwargs: Any) -> Command:
         context = turn_context(runtime)
         args = spec.args_schema.model_validate(kwargs)
         try:
@@ -73,11 +103,24 @@ def build_tool(spec: ToolSpec) -> StructuredTool:
             envelope = exc.failure()
         if isinstance(envelope, ToolFailure) and envelope.code in TRANSIENT_CODES:
             raise ToolError(envelope.code, envelope.error, envelope.hint)
-        text = to_json(envelope)
+        shown: ToolSuccess | ToolFailure = envelope
+        if isinstance(envelope, ToolSuccess):
+            shown = await offload(
+                envelope,
+                store=runtime.store,
+                user_id=context.user_id,
+                turn_id=(runtime.state or {}).get("turn_id"),
+                call_id=runtime.tool_call_id,
+                limit=APP_CONFIG.agent.result_max_chars,
+            )
+        message = ToolMessage(to_json(shown), tool_call_id=runtime.tool_call_id, name=spec.name)
+        update: dict[str, Any] = {
+            "messages": [message],
+            "step_results": [step_entry(spec.name, runtime, envelope, shown)],
+        }
         if isinstance(envelope, ToolSuccess) and envelope.state_update:
-            message = ToolMessage(text, tool_call_id=runtime.tool_call_id, name=spec.name)
-            return Command(update={**envelope.state_update, "messages": [message]})
-        return text
+            update.update(envelope.state_update)
+        return Command(update=update)
 
     return StructuredTool.from_function(
         coroutine=run,

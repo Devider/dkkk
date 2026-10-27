@@ -105,13 +105,18 @@ def _finite(value: Any) -> float | None:
 
 
 def scenarios_envelope(result: ExcelAnalysisToolResult, input_names: list[str]) -> ToolSuccess | ToolFailure:
-    """Grid rows in ``data.rows``; every output value in ``numbers`` labelled with its scenario."""
+    """Grid rows in ``data.rows``; every output value in ``numbers`` labelled with its scenario.
+
+    ``numbers`` start with the minimum and maximum of each output, so a cut list in an offloaded result keeps them
+    (S1.6 design D3).
+    """
     failed = classify_v1(result.status, result.result)
     if failed:
         return failed
     frame = (result.content or {}).get("result_df")
     rows = frame.to_dict("records") if hasattr(frame, "to_dict") else []
-    numbers, ranges = [], {}
+    numbers: list[Number] = []
+    extremes: dict[str, tuple[int, int]] = {}  # output → positions in numbers of its minimum and maximum
     for row in rows:
         scenario = ", ".join(f"{name} = {row.get(name)}" for name in input_names)
         for column, value in row.items():
@@ -119,10 +124,17 @@ def scenarios_envelope(result: ExcelAnalysisToolResult, input_names: list[str]) 
             if column in input_names or number is None:
                 continue
             numbers.append(Number(value=number, label=f"{column} при {scenario}"))
-            low, high = ranges.get(column, (number, number))
-            ranges[column] = (min(low, number), max(high, number))
-    summary = f"Сценариев: {len(rows)}." + "".join(f" {col}: от {lo} до {hi}." for col, (lo, hi) in ranges.items())
-    return ToolSuccess(result=summary if rows else result.result, data={"rows": rows}, numbers=numbers)
+            at = len(numbers) - 1
+            low, high = extremes.get(column, (at, at))
+            low = at if number < numbers[low].value else low
+            high = at if number > numbers[high].value else high
+            extremes[column] = (low, high)
+    first = list(dict.fromkeys(i for pair in extremes.values() for i in pair))
+    ordered = [numbers[i] for i in first] + [n for i, n in enumerate(numbers) if i not in set(first)]
+    summary = f"Сценариев: {len(rows)}." + "".join(
+        f" {col}: от {numbers[lo].value} до {numbers[hi].value}." for col, (lo, hi) in extremes.items()
+    )
+    return ToolSuccess(result=summary if rows else result.result, data={"rows": rows}, numbers=ordered)
 
 
 def target_envelope(result: ModelInputAnalysisToolResult, output_name: str, year: int) -> ToolSuccess | ToolFailure:

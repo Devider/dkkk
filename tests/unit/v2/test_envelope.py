@@ -164,7 +164,7 @@ class TestCalcEnvelopes:
         envelope = scenarios_envelope(ema_result(), ["Метанол"])
         assert len(envelope.data["rows"]) == 3
         ebitda = [n.value for n in envelope.numbers if n.label.startswith("EBITDA_2026")]
-        assert ebitda == [714.427, 1074.847, 1435.268]
+        assert ebitda == [714.427, 1435.268, 1074.847]  # S1.6 design D3: minimum and maximum first
         assert Number(value=714.427, label="EBITDA_2026 при Метанол = 300.0") in envelope.numbers
 
     def test_scenarios_without_frame_keep_summary(self) -> None:
