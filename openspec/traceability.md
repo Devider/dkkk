@@ -47,7 +47,7 @@
 | AR-Q10 | Производительность, таймаут хода | agent-loop | S2.8 | S0.4, S5.3 | S2.8 ✓ (таймаут хода и частичный ответ; p50 / p90 — eval S5.3) |
 | AR-Q11 | Повторы LLM и движка, StopEvent → 503 | agent-loop | S2.5 | S0.2, S4.2 | S4.2 ✓ (StopEvent → 503 в v2), S2.5 ✓ (повторы LLM и движка; частичный ответ после исчерпания повторов LLM — не сделан); v1 — `fix-v1-stop-event-503` |
 | AR-Q12 | Отмена без сирот `soffice` | agent-loop | S2.8 | S1.5 | S2.8 ✓ (разрыв соединения через `receive()`, пул гасится в `lifespan`; сквозная проверка в Docker не делалась) |
-| AR-Q13 | Журнал, Langfuse, `TOOL ARGS` | agent-api | S4.3 | — | — |
+| AR-Q13 | Журнал, Langfuse, `TOOL ARGS` | agent-api | S4.3 | — | S4.3 ✓ (`Telemetry`: строки `LLM CALL` / `TOOL CALL` с кодами без текстов исключений; `langfuse_user_id` и тег `agent_engine`; дерево хода с вложенным смысловым слоем — тестами) (открыто: `TOOL ARGS` v1-формы и `run_tool_queries.py` на v2 — отложено решением разработчика; проверка трассы в self-hosted Langfuse — в контуре) |
 | AR-Q14 | Нет записи и `execute`; LangSmith запрещён | agent-skills | S3.1 | S4.3 | S3.1 ✓ (включая запрет LangSmith) |
 | AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | S2.1 ✓, S3.1 ✓ |
 
