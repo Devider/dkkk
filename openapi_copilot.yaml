@@ -27,7 +27,7 @@ paths:
           required: false
           schema:
             type: string
-            pattern: "^[A-Z]{2}\d{8}$"
+            pattern: '^[A-Z]{2}\d{8}$'
             maxLength: 10
           description: "КЭ системы отправляющей запрос."
           example: "CI00163870"
@@ -46,7 +46,7 @@ paths:
           schema:
             type: string
             format: date-time
-            pattern: "^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(?:\.\d+)?(?:([Zz])|([+-](?:[01][0-9]|2[0-3]):[0-5][0-9]))$"
+            pattern: '^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(?:\.\d+)?(?:([Zz])|([+-](?:[01][0-9]|2[0-3]):[0-5][0-9]))$'
             maxLength: 32
           description: "Время отправки запроса в формате RFC-3339 (ISO 8601)."
           example: "2025-04-08T11:31:45.748539+03:00"
@@ -133,6 +133,111 @@ paths:
                         type: "value_error.any_str.min_length"
       x-AI-ready: true
 
+  /copilot_agent/stream:
+    post:
+      operationId: invoke_copilot_stream
+      summary: "Потоковый вызов агента-копилота: ход агента событиями SSE."
+      description: |
+        Тот же ход агента, что у /copilot_agent, доставленный по частям (Server-Sent Events поверх POST).
+        Фронт читает поток через fetch + ReadableStream (EventSource не умеет POST и заголовки).
+
+        Кадр: строки `event: <тип>`, `id: <seq>`, `data: <JSON в одну строку>` и пустая строка.
+        `data` — объект одной из схем StreamEvent*; общие поля: `v` (версия схемы, сейчас 1), `seq` (номер с 1),
+        `ts` (RFC-3339), `trace_id`. Схема меняется только добавочно: новые необязательные поля и типы событий.
+
+        Пока событий нет, каждые `AGENT_STREAM_HEARTBEAT` с (по умолчанию 15) приходит комментарий SSE `: ping`
+        (его нужно пропускать).
+        Поток заканчивается ровно одним терминальным событием — `answer` (финальный ответ целиком, после всех
+        проверок) или `error` (`unavailable` — модель временно недоступна, `failed` — непредвиденная ошибка);
+        после него соединение закрывается. Ошибки до старта хода (422, 409) — обычные HTTP-ответы без потока.
+        Заголовок ответа `x-response-time` — время начала потока, а не конца хода.
+      tags:
+        - copilot
+      parameters:
+        - name: x-trace-id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+            pattern: "^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$"
+          description: "Уникальный идентификатор экземпляра процесса (основной операции). Сквозной ID всей цепочки вызовов."
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: x-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Z]{2}\d{8}$'
+            maxLength: 10
+          description: "КЭ системы отправляющей запрос."
+          example: "CI00163870"
+        - name: x-session-id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+            pattern: "^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$"
+          description: "ID пользовательской сессии. Можно использовать для сессий внутри AIGW (например, для БД)."
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        - name: x-request-time
+          in: header
+          required: true
+          schema:
+            type: string
+            format: date-time
+            pattern: '^(\d{4})-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])[Tt]([01][0-9]|2[0-3]):([0-5][0-9]):([0-5][0-9])(?:\.\d+)?(?:([Zz])|([+-](?:[01][0-9]|2[0-3]):[0-5][0-9]))$'
+            maxLength: 32
+          description: "Время отправки запроса в формате RFC-3339 (ISO 8601)."
+          example: "2025-04-08T11:31:45.748539+03:00"
+        - name: x-user-id
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+            pattern: "^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$"
+          description: "ID пользователя."
+          example: "123e4567-e89b-12d3-a456-426614174000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopilotAgentRequest'
+      responses:
+        '200':
+          description: "Поток событий хода (text/event-stream). Заголовки: Cache-Control: no-cache, X-Accel-Buffering: no."
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: "Последовательность кадров SSE; data каждого кадра — StreamEventData."
+              example: |
+                event: turn.started
+                id: 1
+                data: {"v": 1, "seq": 1, "ts": "2026-10-28T12:40:16.277+00:00", "trace_id": "123e4567-e89b-12d3-a456-426614174000", "session_id": "123e4567-e89b-12d3-a456-426614174000"}
+
+                event: tool.started
+                id: 2
+                data: {"v": 1, "seq": 2, "ts": "2026-10-28T12:40:16.301+00:00", "trace_id": "123e4567-e89b-12d3-a456-426614174000", "call": 1, "step": null, "label": "Считаю сценарии: EBITDA при Метанол от 300 до 500"}
+
+                : ping
+
+                event: answer
+                id: 3
+                data: {"v": 1, "seq": 3, "ts": "2026-10-28T12:40:21.034+00:00", "trace_id": "123e4567-e89b-12d3-a456-426614174000", "text": "EBITDA 2026 растёт с 1200 до 1501.", "outcome": "full"}
+        '409':
+          description: "Идёт предыдущий ход этой сессии; поток не открывается, вопрос нужно направить позже."
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FailedDependencyResponse'
+        '422':
+          description: "Неверные заголовки или тело; поток не открывается."
+      x-AI-ready: true
+
 components:
   schemas:
     CopilotAgentRequest:
@@ -175,6 +280,197 @@ components:
           type: string
           description: "Детали ошибки"
           example: "Database connection timeout"
+
+    StreamEventCommon:
+      type: object
+      required: [v, seq, ts, trace_id]
+      properties:
+        v:
+          type: integer
+          enum: [1]
+          description: "Версия схемы событий"
+        seq:
+          type: integer
+          minimum: 1
+          description: "Номер события в потоке, совпадает с id кадра"
+        ts:
+          type: string
+          format: date-time
+        trace_id:
+          type: string
+
+    StreamEventData:
+      description: "Поле data кадра SSE"
+      oneOf:
+        - $ref: '#/components/schemas/StreamEventTurnStarted'
+        - $ref: '#/components/schemas/StreamEventPhase'
+        - $ref: '#/components/schemas/StreamEventPlan'
+        - $ref: '#/components/schemas/StreamEventToolStarted'
+        - $ref: '#/components/schemas/StreamEventToolFinished'
+        - $ref: '#/components/schemas/StreamEventSummary'
+        - $ref: '#/components/schemas/StreamEventAnswer'
+        - $ref: '#/components/schemas/StreamEventError'
+
+    StreamEventTurnStarted:
+      description: "Ход начат"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [session_id]
+          properties:
+            event:
+              type: string
+              enum: ["turn.started"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            session_id:
+              type: string
+
+    StreamEventPhase:
+      description: "Смена фазы хода"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [phase, text]
+          properties:
+            event:
+              type: string
+              enum: ["phase"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            phase:
+              type: string
+              enum: ["planning", "executing", "checking", "answering"]
+            text:
+              type: string
+
+    StreamEventPlan:
+      description: "План хода при каждом изменении"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [steps]
+          properties:
+            event:
+              type: string
+              enum: ["plan"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            steps:
+              type: array
+              items:
+                type: object
+                required: [n, title, status]
+                properties:
+                  n:
+                    type: integer
+                  title:
+                    type: string
+                  status:
+                    type: string
+                    enum: ["pending", "in_progress", "completed", "skipped", "blocked"]
+                  reason:
+                    type: string
+                    nullable: true
+
+    StreamEventToolStarted:
+      description: "Начало шага расчёта"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [call, step, label]
+          properties:
+            event:
+              type: string
+              enum: ["tool.started"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            call:
+              type: integer
+            step:
+              type: integer
+              nullable: true
+            label:
+              type: string
+
+    StreamEventToolFinished:
+      description: "Конец шага расчёта"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [call, label, outcome, elapsed_s]
+          properties:
+            event:
+              type: string
+              enum: ["tool.finished"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            call:
+              type: integer
+            label:
+              type: string
+            outcome:
+              type: string
+              enum: ["ok", "retry", "failed"]
+            elapsed_s:
+              type: number
+            summary:
+              type: string
+              nullable: true
+              description: "Сводка шага, только при ok"
+            text:
+              type: string
+              nullable: true
+              description: "Что дальше, только при retry / failed"
+
+    StreamEventSummary:
+      description: "Итог хода перед answer, если в ходе был план"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [completed, skipped, blocked, text]
+          properties:
+            event:
+              type: string
+              enum: ["summary"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            completed:
+              type: integer
+            skipped:
+              type: integer
+            blocked:
+              type: integer
+            text:
+              type: string
+
+    StreamEventAnswer:
+      description: "Терминальное: финальный ответ целиком, после всех проверок"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [text, outcome]
+          properties:
+            event:
+              type: string
+              enum: ["answer"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            text:
+              type: string
+            outcome:
+              type: string
+              enum: ["full", "partial", "clarify", "refusal"]
+
+    StreamEventError:
+      description: "Терминальное: ход не дал ответа"
+      allOf:
+        - $ref: '#/components/schemas/StreamEventCommon'
+        - type: object
+          required: [kind, text]
+          properties:
+            event:
+              type: string
+              enum: ["error"]
+              description: "Тип события; в кадре — строка event:, в data не передаётся."
+            kind:
+              type: string
+              enum: ["unavailable", "failed"]
+            text:
+              type: string
 
   securitySchemes:
     ApiKeyAuth:
