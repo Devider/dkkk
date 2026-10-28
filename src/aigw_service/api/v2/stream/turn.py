@@ -71,7 +71,8 @@ class TurnStream:  # pylint: disable=too-many-instance-attributes  # one turn: a
             async for part in stream:
                 for draft in self._translator.feed(part):
                     self._put(draft)
-            self._put(self._translator.finish())
+            for draft in self._translator.finish():  # FR-23: the turn summary goes right before the answer
+                self._put(draft)
         except StopEventError as e:  # FR-25: GigaChat is temporarily unavailable
             logger.warning("Stream turn of {}: StopEvent", self.context.thread_id)
             self._put({"event": "error", "kind": "unavailable", "text": e.user_message})

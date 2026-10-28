@@ -15,7 +15,8 @@ from aigw_service.api.v2.middleware.todos import Status
 
 SCHEMA_VERSION = 1
 
-Phase = Literal["preparing", "planning", "executing", "checking", "answering"]
+Phase = Literal["planning", "executing", "checking", "answering"]
+"""No ``preparing``: nothing could emit it without breaking the refusal sequence (S6.4 design D7)."""
 ToolOutcome = Literal["ok", "retry", "failed"]
 AnswerOutcome = Literal["full", "partial", "clarify", "refusal"]
 ErrorKind = Literal["unavailable", "failed"]

@@ -25,6 +25,7 @@ from aigw_service.api.v2.middleware.grounding import AnswerGroundingGuard
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
+from aigw_service.api.v2.middleware.progress import ProgressReporter
 from aigw_service.api.v2.middleware.skill_gate import SkillToolGate
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.summarization import CopilotSummarization
@@ -283,6 +284,7 @@ class TestFactory:
             CalcCache,
             ToolErrorMiddleware,
             ToolRetryMiddleware,
+            ProgressReporter,  # S6.4: §8 №17а, inside the engine retry
             AnswerGroundingGuard,  # S4.1: §8 №18, above PlanCompletionGuard
             PlanCompletionGuard,
             TurnSummary,

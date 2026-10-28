@@ -1,8 +1,10 @@
-"""S6.2 (FR-22, FR-24, ADR-14): stream event schema, labels, code table, hygiene and StreamTranslator."""
+"""S6.2 (FR-22, FR-24, ADR-14) and S6.4 (FR-23): stream event schema, labels, summaries, hygiene, StreamTranslator."""
 
 import json
+import re
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from pathlib import Path
+from typing import Any, get_args
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -13,8 +15,11 @@ from aigw_service.api.v2.stream.events import (
     EVENT_TYPES,
     AnswerEvent,
     EventFactory,
+    Phase,
+    PhaseEvent,
     PlanEvent,
     ToolFinished,
+    TurnSummaryEvent,
 )
 from aigw_service.api.v2.stream.hygiene import violations
 from aigw_service.api.v2.stream.labels import (
@@ -22,10 +27,13 @@ from aigw_service.api.v2.stream.labels import (
     FAILURE_VIEW,
     PHASE_TEXT,
     RETRY_TEXT,
+    SUMMARY_MAX,
     failure_view,
     retry_text,
     scrub,
+    step_summary,
     tool_label,
+    turn_summary,
 )
 from aigw_service.api.v2.stream.translator import StreamTranslator
 from aigw_service.api.v2.tools.context import ModelIndex
@@ -278,6 +286,7 @@ class TestTranslatorUpdates:
                 "label": "Сопоставляю показатели: EBITDA",
                 "outcome": "ok",
                 "elapsed_s": 1.3,
+                "summary": "готово",
                 "text": None,
             }
         ]
@@ -346,7 +355,7 @@ class TestTranslatorAnswer:
         out = tr.feed(updates("model", messages=[AIMessage("Ответ", id="a1")]))
         assert out == [{"event": "phase", "phase": "checking", "text": PHASE_TEXT["checking"]}]
         assert tr.feed(updates("TurnSummary.after_agent", turn_summaries=[])) == []
-        assert tr.finish() == {"event": "answer", "text": "Ответ", "outcome": "full"}
+        assert tr.finish() == [{"event": "answer", "text": "Ответ", "outcome": "full"}]  # no plan — no summary
 
     def test_rejected_candidate_never_leaves(self, tr: StreamTranslator) -> None:
         drafts = tr.feed(updates("model", messages=[AIMessage("Ранний ответ 9999", id="a1")]))
@@ -355,7 +364,7 @@ class TestTranslatorAnswer:
         )
         drafts += tr.feed(calls(("get_values", "c5", {})))
         drafts += tr.feed(updates("model", messages=[AIMessage("Итог", id="a2")]))
-        drafts.append(tr.finish())
+        drafts += tr.finish()
         assert "Ранний ответ" not in json.dumps(drafts, ensure_ascii=False)
         assert "Напоминание" not in json.dumps(drafts, ensure_ascii=False)
         assert drafts[-1]["text"] == "Итог"
@@ -370,37 +379,37 @@ class TestTranslatorAnswer:
     def test_rewritten_with_same_id(self, tr: StreamTranslator) -> None:
         tr.feed(updates("model", messages=[AIMessage("EBITDA 9999", id="a1")]))
         tr.feed(updates("AnswerGroundingGuard.after_model", messages=[AIMessage("EBITDA н/д", id="a1")]))
-        assert tr.finish()["text"] == "EBITDA н/д"
+        assert tr.finish()[-1]["text"] == "EBITDA н/д"
 
     def test_other_ai_message_is_not_a_candidate(self, tr: StreamTranslator) -> None:
         tr.feed(updates("model", messages=[AIMessage("Ответ", id="a1")]))
         tr.feed(updates("SomeMiddleware.after_model", messages=[AIMessage("служебное", id="zz")]))
-        assert tr.finish()["text"] == "Ответ"
+        assert tr.finish()[-1]["text"] == "Ответ"
 
     @pytest.mark.parametrize("node", ["TurnContext.before_agent", "LanguageGuard.before_agent"])
     def test_refusal(self, tr: StreamTranslator, node: str) -> None:
         assert tr.feed(updates(node, messages=[AIMessage("Отказ")], jump_to="end")) == []
-        assert tr.finish() == {"event": "answer", "text": "Отказ", "outcome": "refusal"}
+        assert tr.finish() == [{"event": "answer", "text": "Отказ", "outcome": "refusal"}]
 
     def test_cancelled(self, tr: StreamTranslator) -> None:
         tr.feed(updates("Cancellation.before_model", messages=[AIMessage("Ход прерван")], jump_to="end"))
-        assert tr.finish()["outcome"] == "partial"
+        assert tr.finish()[-1]["outcome"] == "partial"
 
     @pytest.mark.parametrize("flag", [LIMIT_HIT, TURN_TIMEOUT])
     def test_partial(self, tr: StreamTranslator, flag: str) -> None:
         tr.feed(updates("TurnLimits.before_model", guard_counters={flag: 1}))
         tr.feed(updates("tools", todos=[{"content": "x", "status": "blocked", "reason": "r"}]))
         tr.feed(updates("model", messages=[AIMessage("Частично", id="a1")]))
-        assert tr.finish()["outcome"] == "partial"
+        assert tr.finish()[-1]["outcome"] == "partial"
 
     def test_clarify(self, tr: StreamTranslator) -> None:
         tr.feed(updates("tools", todos=[{"content": "Год", "status": "blocked", "reason": "Нет года"}]))
         tr.feed(updates("model", messages=[AIMessage("За какой год?", id="a1")]))
-        assert tr.finish()["outcome"] == "clarify"
+        assert tr.finish()[-1]["outcome"] == "clarify"
 
     def test_list_content(self, tr: StreamTranslator) -> None:
         tr.feed(updates("model", messages=[AIMessage([{"type": "text", "text": "x"}], id="a1")]))
-        assert tr.finish()["text"] == str([{"type": "text", "text": "x"}])
+        assert tr.finish()[-1]["text"] == str([{"type": "text", "text": "x"}])
 
 
 class TestTranslatorCustom:
@@ -435,3 +444,221 @@ class TestTranslatorCustom:
         assert tr.feed({"type": "custom", "data": "text"}) == []
         assert tr.feed({"type": "custom", "data": {"progress": "retry", "tool_call_id": "nope"}}) == []
         assert tr.feed({"type": "custom", "data": {"progress": "other"}}) == []
+
+
+NUMBER = re.compile(r"\d+(?:[ \u00a0]\d{3})*(?:[.,]\d+)?")
+
+
+def numbers_found_in(summary: str, result: str) -> bool:
+    """FR-23: every number of a summary is a whole number of the envelope's ``result``."""
+    whole = set(NUMBER.findall(result))
+    return all(n in whole for n in NUMBER.findall(summary))
+
+
+class TestStepSummary:
+    def test_short_result_as_is(self) -> None:
+        assert step_summary({"status": "ok", "result": "EBITDA 2026 при цене 300: 1 200 млн руб."}) == (
+            "EBITDA 2026 при цене 300: 1 200 млн руб."
+        )
+
+    @pytest.mark.parametrize(
+        "envelope",
+        [
+            None,
+            {"status": "error", "error": "x", "code": "ambiguous_term", "hint": "h"},
+            {"status": "ok"},
+            {"status": "ok", "result": 5},
+            {"status": "ok", "result": "IN12 /results/c1.json"},
+        ],
+    )
+    def test_none(self, envelope: Any) -> None:
+        assert step_summary(envelope) is None
+
+    def test_scrubbed(self) -> None:
+        text = step_summary(
+            {"status": "ok", "result": "Сценарии для IN12 и OUT3 посчитаны, полный результат /results/c4.json"}
+        )
+        assert text == "Сценарии для и посчитаны, полный результат"
+        assert (
+            violations(
+                make(
+                    [
+                        {
+                            "event": "tool.finished",
+                            "call": 1,
+                            "label": "x",
+                            "outcome": "ok",
+                            "elapsed_s": 0.1,
+                            "summary": text,
+                        }
+                    ]
+                )[0]
+            )
+            == []
+        )
+
+    def test_sentence_boundary(self) -> None:
+        result = "Первое предложение с числом 1 200 и запасом текста " * 4 + ". " + "хвост " * 60
+        text = step_summary({"status": "ok", "result": result})
+        assert text is not None
+        assert len(text) <= SUMMARY_MAX
+        assert text.endswith("…")
+        assert "хвост" not in text
+
+    @pytest.mark.parametrize("shift", range(12))
+    def test_number_never_cut(self, shift: int) -> None:
+        result = "а" * (290 + shift) + " значение 1 234 567,89 млн руб. и ещё 42 по OUT5"
+        text = step_summary({"status": "ok", "result": result})
+        assert text is not None
+        assert len(text) <= SUMMARY_MAX
+        assert text.endswith("…")
+        assert numbers_found_in(text, result)
+
+    def test_word_boundary(self) -> None:
+        result = " ".join(f"слово{i}" for i in range(100))
+        text = step_summary({"status": "ok", "result": result})
+        assert text is not None
+        assert len(text) <= SUMMARY_MAX
+        words = text.removesuffix("…").split()
+        assert words == result.split()[: len(words)]
+
+    def test_one_long_token(self) -> None:
+        text = step_summary({"status": "ok", "result": "x" * 290 + "1234567890" * 3})
+        assert text is not None
+        assert len(text) <= SUMMARY_MAX
+        assert not re.search(r"\d", text)
+
+
+class TestTurnSummaryText:
+    @staticmethod
+    def steps(*statuses: str) -> list[dict[str, Any]]:
+        return [{"n": i + 1, "title": "t", "status": s} for i, s in enumerate(statuses)]
+
+    def test_no_plan(self) -> None:
+        assert turn_summary([]) is None
+
+    def test_mixed(self) -> None:
+        draft = turn_summary(self.steps("completed", "completed", "completed", "skipped", "blocked"))
+        assert draft == {
+            "event": "summary",
+            "completed": 3,
+            "skipped": 1,
+            "blocked": 1,
+            "text": "Выполнено 3 из 5 шагов, 1 пропущен, 1 ждёт ответа пользователя",
+        }
+        event = make([draft])[0]
+        assert isinstance(event, TurnSummaryEvent)
+        assert violations(event) == []
+
+    @pytest.mark.parametrize(
+        ("n", "text"),
+        [
+            (1, "Выполнено 0 из 1 шага, 1 пропущен, 1 ждёт ответа пользователя"),
+            (2, "Выполнено 0 из 2 шагов, 2 пропущено, 2 ждут ответа пользователя"),
+            (5, "Выполнено 0 из 5 шагов, 5 пропущено, 5 ждут ответа пользователя"),
+            (11, "Выполнено 0 из 11 шагов, 11 пропущено, 11 ждут ответа пользователя"),
+            (21, "Выполнено 0 из 21 шага, 21 пропущен, 21 ждёт ответа пользователя"),
+        ],
+    )
+    def test_plural(self, n: int, text: str) -> None:
+        draft = turn_summary(self.steps(*["skipped"] * n, *["blocked"] * n))
+        assert draft is not None
+        total = text.replace(f"из {n} ", f"из {2 * n} ")  # the plan has 2n steps
+        assert draft["text"].split(",")[1:] == total.split(",")[1:]
+
+    def test_open_steps_counted_in_total_only(self) -> None:
+        draft = turn_summary(self.steps("completed", "pending", "in_progress"))
+        assert draft is not None
+        assert draft["text"] == "Выполнено 1 из 3 шагов"
+
+    def test_reasons_never_leave(self) -> None:
+        steps = [{"n": 1, "title": "t", "status": "blocked", "reason": "Нет года 2031"}]
+        draft = turn_summary(steps)
+        assert draft is not None
+        assert "2031" not in draft["text"]
+
+
+class TestTranslatorSummaries:
+    def test_ok_carries_result(self, tr: StreamTranslator) -> None:
+        tr.feed(calls(("run_scenarios", "c4", {"outputs": ["OUT0"]})))
+        content = to_json_ok("EBITDA 2026: от 1 200 до 1 501 млн руб.")
+        (finished,) = tr.feed(result("c4", "run_scenarios", content))
+        assert finished["summary"] == "EBITDA 2026: от 1 200 до 1 501 млн руб."
+
+    def test_offloaded_result(self, tr: StreamTranslator) -> None:
+        tr.feed(calls(("run_scenarios", "c4", {})))
+        content = json.dumps(
+            {
+                "status": "ok",
+                "result": "Сетка из 3 точек",
+                "numbers": [{"value": 3, "label": "n"}],
+                "ref": "/results/c4.json",
+            },
+            ensure_ascii=False,
+        )
+        (finished,) = tr.feed(result("c4", "run_scenarios", content))
+        assert finished["summary"] == "Сетка из 3 точек"
+
+    def test_no_summary(self, tr: StreamTranslator) -> None:
+        tr.feed(calls(("resolve_terms", "c2", {}), ("read_file", "c3", {"file_path": "/skills/x/SKILL.md"})))
+        (failed,) = tr.feed(result("c2", "resolve_terms", to_json(failure(ErrorCode.AMBIGUOUS_TERM))))
+        (skill,) = tr.feed(result("c3", "read_file", "# Skill\nтекст 42"))
+        assert failed["summary"] is None
+        assert skill["summary"] is None
+
+    def test_custom_retry_has_no_summary(self, tr: StreamTranslator) -> None:
+        tr.feed(calls(("run_scenarios", "c3", {})))
+        retry, _ = tr.feed(
+            {"type": "custom", "data": {"progress": "retry", "tool_call_id": "c3", "code": "engine_unavailable"}}
+        )
+        assert retry["summary"] is None
+
+    def test_summary_before_answer(self, tr: StreamTranslator) -> None:
+        todos = [{"content": "a", "status": "completed"}, {"content": "b", "status": "skipped", "reason": "нет"}]
+        tr.feed(updates("tools", todos=todos))
+        tr.feed(updates("model", messages=[AIMessage("Ответ", id="a1")]))
+        out = tr.finish()
+        assert kinds(out) == ["summary", "answer"]
+        assert out[0]["completed"] == 1
+        assert out[0]["skipped"] == 1
+        assert out[0]["blocked"] == 0
+
+
+def to_json_ok(text: str) -> str:
+    return json.dumps({"status": "ok", "result": text}, ensure_ascii=False)
+
+
+class TestPhaseCatalog:
+    def test_no_preparing(self) -> None:
+        assert set(get_args(Phase)) == {"planning", "executing", "checking", "answering"}
+        assert set(PHASE_TEXT) == set(get_args(Phase))
+        with pytest.raises(ValidationError):
+            make([{"event": "phase", "phase": "preparing", "text": "x"}])
+        assert isinstance(make([{"event": "phase", "phase": "planning", "text": "x"}])[0], PhaseEvent)
+
+    def test_preparing_part_gives_nothing(self, tr: StreamTranslator) -> None:
+        assert tr.feed({"type": "custom", "data": {"progress": "phase", "phase": "preparing"}}) == []
+
+    def test_openapi_enum(self) -> None:
+        import yaml  # pylint: disable=import-outside-toplevel
+
+        spec = yaml.safe_load((Path(__file__).parents[3] / "openapi_copilot.yaml").read_text(encoding="utf-8"))
+        phase = spec["components"]["schemas"]["StreamEventPhase"]
+        enum = _find_enum(phase, "phase")
+        assert enum == list(get_args(Phase))
+
+
+def _find_enum(node: Any, field: str) -> list[str] | None:
+    """The ``enum`` of property ``field`` anywhere under an OpenAPI schema (``allOf`` / ``properties``)."""
+    if isinstance(node, dict):
+        props = node.get("properties") or {}
+        if field in props and "enum" in props[field]:
+            return props[field]["enum"]
+        for value in node.values():
+            if (found := _find_enum(value, field)) is not None:
+                return found
+    if isinstance(node, list):
+        for value in node:
+            if (found := _find_enum(value, field)) is not None:
+                return found
+    return None

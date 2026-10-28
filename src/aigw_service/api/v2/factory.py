@@ -20,6 +20,7 @@ from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
 from aigw_service.api.v2.middleware.preview_check import PreviewModelCheck, default_preview_checker
+from aigw_service.api.v2.middleware.progress import ProgressReporter
 from aigw_service.api.v2.middleware.resilience import engine_retry, model_retry, tool_errors
 from aigw_service.api.v2.middleware.skill_gate import SkillToolGate
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
@@ -119,6 +120,9 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             CalcCache(engine_tools, store=self.store),  # §8 №15: a hit runs neither the engine nor a retry
             tool_errors(),  # §8 №16: exception → envelope; StopEvent passes through
             engine_retry(engine_tools),  # §8 №17: one retry on engine_unavailable
+            # §8 №17а (S6.4 design D1): inside the engine retry — phases and the retry outcome for the stream;
+            # without a stream consumer stream_writer does nothing
+            ProgressReporter(engine_tools),
             *self.extra_middleware,
             AnswerGroundingGuard(settings.grounding_max_returns),  # §8 №18, FR-13: in every plan mode
             *guard,  # after_* hooks run bottom-up, the plan is checked first

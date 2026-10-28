@@ -16,15 +16,23 @@ from typing import Any
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 
 from aigw_service.api.v2.middleware.limits import LIMIT_HIT, TURN_TIMEOUT
+from aigw_service.api.v2.middleware.progress import PROGRESS_KEY
 from aigw_service.api.v2.stream.events import Draft
-from aigw_service.api.v2.stream.labels import PHASE_TEXT, PLAN_TOOL, failure_view, retry_text, scrub, tool_label
+from aigw_service.api.v2.stream.labels import (
+    PHASE_TEXT,
+    PLAN_TOOL,
+    failure_view,
+    retry_text,
+    scrub,
+    step_summary,
+    tool_label,
+    turn_summary,
+)
 from aigw_service.api.v2.tools.context import ModelIndex
 
 REFUSAL_NODES = frozenset({"TurnContext.before_agent", "LanguageGuard.before_agent"})
 """Nodes that end the turn before any model call with a fixed answer (FR-1, FR-2)."""
 CANCEL_NODE_PREFIX = "Cancellation."
-PROGRESS_KEY = "progress"
-"""Key of a ``custom`` part written through ``runtime.stream_writer`` (design D4; ProgressReporter, S6.4)."""
 
 
 @dataclass
@@ -125,18 +133,19 @@ class StreamTranslator:  # pylint: disable=too-many-instance-attributes  # trans
         if opened is None:  # write_todos, or a call this translator never saw start
             return []
         envelope = _envelope(message)
-        if envelope is None or envelope.get("status") != "error":
-            return [self._finished(opened, "ok")]
+        if envelope is None or envelope.get("status") != "error":  # no envelope: a skill read — no summary
+            return [self._finished(opened, "ok", summary=step_summary(envelope))]
         outcome, text = failure_view(envelope.get("code"))
         return [self._finished(opened, outcome, text)]
 
-    def _finished(self, opened: _OpenCall, outcome: str, text: str | None = None) -> Draft:
+    def _finished(self, opened: _OpenCall, outcome: str, text: str | None = None, summary: str | None = None) -> Draft:
         return {
             "event": "tool.finished",
             "call": opened.call,
             "label": opened.label,
             "outcome": outcome,
             "elapsed_s": round(max(self._clock() - opened.started, 0.0), 1),
+            "summary": summary,
             "text": text,
         }
 
@@ -181,11 +190,16 @@ class StreamTranslator:  # pylint: disable=too-many-instance-attributes  # trans
 
     # ---------------------------------------------------------------- end of the turn
 
-    def finish(self) -> Draft:
-        """The terminal ``answer`` once ``astream`` is over (design D5); no candidate — a wiring error."""
+    def finish(self) -> list[Draft]:
+        """The turn summary when there was a plan (FR-23, S6.4 design D5), then the terminal ``answer``.
+
+        No candidate once ``astream`` is over is a wiring error (S6.2 design D5).
+        """
         if self._candidate is None:
             raise RuntimeError("turn ended without an answer")
-        return {"event": "answer", "text": _text(self._candidate), "outcome": self.outcome()}
+        summary = turn_summary(self._steps)
+        answer = {"event": "answer", "text": _text(self._candidate), "outcome": self.outcome()}
+        return [summary, answer] if summary is not None else [answer]
 
     def outcome(self) -> str:
         if self._refusal:

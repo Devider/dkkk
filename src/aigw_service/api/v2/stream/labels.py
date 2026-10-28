@@ -1,4 +1,4 @@
-"""User-facing texts of the stream (spec §13 «Подписи и сводки», S6.2 design D6–D8).
+"""User-facing texts of the stream (spec §13 «Подписи и сводки», S6.2 design D6–D8, S6.4 design D4–D5).
 
 Labels are built from call arguments and canonical index names only — never from IDs. Error codes become an
 outcome and a Russian text for the user (not ``ERROR_TEXT``: that one addresses the model). Text written by
@@ -19,7 +19,6 @@ READ_TOOL = "read_file"
 MAX_TERMS = 5
 
 PHASE_TEXT: dict[Phase, str] = {
-    "preparing": "Готовлю модель к расчёту",
     "planning": "Составляю план",
     "executing": "Выполняю план",
     "checking": "Проверяю ответ",
@@ -110,6 +109,66 @@ def scrub(text: str) -> str:
     text = re.sub(r"([(«])\s+", r"\1", text)
     text = re.sub(r"\s{2,}", " ", text).strip()
     return re.sub(r"^[,.;:—-]+\s*|\s*[,;:—-]+$", "", text).strip()
+
+
+# ---------------------------------------------------------------- summaries (FR-23)
+
+SUMMARY_MAX = 300
+_SENTENCE_FROM = SUMMARY_MAX // 2
+"""A sentence boundary is preferred only when it keeps at least half of the room."""
+ELLIPSIS = "…"
+_TRAILING = re.compile(r"[\s,;:—-]+$")
+_NUMBER_TAIL = re.compile(r"[\d\s.,]+$")
+
+
+def _splits_number(text: str, i: int) -> bool:
+    """A space between two digits groups thousands (``1 234 567``): cutting there would cut a number."""
+    return 0 < i < len(text) - 1 and text[i - 1].isdigit() and text[i + 1].isdigit()
+
+
+def _shorten(text: str, limit: int) -> str:
+    """At most ``limit`` characters, cut at a sentence or word boundary, never inside a number."""
+    if len(text) <= limit:
+        return text
+    room = limit - len(ELLIPSIS)
+    head = text[:room]
+    sentence = max(head.rfind(". ", _SENTENCE_FROM), head.rfind("; ", _SENTENCE_FROM))
+    if sentence != -1:
+        return text[:sentence].rstrip() + ELLIPSIS
+    cut = next((i for i in range(room, 0, -1) if text[i].isspace() and not _splits_number(text, i)), None)
+    kept = text[:cut] if cut is not None else _NUMBER_TAIL.sub("", head)
+    return _TRAILING.sub("", kept) + ELLIPSIS
+
+
+def step_summary(envelope: Mapping[str, Any] | None) -> str | None:
+    """The step summary of ``tool.finished`` (FR-23): ``result`` of a successful envelope, scrubbed and cut."""
+    if not isinstance(envelope, Mapping) or envelope.get("status") != "ok":
+        return None
+    result = envelope.get("result")
+    text = scrub(result) if isinstance(result, str) else ""
+    return _shorten(text, SUMMARY_MAX) if text else None
+
+
+def _plural(n: int, one: str, few: str, many: str) -> str:
+    if n % 10 == 1 and n % 100 != 11:
+        return one
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return few
+    return many
+
+
+def turn_summary(steps: list[Mapping[str, Any]]) -> dict[str, Any] | None:
+    """The ``summary`` event before ``answer`` (FR-23); counts only, no step reasons. ``None`` without a plan."""
+    if not steps:
+        return None
+    count = {s: sum(1 for step in steps if step.get("status") == s) for s in ("completed", "skipped", "blocked")}
+    total = len(steps)
+    parts = [f"Выполнено {count['completed']} из {total} {_plural(total, 'шага', 'шагов', 'шагов')}"]
+    if count["skipped"]:
+        parts.append(f"{count['skipped']} {_plural(count['skipped'], 'пропущен', 'пропущено', 'пропущено')}")
+    if count["blocked"]:
+        parts.append(f"{count['blocked']} {_plural(count['blocked'], 'ждёт', 'ждут', 'ждут')} ответа пользователя")
+    return {"event": "summary", **count, "text": ", ".join(parts)}
 
 
 # ---------------------------------------------------------------- labels

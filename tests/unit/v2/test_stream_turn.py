@@ -1,7 +1,8 @@
-"""S6.2 (ADR-14, AR-Q17, FR-22, FR-24, FR-26): TurnLocks.acquire, TurnStream, AgentV2.stream and full-stack turns."""
+"""S6.2 (ADR-14, AR-Q17, FR-22, FR-24, FR-26), S6.4 (FR-23): TurnLocks, TurnStream, AgentV2.stream, full-stack turns."""
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Any
 
 import pytest
 from gigachat.exceptions import ForbiddenError
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 from tests.unit.v2.fakes import uploaded_store
@@ -19,18 +20,19 @@ from tests.unit.v2.test_resilience import raising, response_error
 
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.factory import AgentFactory
-from aigw_service.api.v2.middleware import cancellation
+from aigw_service.api.v2.middleware import cancellation, resilience
 from aigw_service.api.v2.prompts.middleware import CANCELLED_ANSWER, GROUNDING_PLACEHOLDER
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
 from aigw_service.api.v2.service import AgentV2
+from aigw_service.api.v2.stream import translator as translator_mod
 from aigw_service.api.v2.stream import turn as stream_turn
 from aigw_service.api.v2.stream.events import StreamEvent
 from aigw_service.api.v2.stream.hygiene import violations
-from aigw_service.api.v2.stream.labels import FAILURE_VIEW
+from aigw_service.api.v2.stream.labels import FAILURE_VIEW, RETRY_TEXT, step_summary
 from aigw_service.api.v2.stream.turn import FAILED_TEXT, STREAM_MODE, STREAM_VERSION, TurnStream
 from aigw_service.api.v2.tools import calc_tools
 from aigw_service.api.v2.tools.catalog import default_catalog
-from aigw_service.api.v2.tools.envelope import ErrorCode, ToolError
+from aigw_service.api.v2.tools.envelope import ErrorCode, ToolError, ToolSuccess, to_json
 from aigw_service.api.v2.turn.lock import TurnBusyError, TurnLocks
 from aigw_service.config import APP_CONFIG
 from aigw_service.exceptions import StopEventError
@@ -38,6 +40,7 @@ from aigw_service.exceptions import StopEventError
 QUESTION = "EBITDA 2026 при цене метанола 300–500?"
 ANSWER_U2 = "EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500, то есть на 301."
 TERMINAL = {"answer", "error"}
+RETRY_ANSWER = "Сценарии посчитаны после повтора расчёта."
 
 
 def ctx(session: str = "s1", **kw: Any) -> RequestContext:
@@ -148,6 +151,19 @@ class TestTurnStream:
         assert (events[-1].kind, events[-1].text) == ("failed", FAILED_TEXT)  # type: ignore[attr-defined]
         assert "secret" not in events[-1].model_dump_json()
         assert "ValueError" not in events[-1].model_dump_json()
+
+    async def test_summary_right_before_answer(self) -> None:
+        plan = {"type": "updates", "ns": (), "data": {"tools": {"todos": todos("completed", "skipped")}}}
+        events = await collect(TurnStream(FakeAgent([plan, answer_part()]), {}, ctx(), {}, lambda: None))
+        assert kinds(events)[-2:] == ["summary", "answer"]
+        assert_contract(events)
+
+    @pytest.mark.parametrize("error", [StopEventError(user_message="недоступен", url="u"), ValueError("boom")])
+    async def test_error_has_no_summary(self, error: BaseException) -> None:
+        plan = {"type": "updates", "ns": (), "data": {"tools": {"todos": todos("completed")}}}
+        events = await collect(TurnStream(FakeAgent([plan, answer_part()], error), {}, ctx(), {}, lambda: None))
+        assert events[-1].event == "error"
+        assert "summary" not in kinds(events)
 
     async def test_no_answer_is_failed(self) -> None:
         events = await collect(TurnStream(FakeAgent([]), {}, ctx(), {}, lambda: None))
@@ -333,6 +349,36 @@ def u2_steps(*answers: Any) -> list:
     ]
 
 
+def flow(events: list[StreamEvent]) -> list[str]:
+    """Event kinds with the phase spelled out: ``phase:planning``."""
+    return [f"phase:{e.phase}" if e.event == "phase" else e.event for e in events]  # type: ignore[attr-defined]
+
+
+def blocked_steps() -> list:
+    """U5: a calculation, then a step that waits for the user."""
+    return [
+        tool_call("write_todos", "c1", todos=todos("in_progress", "pending")),
+        scenarios("c2"),
+        tool_call("write_todos", "c3", todos=todos("completed", "blocked", reason="не указан год")),
+        AIMessage("Сценарии посчитаны. За какой год нужен второй расчёт?"),
+    ]
+
+
+NUMBER = re.compile(r"\d+(?:[ \u00a0]\d{3})*(?:[.,]\d+)?")
+
+
+def envelope_numbers(content: Any) -> set[str]:
+    """Numbers of an envelope's ``result`` and ``numbers`` (FR-23: the only source of numbers in a summary)."""
+    envelope = json.loads(content)
+    found = set(NUMBER.findall(envelope.get("result", "")))
+    for item in envelope.get("numbers", []):
+        value = item["value"]
+        found |= (
+            {f"{value:g}", str(value), str(int(value))} if float(value).is_integer() else {f"{value:g}", str(value)}
+        )
+    return found
+
+
 def text_of(events: list[StreamEvent]) -> str:
     return json.dumps([e.data() for e in events if e.event != "answer"], ensure_ascii=False)
 
@@ -340,9 +386,11 @@ def text_of(events: list[StreamEvent]) -> str:
 class TestStreamScenarios:
     async def test_u2(self, stack: Stack, domain: list) -> None:
         events, expected = await stack.both(u2_steps)
-        assert kinds(events) == [
+        assert flow(events) == [
             "turn.started",
+            "phase:planning",
             "plan",
+            "phase:executing",
             "tool.started",
             "tool.finished",
             "plan",
@@ -352,7 +400,9 @@ class TestStreamScenarios:
             "tool.started",
             "tool.finished",
             "plan",
-            "phase",
+            "phase:answering",
+            "phase:checking",
+            "summary",
             "answer",
         ]
         started = [e for e in events if e.event == "tool.started"]
@@ -365,7 +415,10 @@ class TestStreamScenarios:
         answer = events[-1]
         assert answer.text == expected == ANSWER_U2
         assert answer.outcome == "full"
-        assert [s.status for s in events[-3].steps] == ["completed"] * 3  # type: ignore[attr-defined]
+        assert [s.status for s in events[-5].steps] == ["completed"] * 3  # type: ignore[attr-defined]
+        assert all(e.summary for e in finished)  # type: ignore[attr-defined]
+        summary = events[-2]
+        assert (summary.completed, summary.skipped, summary.blocked) == (3, 0, 0)  # type: ignore[attr-defined]
 
     async def test_early_answer_with_open_step(self, stack: Stack, domain: list) -> None:
         def steps() -> list:
@@ -471,12 +524,14 @@ class TestStreamScenarios:
         monkeypatch.setattr(calc_tools, "_gate", lambda: current.setdefault(str(stack.runs), new_gate()))
         events, expected = await stack.both(steps)
         finished = [e for e in events if e.event == "tool.finished"]
-        assert [e.outcome for e in finished] == ["retry", "retry", "ok", "ok", "failed"]  # type: ignore[attr-defined]
+        outcomes = [e.outcome for e in finished]  # type: ignore[attr-defined]
+        assert outcomes == ["retry", "retry", "ok", "ok", "retry", "failed"]  # S6.4: the system retry is visible
         assert [e.text for e in finished] == [  # type: ignore[attr-defined]
             FAILURE_VIEW[ErrorCode.UNKNOWN_ID][1],
             FAILURE_VIEW[ErrorCode.AMBIGUOUS_TERM][1],
             None,
             None,
+            RETRY_TEXT[ErrorCode.ENGINE_UNAVAILABLE],
             FAILURE_VIEW[ErrorCode.ENGINE_UNAVAILABLE][1],
         ]
         assert gates[0].runs == 4  # the cache hit never reached the engine
@@ -562,3 +617,122 @@ class TestStreamScenarios:
         assert done_at <= len(events) // 2
         assert_contract(events)
         assert events[-1].text == ANSWER_U2  # type: ignore[attr-defined]
+
+    @pytest.mark.parametrize("steps", [u2_steps, blocked_steps], ids=["U2", "U5"])
+    async def test_summary_numbers_from_own_envelope(self, stack: Stack, domain: list, steps: Any) -> None:
+        saver, config = InMemorySaver(), {"configurable": {"thread_id": "u1:s1"}}
+        service = AgentV2(await stack.agent(steps, checkpointer=saver), TurnLocks())
+        events = await collect(service.stream(QUESTION, ctx(), config))
+        messages = (await service.agent.aget_state(config)).values["messages"]
+        call_ids = [
+            c["id"] for m in messages if isinstance(m, AIMessage) for c in m.tool_calls if c["name"] != "write_todos"
+        ]
+        contents = {m.tool_call_id: m.content for m in messages if isinstance(m, ToolMessage)}
+        finished = [e for e in events if e.event == "tool.finished" and e.outcome == "ok"]  # type: ignore[attr-defined]
+        assert finished
+        for event in finished:
+            own = envelope_numbers(contents[call_ids[event.call - 1]])  # type: ignore[attr-defined]
+            assert event.summary  # type: ignore[attr-defined]
+            assert set(NUMBER.findall(event.summary)) <= own  # type: ignore[attr-defined]
+            assert len(event.summary) <= 300  # type: ignore[attr-defined]
+
+    async def test_engine_retry_then_ok(self, stack: Stack, domain: list, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(resilience, "ENGINE_RETRY_DELAY", 0.0)
+        steps = lambda: [
+            tool_call("write_todos", "c1", todos=todos("in_progress")),
+            scenarios("c2"),
+            tool_call("write_todos", "c3", todos=todos("completed")),
+            AIMessage(RETRY_ANSWER),
+        ]
+        current: dict[str, SlowGate] = {}
+        new_gate = lambda: SlowGate(0, [ToolError(ErrorCode.ENGINE_UNAVAILABLE)])
+        monkeypatch.setattr(calc_tools, "_gate", lambda: current.setdefault(str(stack.runs), new_gate()))
+        events, expected = await stack.both(steps)
+        calls = [(e.event, e.call, getattr(e, "outcome", None)) for e in events if e.event.startswith("tool.")]
+        assert calls == [
+            ("tool.started", 1, None),
+            ("tool.finished", 1, "retry"),
+            ("tool.started", 1, None),
+            ("tool.finished", 1, "ok"),
+        ]
+        retry = next(e for e in events if getattr(e, "outcome", None) == "retry")
+        assert retry.text == RETRY_TEXT[ErrorCode.ENGINE_UNAVAILABLE]  # type: ignore[attr-defined]
+        assert retry.summary is None  # type: ignore[attr-defined]
+        assert events[-1].text == expected == RETRY_ANSWER  # type: ignore[attr-defined]
+
+    async def test_engine_unavailable_twice_one_retry(
+        self, stack: Stack, domain: list, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(resilience, "ENGINE_RETRY_DELAY", 0.0)
+        steps = lambda: [
+            tool_call("write_todos", "c1", todos=todos("in_progress")),
+            scenarios("c2"),
+            tool_call("write_todos", "c3", todos=todos("skipped", reason="движок недоступен")),
+            AIMessage("Расчёт не удался, шаг пропущен."),
+        ]
+        unavailable = ToolError(ErrorCode.ENGINE_UNAVAILABLE)
+        current: dict[str, SlowGate] = {}
+        new_gate = lambda: SlowGate(0, [unavailable, unavailable])
+        monkeypatch.setattr(calc_tools, "_gate", lambda: current.setdefault(str(stack.runs), new_gate()))
+        events, _ = await stack.both(steps)
+        outcomes = [e.outcome for e in events if e.event == "tool.finished"]  # type: ignore[attr-defined]
+        assert outcomes == ["retry", "failed"]
+        assert events[-2].event == "summary"
+        assert events[-2].skipped == 1  # type: ignore[attr-defined]
+
+    async def test_phases_after_rejected_answer(self, stack: Stack, domain: list) -> None:
+        def steps() -> list:
+            return [
+                tool_call("write_todos", "c1", todos=todos("in_progress")),
+                AIMessage("Ранний ответ без расчёта."),
+                scenarios("c2"),
+                tool_call("write_todos", "c3", todos=todos("completed")),
+                AIMessage("EBITDA 2026 — от 1200 до 1501."),
+            ]
+
+        events, _ = await stack.both(steps)
+        phases = [f for f in flow(events) if f.startswith("phase:")]
+        assert phases == [
+            "phase:planning",
+            "phase:executing",
+            "phase:checking",
+            "phase:executing",
+            "phase:answering",
+            "phase:checking",
+        ]
+
+    async def test_limit_gives_answering_and_summary(
+        self, stack: Stack, domain: list, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(APP_CONFIG.agent, "max_model_calls", 2)
+        events, _ = await stack.both(
+            lambda: [
+                tool_call("write_todos", "c1", todos=todos("in_progress", "pending")),
+                AIMessage("Частичный ответ."),
+            ]
+        )
+        phases = [f for f in flow(events) if f.startswith("phase:")]
+        assert phases[-2:] == ["phase:answering", "phase:checking"]
+        assert flow(events)[-2:] == ["summary", "answer"]  # the plan guard closes open steps after the answer
+        assert events[-1].outcome == "partial"  # type: ignore[attr-defined]
+
+    @pytest.mark.parametrize(
+        "kw", [{"upload": False}, {"text": "Wie hoch ist das EBITDA im Jahr 2026 bei diesem Preis?"}]
+    )
+    async def test_refusal_has_no_phase_or_summary(self, stack: Stack, kw: dict) -> None:
+        events, _ = await stack.both(list, **kw)
+        assert kinds(events) == ["turn.started", "answer"]
+
+    async def test_same_number_of_llm_calls(self, stack: Stack, domain: list) -> None:
+        await stack.both(u2_steps)
+        streamed, plain = stack.models[-2], stack.models[-1]
+        assert len(streamed.calls) == len(plain.calls) > 0
+
+    async def test_summaries_are_clean(self, stack: Stack, domain: list, monkeypatch: pytest.MonkeyPatch) -> None:
+        dirty = ToolSuccess(result="Посчитано для IN1 и OUT0 через run_scenarios, полный результат /results/c2.json")
+        dirty_envelope = json.loads(to_json(dirty))
+        monkeypatch.setattr(translator_mod, "step_summary", lambda env: step_summary(dirty_envelope) if env else None)
+        events, _ = await stack.both(u2_steps)
+        summaries = [e.summary for e in events if e.event == "tool.finished"]  # type: ignore[attr-defined]
+        assert summaries
+        assert all(s and "IN1" not in s and "/results/" not in s and "run_scenarios" not in s for s in summaries)

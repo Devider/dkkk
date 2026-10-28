@@ -142,7 +142,8 @@ class TestStreamContract:
         assert response.headers["x-accel-buffering"] == "no"
         events, _ = parse_sse(response.text)
         assert_stream_contract(events)
-        assert kinds(events)[:3] == ["turn.started", "plan", "tool.started"]
+        assert kinds(events)[:5] == ["turn.started", "phase", "plan", "phase", "tool.started"]  # S6.4: phases
+        assert kinds(events)[-2:] == ["summary", "answer"]
         assert events[0].session_id == SESSION  # type: ignore[attr-defined]
         agent, _ = await fresh(u2_steps, tmp_path, "zip")
         zipped = await StreamApi(monkeypatch, agent).ask(QUESTION, session=SESSION)
