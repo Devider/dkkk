@@ -22,7 +22,7 @@
 | FR-10 | Недостающие данные → `blocked`, продолжение плана | agent-planning | S2.6 | S1.4 | S2.6 ✓ (вопрос только о недостающем — eval S5.1) |
 | FR-11 | Недостижимая цель — результат, а не ошибка | agent-tools | S1.4 | — | S1.4 ✓ |
 | FR-12 | Структура ответа | agent-answer | S3.2 | — | S3.2 ✓ (оценка аналитика ≥ 4 из 5 — eval S5.1) |
-| FR-13 | Числа ответа только из источников | agent-answer | S4.1 | S1.7, S5.1, S6.3 | S1.7 ✓ (`derive` с проверкой операндов по источникам; точка пересечения строго на отрезке — `fix-derive-crossing-segment` ✓), S4.1 ✓ (`AnswerGroundingGuard`: 1 перегенерация, затем «н/д» с оговоркой; малые целые 0–10 не проверяются — design D2) (100 % на GigaChat — eval S5.1) |
+| FR-13 | Числа ответа только из источников | agent-answer | S4.1 | S1.7, S5.1, S6.3 | S1.7 ✓ (`derive` с проверкой операндов по источникам; точка пересечения строго на отрезке — `fix-derive-crossing-segment` ✓), S4.1 ✓ (`AnswerGroundingGuard`: 1 перегенерация, затем «н/д» с оговоркой; малые целые 0–10 не проверяются — design D2) (100 % на GigaChat — eval S5.1); S6.3 ✓ (поток: проверка чисел, как в `/invoke-agent`) |
 | FR-14 | Деловой русский, без кодов и traceback | agent-answer | S3.2 | — | S3.2 ✓ |
 | FR-15 | Контракт API (ZIP) без изменений | agent-api | S4.2 | — | S4.2 ✓ (блокировка хода — в памяти процесса; дедлайн хода — S2.8 ✓) |
 | FR-16 | Многоходовость через выжимки | agent-loop | S2.6 | S1.6 | S2.6 ✓, S1.6 ✓ (`ref` в выжимке) |
@@ -30,12 +30,12 @@
 | FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | S3.1 ✓, S3.3 ✓ (`target-seeking`, `scenario-analysis`; U1, U3 — скриптовая модель; шаг сетки по умолчанию — 5 точек, точки в оговорках; паритет с v1 и живой прогон — открыто до S5.3, в контуре), S3.4 ✓ (`covenant-headroom`, `sensitivity-drivers` и skill-инструмент `trace_dependencies`; скрытый инструмент → `skill_required` с путём skill; порог ковенанта только из запроса; U2, U8 — скриптовая модель; живой прогон своих eval-запросов — открыто до S5.1, в контуре) |
 | FR-19 | Активация skill моделью или `AGENT_PINNED_SKILLS` | agent-skills | S3.5 | — | S3.5 ✓ (`AGENT_PINNED_SKILLS`, по умолчанию `economic-answer`; неизвестное имя и закреплённые тексты больше дословного хвоста истории останавливают старт; без `economic-answer` — предупреждение FR-12; скриптовая модель. Метрика «нужный skill прочитан» и выбор закреплений на GigaChat — открыто до S5.1, в контуре) |
 | FR-20 | Переключатель `AGENT_ENGINE = v1 / v2` | agent-api | S2.1 | S4.2 | S2.1 ✓, S4.2 ✓ (`v1_api` на обоих движках) |
-| FR-21 | Потоковый endpoint `/invoke-agent/stream`, тот же ход; ZIP не меняется | agent-stream | S6.3 | S6.2 | — |
+| FR-21 | Потоковый endpoint `/invoke-agent/stream`, тот же ход; ZIP не меняется | agent-stream | S6.3 | S6.2 | S6.3 ✓ (`router.py:invoke_agent_stream`: 409 / 422 / 424 до потока, кадры SSE `api/v2/stream/sse.py`; текст `answer` = `txt_response.txt`; v1 — `turn.started` → `answer` через `one_shot`; `tests/integration/v1_api` локально не запускаются — нужны Langfuse и GigaChat IFT при старте) |
 | FR-22 | Прогресс: фазы, план, начало и конец вызова инструмента с подписью | agent-stream | S6.2 | S6.4 | S6.2 ✓ (`StreamTranslator`: `plan`, пары `tool.*` с подписью из канонических имён, исход по таблице «код → текст», фаза `checking`; U2 на скриптовой модели; фазы `ProgressReporter` и сводки — S6.4) |
 | FR-23 | Сводки шагов и итог хода без LLM | agent-stream | S6.4 | — | — |
 | FR-24 | Гигиена потока: без ID, кодов, имён инструментов и токенов вне окна ответа | agent-stream | S6.2 | S6.5 | S6.2 ✓ (`scrub` текста модели в плане и подписях, `hygiene.violations` по всем событиям потоковых сценариев; отклонённые ответы и напоминания guards в поток не попадают; текст `answer` не чистится — равен ZIP) |
-| FR-25 | Ровно одно терминальное событие `answer` / `error` | agent-stream | S6.3 | — | — |
-| FR-26 | Финальный ответ целиком одним `answer` после guards; числа проверяются, как в `/invoke-agent` | agent-stream | S6.3 | S6.2, S6.5 | — |
+| FR-25 | Ровно одно терминальное событие `answer` / `error` | agent-stream | S6.3 | — | S6.3 ✓ (HTTP: StopEvent → `error: unavailable` при статусе 200, таймаут → `answer: partial`, после терминального кадра ни кадров, ни ping) |
+| FR-26 | Финальный ответ целиком одним `answer` после guards; числа проверяются, как в `/invoke-agent` | agent-stream | S6.3 | S6.2, S6.5 | S6.3 ✓ (через HTTP: ранний ответ и выдуманное число в поток не попадают, `answer` = ZIP) |
 
 ## Архитектурные требования
 
@@ -56,8 +56,8 @@
 | AR-Q13 | Журнал, Langfuse, `TOOL ARGS` | agent-api | S4.3 | — | S4.3 ✓ (`Telemetry`: строки `LLM CALL` / `TOOL CALL` с кодами без текстов исключений; `langfuse_user_id` и тег `agent_engine`; дерево хода с вложенным смысловым слоем — тестами) (открыто: `TOOL ARGS` v1-формы и `run_tool_queries.py` на v2 — отложено решением разработчика; проверка трассы в self-hosted Langfuse — в контуре) |
 | AR-Q14 | Нет записи и `execute`; LangSmith запрещён | agent-skills | S3.1 | S4.3 | S3.1 ✓ (включая запрет LangSmith) |
 | AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | S2.1 ✓, S3.1 ✓ |
-| AR-Q16 | Поток без буферизации, первое событие ≤ 1 с, heartbeat | agent-stream | S6.3 | S6.1 | — |
-| AR-Q17 | Разрыв потока не отменяет вызов; блокировка до конца хода | agent-stream | S6.3 | S6.2 | — |
+| AR-Q16 | Поток без буферизации, первое событие ≤ 1 с, heartbeat | agent-stream | S6.3 | S6.1 | S6.3 ✓ (живой uvicorn: события по мере хода, `: ping` без отмены чтения; ветка `text/event-stream` в `log_requests`, характеризационные тесты до правки без изменений; интервал — константа до S6.5; через AI GW — C1 в контуре) |
+| AR-Q17 | Разрыв потока не отменяет вызов; блокировка до конца хода | agent-stream | S6.3 | S6.2 | S6.3 ✓ (живой uvicorn: разрыв посреди расчёта — расчёт и дочерний процесс доходят до конца, новых вызовов модели нет, 409 во время дозавершения, история сессии цела) |
 | AR-Q18 | Строка `STREAM`, тег Langfuse, версия схемы событий | agent-stream | S6.5 | AR-Q5 | — |
 | ADR-10 | A/B-проверка preview-модели в middleware | agent-platform | S4.4 | AR-Q5 | S4.4 ✓ (`PreviewModelCheck` перед `ContextMeter`, а не №6 §8 — design D1; вызовы сравниваются без LLM, тексты — судьёй; `PREVIEW CHECK` в журнале; скриптовая модель. Живой прогон с preview-моделью — открыто, в контуре) |
 | ADR-14 | Источник событий потока — `astream(updates, custom)`, ход в отдельной задаче, `StreamTranslator` | agent-stream | S6.2 | S6.3, S6.4 | S6.2 ✓ (`AgentV2.stream()` → `TurnStream`: блокировка до первого события, ход в задаче, очередь без предела, ровно одно терминальное `answer` / `error`, уход потребителя → `RequestContext.cancel`; `turn.started` — сразу после блокировки, design D3) |
