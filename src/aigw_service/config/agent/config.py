@@ -1,6 +1,7 @@
-from typing import Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import NoDecode
 
 from ..base_config import BaseAppSettings
 
@@ -40,6 +41,13 @@ class AgentSettings(BaseAppSettings):
         default=1,
         ge=0,
         validation_alias="AGENT_GROUNDING_MAX_RETURNS",
+    )
+
+    # Skills pinned for every turn of agent v2 (FR-19): comma-separated names, empty — none. The whole list:
+    # without economic-answer the answer structure of FR-12 is not guaranteed; an unknown name stops the start
+    pinned_skills: Annotated[tuple[str, ...], NoDecode] = Field(
+        default=("economic-answer",),
+        validation_alias="AGENT_PINNED_SKILLS",
     )
 
     # Retry — количество попыток вызова LLM при транзитных ошибках
@@ -141,6 +149,14 @@ class AgentSettings(BaseAppSettings):
         default=False,
         validation_alias="AGENT_STOP_ON_ERROR",
     )
+
+    @field_validator("pinned_skills", mode="before")
+    @classmethod
+    def _split_pinned(cls, value: Any) -> tuple[str, ...]:
+        """«a, b,a» → (a, b): trimmed, no empty names, no repeats, first-seen order."""
+        items = value.split(",") if isinstance(value, str) else list(value or ())
+        names = (str(item).strip() for item in items)
+        return tuple(dict.fromkeys(name for name in names if name))
 
     @model_validator(mode="after")
     def _tail_below_trigger(self) -> "AgentSettings":

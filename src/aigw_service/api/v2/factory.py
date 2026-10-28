@@ -8,6 +8,7 @@ from typing import Any
 from langchain.agents import create_agent
 from langchain.agents.middleware import AgentMiddleware
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import HumanMessage
 
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.middleware.calc_cache import CalcCache
@@ -21,21 +22,23 @@ from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGu
 from aigw_service.api.v2.middleware.resilience import engine_retry, model_retry, tool_errors
 from aigw_service.api.v2.middleware.skill_gate import SkillToolGate
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
-from aigw_service.api.v2.middleware.summarization import ContextBudget, summarization_middleware
+from aigw_service.api.v2.middleware.summarization import ContextBudget, context_tokens, summarization_middleware
 from aigw_service.api.v2.middleware.telemetry import Telemetry
 from aigw_service.api.v2.middleware.todos import PlanTodoList
 from aigw_service.api.v2.middleware.turn_context import TurnContext
 from aigw_service.api.v2.middleware.turn_summary import TurnSummary
 from aigw_service.api.v2.models import build_model
 from aigw_service.api.v2.prompts.system import SYSTEM_PROMPT
-from aigw_service.api.v2.skills_check import SKILLS_DIR, SkillsError, validate_skills
+from aigw_service.api.v2.skills_check import SKILL_FILE, SKILLS_DIR, SkillsError, validate_skills
 from aigw_service.api.v2.state import CopilotAgentState
 from aigw_service.api.v2.tools.catalog import ToolCatalog, default_catalog
 from aigw_service.config import APP_CONFIG
 from aigw_service.context import APP_CTX
 
-DEFAULT_PINNED = ("economic-answer",)
-"""Skills in context every turn (§11 «Активация» п. 2); AGENT_PINNED_SKILLS makes it configurable in S3.5."""
+ANSWER_SKILL = "economic-answer"
+"""Sets the answer structure of FR-12; pinned by default through AGENT_PINNED_SKILLS (FR-19)."""
+
+logger = APP_CTX.get_logger()
 
 
 class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field per assembly input
@@ -51,7 +54,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         upload_dir: str | None = None,
         plan_mode: str | None = None,
         skills_dir: Path | None = None,
-        pinned_skills: Sequence[str] = DEFAULT_PINNED,
+        pinned_skills: Sequence[str] | None = None,
         prompt_budget: ContextBudget | None = None,
     ) -> None:
         self.model = model
@@ -62,7 +65,8 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         self.checkpointer = checkpointer
         self.plan_mode = plan_mode or APP_CONFIG.agent.plan_mode
         self.skills_dir = skills_dir or SKILLS_DIR
-        self.pinned_skills = tuple(pinned_skills)
+        # §11 «Активация» п. 2: None — the list from AGENT_PINNED_SKILLS
+        self.pinned_skills = tuple(APP_CONFIG.agent.pinned_skills if pinned_skills is None else pinned_skills)
         self.prompt_budget = prompt_budget or ContextBudget.from_settings()
 
     def service_store(self) -> Any:
@@ -106,13 +110,35 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             ContextMeter(self.prompt_budget.max_prompt_tokens),
         ]
 
-    def build(self) -> Any:
-        """A broken skill stops the build (AR-Q15): deepagents would skip it silently."""
-        known = {t.name for t in [*self.catalog.base_tools(), *self.catalog.skill_tools()]}
-        names = {s.name for s in validate_skills(self.skills_dir, known)}
+    def _check_pins(self, names: set[str]) -> None:
+        """FR-19: every pinned skill exists and all of them fit the verbatim tail, or compression would loop."""
         missing = [n for n in self.pinned_skills if n not in names]
         if missing:  # deepagents would skip an unknown pinned name silently
             raise SkillsError([f"{n}: закреплённый skill не найден" for n in missing])
+        sizes = {n: self._skill_tokens(n) for n in self.pinned_skills}
+        tail = self.prompt_budget.keep_tokens
+        if sum(sizes.values()) > tail:  # design D5: each compression would cut one pin and re-pin it next call
+            listed = ", ".join(f"{n} ≈ {t}" for n, t in sizes.items())
+            problem = (
+                f"закреплённые skills ({listed}; всего ≈ {sum(sizes.values())} токенов) не помещаются "
+                f"в дословный хвост истории ≈ {tail} токенов (AGENT_SUMMARY_KEEP × AGENT_MAX_PROMPT_TOKENS)"
+            )
+            raise SkillsError([problem])
+        if ANSWER_SKILL not in self.pinned_skills:  # design D3: allowed (eval), but visible at start
+            logger.warning(
+                "AGENT_PINNED_SKILLS без {}: структура ответа FR-12 не гарантируется (закреплены: {})",
+                ANSWER_SKILL,
+                ", ".join(self.pinned_skills) or "—",
+            )
+
+    def _skill_tokens(self, name: str) -> int:
+        text = (self.skills_dir / name / SKILL_FILE).read_text(encoding="utf-8")
+        return context_tokens([HumanMessage(text)])
+
+    def build(self) -> Any:
+        """A broken skill stops the build (AR-Q15): deepagents would skip it silently."""
+        known = {t.name for t in [*self.catalog.base_tools(), *self.catalog.skill_tools()]}
+        self._check_pins({s.name for s in validate_skills(self.skills_dir, known)})
         return create_agent(
             self.model,
             self.catalog.base_tools(),

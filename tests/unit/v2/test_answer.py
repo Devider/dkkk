@@ -11,10 +11,11 @@ from tests.unit.v2.test_skills import write_skill
 
 from aigw_service.api.v2.answer_check import SECTIONS, hygiene_issues, is_analytic, structure_issues
 from aigw_service.api.v2.context import RequestContext
-from aigw_service.api.v2.factory import DEFAULT_PINNED, AgentFactory
+from aigw_service.api.v2.factory import AgentFactory
 from aigw_service.api.v2.scripted import ScriptedChatModel
 from aigw_service.api.v2.skills_check import SKILLS_DIR, SkillsError, validate_skills
 from aigw_service.api.v2.tools.catalog import default_catalog
+from aigw_service.config.agent import AgentSettings
 
 GOOD = """\
 ## Вывод
@@ -46,7 +47,7 @@ class TestSkill:
     def test_shipped_and_valid(self) -> None:
         names = [s.name for s in validate_skills(SKILLS_DIR, known_tools())]
         assert "economic-answer" in names
-        assert DEFAULT_PINNED == ("economic-answer",)
+        assert AgentSettings().pinned_skills == ("economic-answer",)
 
     def test_body_sets_sections_in_order(self) -> None:
         body = (SKILLS_DIR / "economic-answer" / "SKILL.md").read_text(encoding="utf-8")
