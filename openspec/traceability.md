@@ -28,7 +28,7 @@
 | FR-16 | Многоходовость через выжимки | agent-loop | S2.6 | S1.6 | S2.6 ✓, S1.6 ✓ (`ref` в выжимке) |
 | FR-17 | Кэш повторного расчёта в сессии | agent-loop | S2.5 | — | S2.5 ✓ (без TTL — вместе с внешним store, ADR-8) |
 | FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | S3.1 ✓, S3.3 ✓ (`target-seeking`, `scenario-analysis`; U1, U3 — скриптовая модель; шаг сетки по умолчанию — 5 точек, точки в оговорках; паритет с v1 и живой прогон — открыто до S5.3, в контуре), S3.4 ✓ (`covenant-headroom`, `sensitivity-drivers` и skill-инструмент `trace_dependencies`; скрытый инструмент → `skill_required` с путём skill; порог ковенанта только из запроса; U2, U8 — скриптовая модель; живой прогон своих eval-запросов — открыто до S5.1, в контуре) |
-| FR-19 | Активация skill моделью или `AGENT_PINNED_SKILLS` | agent-skills | S3.5 | — | — |
+| FR-19 | Активация skill моделью или `AGENT_PINNED_SKILLS` | agent-skills | S3.5 | — | S3.5 ✓ (`AGENT_PINNED_SKILLS`, по умолчанию `economic-answer`; неизвестное имя и закреплённые тексты больше дословного хвоста истории останавливают старт; без `economic-answer` — предупреждение FR-12; скриптовая модель. Метрика «нужный skill прочитан» и выбор закреплений на GigaChat — открыто до S5.1, в контуре) |
 | FR-20 | Переключатель `AGENT_ENGINE = v1 / v2` | agent-api | S2.1 | S4.2 | S2.1 ✓, S4.2 ✓ (`v1_api` на обоих движках) |
 
 ## Архитектурные требования
@@ -39,7 +39,7 @@
 | AR-Q2 | Тесты без сети и LibreOffice | agent-eval | S5.2 | — | — |
 | AR-Q3 | LangChain только в рантайме и адаптере | agent-tools | S1.1 | — | S1.1 ✓ |
 | AR-Q4 | Зафиксированные версии, сборка из зеркала | agent-platform | S0.1 | — | S0.1 ✓ (сборка в контуре не проверена) |
-| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.7, S2.8, S3.5 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`), S2.7 ✓ (`AGENT_MAX_PROMPT_TOKENS`, `AGENT_SUMMARY_TRIGGER`, `AGENT_SUMMARY_KEEP`) |
+| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.7, S2.8, S3.5 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`), S2.7 ✓ (`AGENT_MAX_PROMPT_TOKENS`, `AGENT_SUMMARY_TRIGGER`, `AGENT_SUMMARY_KEEP`), S3.5 ✓ (`AGENT_PINNED_SKILLS`) |
 | AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | S1.6 ✓ (вынос > `AGENT_RESULT_MAX_CHARS`, `ref`, полные `numbers` в `step_results`), S2.7 ✓ (сжатие запроса, а не состояния — design D1; замер слоёв `CONTEXT LAYERS` в `ContextMeter` — design D5; счёт токенов приближённый, калибровка на GigaChat — S5.1) |
 | AR-Q7 | Изоляция пользователей | agent-tools | S1.6 | S4.2 | S1.6 ✓ (`/results/` по `user_id` из контекста; пространство без `thread_id` — design D4), S4.2 ✓ (история на уровне API) |
 | AR-Q8 | Конкурентность движка | agent-tools | S1.5 | — | S1.5 ✓ (размер пула — по замеру S0.4) |
