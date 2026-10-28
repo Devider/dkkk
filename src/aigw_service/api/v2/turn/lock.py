@@ -6,7 +6,7 @@ like ``MemorySaver``: one uvicorn process (§12 п. 7). Separate from the engine
 """
 
 import contextlib
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 TURN_BUSY_MESSAGE = "Предыдущий запрос ещё обрабатывается. Направьте следующий вопрос позже."
 
@@ -23,15 +23,31 @@ class TurnLocks:
     def busy(self) -> frozenset[str]:
         return frozenset(self._busy)
 
-    @contextlib.contextmanager
-    def hold(self, thread_id: str) -> Iterator[None]:
+    def acquire(self, thread_id: str) -> Callable[[], None]:
+        """Takes the session and returns its release; the streaming turn releases it from its own task (S6.2 D9).
+
+        The release frees only this hold: called again, it does nothing, even if the session was taken anew.
+        """
         if thread_id in self._busy:
             raise TurnBusyError(thread_id)
         self._busy.add(thread_id)
+        released = False
+
+        def release() -> None:
+            nonlocal released
+            if not released:
+                released = True
+                self._busy.discard(thread_id)
+
+        return release
+
+    @contextlib.contextmanager
+    def hold(self, thread_id: str) -> Iterator[None]:
+        release = self.acquire(thread_id)
         try:
             yield
         finally:
-            self._busy.discard(thread_id)
+            release()
 
 
 TURN_LOCKS = TurnLocks()
