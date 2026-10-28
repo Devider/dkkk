@@ -16,7 +16,7 @@
 | FR-4 | Режимы плана `always` / `auto` / `off` | agent-planning | S2.3 | — | S2.3 ✓ |
 | FR-5 | Статусы шагов плана | agent-planning | S2.4 | — | S2.4 ✓ |
 | FR-6 | Явное сопоставление: расчёт только по ID индекса | agent-tools | S1.3 | S1.4 | S1.3 ✓ (входы −3 п. п. на IFT — наблюдение для S5.1) |
-| FR-7 | Коррекция по `code` / `hint` | agent-tools | S1.2 | S2.5, S5.1 | S1.2 ✓, S2.5 ✓ (`ToolErrorMiddleware`) (eval — S5.1) |
+| FR-7 | Коррекция по `code` / `hint` | agent-tools | S1.2 | S2.5, S3.4, S5.1 | S1.2 ✓, S2.5 ✓ (`ToolErrorMiddleware`), S3.4 ✓ (код `skill_required`) (eval — S5.1) |
 | FR-8 | Завершение: ответ не принимается при открытых шагах | agent-planning | S2.4 | S2.5, S2.8 | S2.4 ✓, S2.5 ✓ (при лимите — сразу), S2.8 ✓ (при таймауте — сразу) (доля доведённых планов — eval S5.1) |
 | FR-9 | Лимиты на ход (`run_limit`) и частичный ответ | agent-loop | S2.5 | — | S2.5 ✓ (свой `TurnLimits` вместо встроенных — design D1) |
 | FR-10 | Недостающие данные → `blocked`, продолжение плана | agent-planning | S2.6 | S1.4 | S2.6 ✓ (вопрос только о недостающем — eval S5.1) |
@@ -27,7 +27,7 @@
 | FR-15 | Контракт API (ZIP) без изменений | agent-api | S4.2 | — | S4.2 ✓ (блокировка хода — в памяти процесса; дедлайн хода — S2.8 ✓) |
 | FR-16 | Многоходовость через выжимки | agent-loop | S2.6 | S1.6 | S2.6 ✓, S1.6 ✓ (`ref` в выжимке) |
 | FR-17 | Кэш повторного расчёта в сессии | agent-loop | S2.5 | — | S2.5 ✓ (без TTL — вместе с внешним store, ADR-8) |
-| FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | S3.1 ✓, S3.3 ✓ (`target-seeking`, `scenario-analysis`; U1, U3 — скриптовая модель; шаг сетки по умолчанию — 5 точек, точки в оговорках; паритет с v1 и живой прогон — открыто до S5.3, в контуре) (`covenant-headroom`, `sensitivity-drivers` — S3.4) |
+| FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | S3.1 ✓, S3.3 ✓ (`target-seeking`, `scenario-analysis`; U1, U3 — скриптовая модель; шаг сетки по умолчанию — 5 точек, точки в оговорках; паритет с v1 и живой прогон — открыто до S5.3, в контуре), S3.4 ✓ (`covenant-headroom`, `sensitivity-drivers` и skill-инструмент `trace_dependencies`; скрытый инструмент → `skill_required` с путём skill; порог ковенанта только из запроса; U2, U8 — скриптовая модель; живой прогон своих eval-запросов — открыто до S5.1, в контуре) |
 | FR-19 | Активация skill моделью или `AGENT_PINNED_SKILLS` | agent-skills | S3.5 | — | — |
 | FR-20 | Переключатель `AGENT_ENGINE = v1 / v2` | agent-api | S2.1 | S4.2 | S2.1 ✓, S4.2 ✓ (`v1_api` на обоих движках) |
 
