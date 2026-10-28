@@ -1,0 +1,687 @@
+{
+  "started": "2026-10-28T12:56:47+03:00",
+  "results": [
+    {
+      "check": "P2",
+      "version_v2": true,
+      "raw_type": "dict",
+      "raw_keys": [
+        "data",
+        "ns",
+        "type"
+      ],
+      "sample_by_mode": {
+        "updates": {
+          "t": 0.002,
+          "mode": "updates",
+          "data": {
+            "TurnContext.before_agent": {
+              "turn_id": "0827aa4ff61948398a3a7c1c292ea0bc",
+              "step_results": "[{\"__reset__\": true}]",
+              "guard_counters": "{}",
+              "turn_message_id": "726fd23a-99b8-4f69-a36b-ea1f2d2a94e9",
+              "todos": "[]",
+              "model_ref": "{\"file_name\": \"model.xlsx\", \"file_hash\": \"hash-u1\", \"replace…",
+              "pinned_skills": "[\"economic-answer\"]"
+            }
+          }
+        },
+        "messages": {
+          "t": 0.005,
+          "mode": "messages",
+          "msg": {
+            "type": "HumanMessage",
+            "id": "b06af800-8662-4d0a-9277-b5d2e7781b50",
+            "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…"
+          },
+          "meta": {
+            "langgraph_node": "SkillsMiddleware.before_model",
+            "langgraph_step": 6,
+            "langgraph_triggers": [
+              "branch:to:SkillsMiddleware.before_model"
+            ]
+          }
+        }
+      },
+      "events": [
+        " 0.002 U TurnContext.before_agent msgs=[] keys=['turn_id', 'step_results', 'guard_counters', 'turn_message_id', 'todos', 'model_ref', 'pinned_skills']",
+        " 0.002 U LanguageGuard.before_agent msgs=[] keys=[]",
+        " 0.004 U SkillsMiddleware.before_agent msgs=[] keys=['skills_metadata', 'skills_load_errors']",
+        " 0.004 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.004 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.005 M HumanMessage node=SkillsMiddleware.before_model tags=None <skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+        " 0.005 U SkillsMiddleware.before_model msgs=[<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…] keys=['pinned_skills']",
+        " 0.005 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.011 M AIMessage node=model tags=None write_todos#c1",
+        " 0.012 U model msgs=[write_todos#c1] keys=['_skill_tools_disclosed']",
+        " 0.012 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.012 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.013 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.013 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.015 M ToolMessage node=tools tags=None write_todos#c1",
+        " 0.015 U tools msgs=[write_todos#c1] keys=['todos']",
+        " 0.015 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.015 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.016 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.016 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.018 M AIMessage node=model tags=None resolve_terms#c2",
+        " 0.018 U model msgs=[resolve_terms#c2] keys=['_skill_tools_disclosed']",
+        " 0.019 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.019 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.019 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.019 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.022 M ToolMessage node=tools tags=None resolve_terms#c2",
+        " 0.022 U tools msgs=[resolve_terms#c2] keys=['step_results', 'resolved_terms']",
+        " 0.022 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.022 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.022 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.023 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.025 M AIMessage node=model tags=None run_scenarios#c3",
+        " 0.026 U model msgs=[run_scenarios#c3] keys=['_skill_tools_disclosed']",
+        " 0.026 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.026 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.026 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.027 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.030 M ToolMessage node=tools tags=None run_scenarios#c3",
+        " 0.030 U tools msgs=[run_scenarios#c3] keys=['step_results']",
+        " 0.030 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.030 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.030 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.031 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.033 M AIMessage node=model tags=None write_todos#c4",
+        " 0.033 U model msgs=[write_todos#c4] keys=['_skill_tools_disclosed']",
+        " 0.034 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.034 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.034 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.034 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.036 M ToolMessage node=tools tags=None write_todos#c4",
+        " 0.036 U tools msgs=[write_todos#c4] keys=['todos']",
+        " 0.036 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.037 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.037 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.037 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.039 M AIMessage node=model tags=None EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+        " 0.040 U model msgs=[EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.] keys=['_skill_tools_disclosed']",
+        " 0.040 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.041 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.041 U TurnLimits.after_model msgs=[] keys=[]",
+        " 0.041 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.042 U TurnSummary.after_agent msgs=[] keys=['turn_summaries']"
+      ],
+      "wall_s": 0.1
+    },
+    {
+      "check": "P3",
+      "crash": "ScriptExhaustedError",
+      "message": "script has 5 steps, model called again",
+      "trace": "eware/context_meter.py\", line 152, in awrap_model_call\n    return await handler(request)\n           ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain/agents/factory.py\", line 1565, in _execute_model_async\n    output = await model_.ainvoke(messages)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain_core/language_models/chat_models.py\", line 511, in ainvoke\n    llm_result = await self.agenerate_prompt(\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<8 lines>...\n    )\n    ^\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain_core/language_models/chat_models.py\", line 1888, in agenerate_prompt\n    return await self.agenerate(\n           ^^^^^^^^^^^^^^^^^^^^^\n        prompt_messages, stop=stop, callbacks=callbacks, **kwargs\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain_core/language_models/chat_models.py\", line 1846, in agenerate\n    raise exceptions[0]\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain_core/language_models/chat_models.py\", line 2179, in _agenerate_with_cache\n    result = await self._agenerate(\n             ^^^^^^^^^^^^^^^^^^^^^^\n        messages, stop=stop, run_manager=run_manager, **kwargs\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain_core/language_models/chat_models.py\", line 2246, in _agenerate\n    return await run_in_executor(\n           ^^^^^^^^^^^^^^^^^^^^^^\n    ...<6 lines>...\n    )\n    ^\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain_core/runnables/config.py\", line 707, in run_in_executor\n    return await asyncio.get_running_loop().run_in_executor(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<2 lines>...\n    )\n    ^\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py\", line 86, in run\n    result = ctx.run(self.task)\n  File \"/opt/homebrew/Cellar/python@3.14/3.14.7/Frameworks/Python.framework/Versions/3.14/lib/python3.14/concurrent/futures/thread.py\", line 73, in run\n    return fn(*args, **kwargs)\n  File \"/Users/aleksei/projects/dkkk_copilot/.venv/lib/python3.14/site-packages/langchain_core/runnables/config.py\", line 698, in wrapper\n    return func(*args, **kwargs)\n  File \"/Users/aleksei/projects/dkkk_copilot/src/aigw_service/api/v2/scripted.py\", line 59, in _generate\n    raise ScriptExhaustedError(f\"script has {len(root.steps)} steps, model called again\")\naigw_service.api.v2.scripted.ScriptExhaustedError: script has 5 steps, model called again\nDuring task with name 'model' and id 'f360c169-2deb-d0a4-6e60-d581ae2ddeb5'\n",
+      "wall_s": 0.1
+    },
+    {
+      "check": "P4",
+      "custom": [
+        {
+          "src": "outer",
+          "hook": "before_model",
+          "messages": 1
+        },
+        {
+          "src": "inner",
+          "hook": "before_model",
+          "messages": 2
+        },
+        {
+          "src": "inner",
+          "hook": "after_model",
+          "tool_calls": [
+            "write_todos"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "after_model",
+          "tool_calls": [
+            "write_todos"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "tool_start",
+          "tool": "write_todos"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_start",
+          "tool": "write_todos"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_end",
+          "tool": "write_todos",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "tool_end",
+          "tool": "write_todos",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "before_model",
+          "messages": 4
+        },
+        {
+          "src": "inner",
+          "hook": "before_model",
+          "messages": 4
+        },
+        {
+          "src": "inner",
+          "hook": "after_model",
+          "tool_calls": [
+            "resolve_terms"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "after_model",
+          "tool_calls": [
+            "resolve_terms"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "tool_start",
+          "tool": "resolve_terms"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_start",
+          "tool": "resolve_terms"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_end",
+          "tool": "resolve_terms",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "tool_end",
+          "tool": "resolve_terms",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "before_model",
+          "messages": 6
+        },
+        {
+          "src": "inner",
+          "hook": "before_model",
+          "messages": 6
+        },
+        {
+          "src": "inner",
+          "hook": "after_model",
+          "tool_calls": [
+            "run_scenarios"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "after_model",
+          "tool_calls": [
+            "run_scenarios"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "tool_start",
+          "tool": "run_scenarios"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_start",
+          "tool": "run_scenarios"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_raised",
+          "tool": "run_scenarios",
+          "error": "ToolError"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_start",
+          "tool": "run_scenarios"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_end",
+          "tool": "run_scenarios",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "tool_end",
+          "tool": "run_scenarios",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "before_model",
+          "messages": 8
+        },
+        {
+          "src": "inner",
+          "hook": "before_model",
+          "messages": 8
+        },
+        {
+          "src": "inner",
+          "hook": "after_model",
+          "tool_calls": [
+            "write_todos"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "after_model",
+          "tool_calls": [
+            "write_todos"
+          ],
+          "text": false
+        },
+        {
+          "src": "outer",
+          "hook": "tool_start",
+          "tool": "write_todos"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_start",
+          "tool": "write_todos"
+        },
+        {
+          "src": "inner",
+          "hook": "tool_end",
+          "tool": "write_todos",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "tool_end",
+          "tool": "write_todos",
+          "outcome": "Command"
+        },
+        {
+          "src": "outer",
+          "hook": "before_model",
+          "messages": 10
+        },
+        {
+          "src": "inner",
+          "hook": "before_model",
+          "messages": 10
+        },
+        {
+          "src": "inner",
+          "hook": "after_model",
+          "tool_calls": [],
+          "text": true
+        },
+        {
+          "src": "outer",
+          "hook": "after_model",
+          "tool_calls": [],
+          "text": true
+        }
+      ],
+      "events": [
+        " 0.001 U TurnContext.before_agent msgs=[] keys=['turn_id', 'step_results', 'guard_counters', 'turn_message_id', 'todos', 'model_ref', 'pinned_skills']",
+        " 0.001 U LanguageGuard.before_agent msgs=[] keys=[]",
+        " 0.002 U SkillsMiddleware.before_agent msgs=[] keys=['skills_metadata', 'skills_load_errors']",
+        " 0.003 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.003 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.003 C {'src': 'outer', 'hook': 'before_model', 'messages': 1}",
+        " 0.003 U Progress_outer.before_model msgs=[] keys=[]",
+        " 0.004 U SkillsMiddleware.before_model msgs=[<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…] keys=['pinned_skills']",
+        " 0.004 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.004 C {'src': 'inner', 'hook': 'before_model', 'messages': 2}",
+        " 0.004 U Progress_inner.before_model msgs=[] keys=[]",
+        " 0.010 U model msgs=[write_todos#c1] keys=['_skill_tools_disclosed']",
+        " 0.011 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.011 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.011 C {'src': 'inner', 'hook': 'after_model', 'tool_calls': ['write_todos'], 'text': False}",
+        " 0.011 U Progress_inner.after_model msgs=[] keys=[]",
+        " 0.011 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.012 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.012 C {'src': 'outer', 'hook': 'after_model', 'tool_calls': ['write_todos'], 'text': False}",
+        " 0.012 U Progress_outer.after_model msgs=[] keys=[]",
+        " 0.012 C {'src': 'outer', 'hook': 'tool_start', 'tool': 'write_todos'}",
+        " 0.013 C {'src': 'inner', 'hook': 'tool_start', 'tool': 'write_todos'}",
+        " 0.013 C {'src': 'inner', 'hook': 'tool_end', 'tool': 'write_todos', 'outcome': 'Command'}",
+        " 0.014 C {'src': 'outer', 'hook': 'tool_end', 'tool': 'write_todos', 'outcome': 'Command'}",
+        " 0.014 U tools msgs=[write_todos#c1] keys=['todos']",
+        " 0.014 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.014 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.015 C {'src': 'outer', 'hook': 'before_model', 'messages': 4}",
+        " 0.015 U Progress_outer.before_model msgs=[] keys=[]",
+        " 0.015 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.015 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.015 C {'src': 'inner', 'hook': 'before_model', 'messages': 4}",
+        " 0.015 U Progress_inner.before_model msgs=[] keys=[]",
+        " 0.018 U model msgs=[resolve_terms#c2] keys=['_skill_tools_disclosed']",
+        " 0.018 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.018 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.018 C {'src': 'inner', 'hook': 'after_model', 'tool_calls': ['resolve_terms'], 'text': False}",
+        " 0.018 U Progress_inner.after_model msgs=[] keys=[]",
+        " 0.019 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.019 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.019 C {'src': 'outer', 'hook': 'after_model', 'tool_calls': ['resolve_terms'], 'text': False}",
+        " 0.019 U Progress_outer.after_model msgs=[] keys=[]",
+        " 0.019 C {'src': 'outer', 'hook': 'tool_start', 'tool': 'resolve_terms'}",
+        " 0.020 C {'src': 'inner', 'hook': 'tool_start', 'tool': 'resolve_terms'}",
+        " 0.020 C {'src': 'inner', 'hook': 'tool_end', 'tool': 'resolve_terms', 'outcome': 'Command'}",
+        " 0.021 C {'src': 'outer', 'hook': 'tool_end', 'tool': 'resolve_terms', 'outcome': 'Command'}",
+        " 0.021 U tools msgs=[resolve_terms#c2] keys=['step_results', 'resolved_terms']",
+        " 0.021 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.021 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.022 C {'src': 'outer', 'hook': 'before_model', 'messages': 6}",
+        " 0.022 U Progress_outer.before_model msgs=[] keys=[]",
+        " 0.022 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.022 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.022 C {'src': 'inner', 'hook': 'before_model', 'messages': 6}",
+        " 0.022 U Progress_inner.before_model msgs=[] keys=[]",
+        " 0.025 U model msgs=[run_scenarios#c3] keys=['_skill_tools_disclosed']",
+        " 0.025 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.025 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.026 C {'src': 'inner', 'hook': 'after_model', 'tool_calls': ['run_scenarios'], 'text': False}",
+        " 0.026 U Progress_inner.after_model msgs=[] keys=[]",
+        " 0.026 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.026 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.026 C {'src': 'outer', 'hook': 'after_model', 'tool_calls': ['run_scenarios'], 'text': False}",
+        " 0.026 U Progress_outer.after_model msgs=[] keys=[]",
+        " 0.027 C {'src': 'outer', 'hook': 'tool_start', 'tool': 'run_scenarios'}",
+        " 0.028 C {'src': 'inner', 'hook': 'tool_start', 'tool': 'run_scenarios'}",
+        " 0.028 C {'src': 'inner', 'hook': 'tool_raised', 'tool': 'run_scenarios', 'error': 'ToolError'}",
+        " 1.032 C {'src': 'inner', 'hook': 'tool_start', 'tool': 'run_scenarios'}",
+        " 1.032 C {'src': 'inner', 'hook': 'tool_end', 'tool': 'run_scenarios', 'outcome': 'Command'}",
+        " 1.034 C {'src': 'outer', 'hook': 'tool_end', 'tool': 'run_scenarios', 'outcome': 'Command'}",
+        " 1.034 U tools msgs=[run_scenarios#c3] keys=['step_results']",
+        " 1.035 U TurnContext.before_model msgs=[] keys=[]",
+        " 1.036 U Cancellation.before_model msgs=[] keys=[]",
+        " 1.036 C {'src': 'outer', 'hook': 'before_model', 'messages': 8}",
+        " 1.036 U Progress_outer.before_model msgs=[] keys=[]",
+        " 1.037 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 1.037 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 1.038 C {'src': 'inner', 'hook': 'before_model', 'messages': 8}",
+        " 1.038 U Progress_inner.before_model msgs=[] keys=[]",
+        " 1.043 U model msgs=[write_todos#c4] keys=['_skill_tools_disclosed']",
+        " 1.044 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 1.044 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 1.044 C {'src': 'inner', 'hook': 'after_model', 'tool_calls': ['write_todos'], 'text': False}",
+        " 1.044 U Progress_inner.after_model msgs=[] keys=[]",
+        " 1.045 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 1.045 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 1.045 C {'src': 'outer', 'hook': 'after_model', 'tool_calls': ['write_todos'], 'text': False}",
+        " 1.045 U Progress_outer.after_model msgs=[] keys=[]",
+        " 1.046 C {'src': 'outer', 'hook': 'tool_start', 'tool': 'write_todos'}",
+        " 1.047 C {'src': 'inner', 'hook': 'tool_start', 'tool': 'write_todos'}",
+        " 1.047 C {'src': 'inner', 'hook': 'tool_end', 'tool': 'write_todos', 'outcome': 'Command'}",
+        " 1.048 C {'src': 'outer', 'hook': 'tool_end', 'tool': 'write_todos', 'outcome': 'Command'}",
+        " 1.049 U tools msgs=[write_todos#c4] keys=['todos']",
+        " 1.050 U TurnContext.before_model msgs=[] keys=[]",
+        " 1.050 U Cancellation.before_model msgs=[] keys=[]",
+        " 1.051 C {'src': 'outer', 'hook': 'before_model', 'messages': 10}",
+        " 1.051 U Progress_outer.before_model msgs=[] keys=[]",
+        " 1.051 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 1.052 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 1.052 C {'src': 'inner', 'hook': 'before_model', 'messages': 10}",
+        " 1.052 U Progress_inner.before_model msgs=[] keys=[]",
+        " 1.057 U model msgs=[EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.] keys=['_skill_tools_disclosed']",
+        " 1.057 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 1.058 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 1.058 C {'src': 'inner', 'hook': 'after_model', 'tool_calls': [], 'text': True}",
+        " 1.058 U Progress_inner.after_model msgs=[] keys=[]",
+        " 1.059 U TurnLimits.after_model msgs=[] keys=[]",
+        " 1.059 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 1.059 C {'src': 'outer', 'hook': 'after_model', 'tool_calls': [], 'text': True}",
+        " 1.059 U Progress_outer.after_model msgs=[] keys=[]",
+        " 1.060 U TurnSummary.after_agent msgs=[] keys=['turn_summaries']"
+      ],
+      "ainvoke_ok": true,
+      "ainvoke_writers": [
+        "<function Pregel.astream.<locals>.stream_writer at 0x1122defb0>"
+      ],
+      "wall_s": 1.1
+    },
+    {
+      "check": "P5",
+      "messages_parts": 11,
+      "by_source": [
+        {
+          "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+          "type": "HumanMessage",
+          "node": "SkillsMiddleware.before_model",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "write_todos#c1",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:97328fef-6968-0635-dd99-ae1176ed5395",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "План обновлён:\n1. [in_progress] Сопоставить термины\n2. [pending] Посчи…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "resolve_terms#c2",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:d1400b27-52b2-6501-b87e-cb35ef7601f4",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "analyzer: метанол=IN1",
+          "type": "AIMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": "tools:05d0f21c-6f53-c794-5df4-0b8fea64c8c5",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "{\"status\": \"ok\", \"result\": \"Сопоставлено 2 из 2 терминов.\", \"data\": [{…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "run_scenarios#c3",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:d1196cf5-9fbf-c924-c341-e94c0e40abff",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "{\"status\": \"ok\", \"result\": \"Сценариев: 3. EBITDA: от 1200.0 до 1501.0.…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "write_todos#c4",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:11bf0a24-b5a3-fe31-9e89-0f69cb94d774",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "План обновлён:\n1. [completed] Сопоставить термины\n2. [completed] Посчи…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:30fb1ebf-639e-3b05-919f-50b08630979a",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        }
+      ],
+      "summary_called": false,
+      "analyzer_called": 1,
+      "wall_s": 0.1
+    },
+    {
+      "check": "P6",
+      "busy_right_after_consumer_cancel": true,
+      "lock_released_after_cancel_s": 0.75,
+      "engine_finished": 1,
+      "engine_cancelled": 0,
+      "turn_exception": "None",
+      "wall_s": 1.1
+    }
+  ]
+}

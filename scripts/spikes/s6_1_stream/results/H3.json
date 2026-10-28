@@ -1,0 +1,1815 @@
+{
+  "started": "2026-10-28T14:24:30+03:00",
+  "results": [
+    {
+      "check": "H3",
+      "generator_patched": {
+        "client": {
+          "status": {
+            "cache-control": "no-cache",
+            "x-accel-buffering": "no",
+            "content-type": "text/event-stream; charset=utf-8",
+            "x-trace-id": "0c22ade6-a360-4087-aa32-df9bfaf9588b",
+            "x-request-time": "2026-10-28T11:24:31.839219+00:00",
+            "x-client-id": "AB12345678",
+            "x-session-id": "c0ed2d4b-36a1-49c6-b0aa-2bf02760b733",
+            "x-user-id": "u1",
+            "x-response-time": "2026-10-28T14:24:31.857081+03:00"
+          },
+          "first_frame_s": 0.02,
+          "last_frame_s": 0.045,
+          "distinct_arrivals": 1,
+          "frames": 32,
+          "pings": 0,
+          "lines": [
+            [
+              0.02,
+              "event: updates"
+            ],
+            [
+              0.02,
+              "id: 1"
+            ],
+            [
+              0.02,
+              "data: {\"v\": 1, \"seq\": 1, \"nodes\": [\"TurnContext.before_agent\"]}"
+            ],
+            [
+              0.02,
+              "event: updates"
+            ],
+            [
+              0.02,
+              "id: 2"
+            ],
+            [
+              0.02,
+              "data: {\"v\": 1, \"seq\": 2, \"nodes\": [\"LanguageGuard.before_agent\"]}"
+            ],
+            [
+              0.022,
+              "event: updates"
+            ],
+            [
+              0.022,
+              "id: 3"
+            ],
+            [
+              0.022,
+              "data: {\"v\": 1, \"seq\": 3, \"nodes\": [\"SkillsMiddleware.before_agent\"]}"
+            ],
+            [
+              0.022,
+              "event: updates"
+            ],
+            [
+              0.022,
+              "id: 4"
+            ],
+            [
+              0.022,
+              "data: {\"v\": 1, \"seq\": 4, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.022,
+              "event: updates"
+            ],
+            [
+              0.022,
+              "id: 5"
+            ],
+            [
+              0.022,
+              "data: {\"v\": 1, \"seq\": 5, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.023,
+              "event: updates"
+            ],
+            [
+              0.023,
+              "id: 6"
+            ],
+            [
+              0.023,
+              "data: {\"v\": 1, \"seq\": 6, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.023,
+              "event: updates"
+            ],
+            [
+              0.023,
+              "id: 7"
+            ],
+            [
+              0.023,
+              "data: {\"v\": 1, \"seq\": 7, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.03,
+              "event: updates"
+            ],
+            [
+              0.03,
+              "id: 8"
+            ],
+            [
+              0.03,
+              "data: {\"v\": 1, \"seq\": 8, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.03,
+              "event: updates"
+            ],
+            [
+              0.03,
+              "id: 9"
+            ],
+            [
+              0.03,
+              "data: {\"v\": 1, \"seq\": 9, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.03,
+              "event: updates"
+            ],
+            [
+              0.03,
+              "id: 10"
+            ],
+            [
+              0.03,
+              "data: {\"v\": 1, \"seq\": 10, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ],
+            [
+              0.031,
+              "event: updates"
+            ],
+            [
+              0.031,
+              "id: 11"
+            ],
+            [
+              0.031,
+              "data: {\"v\": 1, \"seq\": 11, \"nodes\": [\"TurnLimits.after_model\"]}"
+            ],
+            [
+              0.031,
+              "event: updates"
+            ],
+            [
+              0.031,
+              "id: 12"
+            ],
+            [
+              0.031,
+              "data: {\"v\": 1, \"seq\": 12, \"nodes\": [\"PlanTodoList.after_model\"]}"
+            ],
+            [
+              0.033,
+              "event: updates"
+            ],
+            [
+              0.033,
+              "id: 13"
+            ],
+            [
+              0.033,
+              "data: {\"v\": 1, \"seq\": 13, \"nodes\": [\"tools\"]}"
+            ],
+            [
+              0.033,
+              "event: updates"
+            ],
+            [
+              0.033,
+              "id: 14"
+            ],
+            [
+              0.033,
+              "data: {\"v\": 1, \"seq\": 14, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.034,
+              "event: updates"
+            ],
+            [
+              0.034,
+              "id: 15"
+            ],
+            [
+              0.034,
+              "data: {\"v\": 1, \"seq\": 15, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.034,
+              "event: updates"
+            ],
+            [
+              0.034,
+              "id: 16"
+            ],
+            [
+              0.034,
+              "data: {\"v\": 1, \"seq\": 16, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.034,
+              "event: updates"
+            ],
+            [
+              0.034,
+              "id: 17"
+            ],
+            [
+              0.034,
+              "data: {\"v\": 1, \"seq\": 17, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.037,
+              "event: updates"
+            ],
+            [
+              0.037,
+              "id: 18"
+            ],
+            [
+              0.037,
+              "data: {\"v\": 1, \"seq\": 18, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.037,
+              "event: updates"
+            ],
+            [
+              0.037,
+              "id: 19"
+            ],
+            [
+              0.037,
+              "data: {\"v\": 1, \"seq\": 19, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.038,
+              "event: updates"
+            ],
+            [
+              0.038,
+              "id: 20"
+            ],
+            [
+              0.038,
+              "data: {\"v\": 1, \"seq\": 20, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ]
+          ],
+          "seconds": 0.502
+        },
+        "server": {
+          "request": {
+            "events": [
+              [
+                0.527,
+                "gen CancelledError"
+              ],
+              [
+                0.527,
+                "gen finally; lock released"
+              ]
+            ],
+            "gate": {
+              "delay": 3.0,
+              "failures": 0,
+              "calls": 1,
+              "cancelled": 0,
+              "finished": 1,
+              "cancel_aware": true
+            }
+          },
+          "log": [
+            {
+              "t": 0.023,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            },
+            {
+              "t": 0.023,
+              "kind": "info",
+              "what": "Request with no id for /state processing time:  0.001 s"
+            },
+            {
+              "t": 0.025,
+              "kind": "info",
+              "what": "Incoming POST-request for /agent"
+            },
+            {
+              "t": 0.025,
+              "kind": "metric",
+              "what": "aigw_service_user_u1",
+              "value": 1
+            },
+            {
+              "t": 0.025,
+              "kind": "metric",
+              "what": "aigw_service_requests_total",
+              "value": 1
+            },
+            {
+              "t": 0.025,
+              "kind": "audit",
+              "what": "BusinessRequestReceived"
+            },
+            {
+              "t": 0.042,
+              "kind": "warning",
+              "what": "response body is not json"
+            },
+            {
+              "t": 0.042,
+              "kind": "info",
+              "what": "Outgoing response to client system",
+              "body": "{}"
+            },
+            {
+              "t": 0.042,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.042,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.042,
+              "kind": "info",
+              "what": "Request processing time for /agent: 18 ms"
+            },
+            {
+              "t": 0.042,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 18
+            },
+            {
+              "t": 0.042,
+              "kind": "metric",
+              "what": "aigw_service_request_status_success_total",
+              "value": 1
+            },
+            {
+              "t": 0.527,
+              "kind": "info",
+              "what": "Outgoing response to client system (stream)"
+            },
+            {
+              "t": 0.528,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.528,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.528,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 502
+            },
+            {
+              "t": 5.532,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            }
+          ]
+        }
+      },
+      "task_patched": {
+        "client": {
+          "status": {
+            "cache-control": "no-cache",
+            "x-accel-buffering": "no",
+            "content-type": "text/event-stream; charset=utf-8",
+            "x-trace-id": "3685d390-f060-4062-8f84-105f9a0dd4ea",
+            "x-request-time": "2026-10-28T11:24:38.793949+00:00",
+            "x-client-id": "AB12345678",
+            "x-session-id": "23e40044-ff12-44d0-b01e-5284984a6128",
+            "x-user-id": "u1",
+            "x-response-time": "2026-10-28T14:24:38.824831+03:00"
+          },
+          "first_frame_s": 0.033,
+          "last_frame_s": 0.061,
+          "distinct_arrivals": 2,
+          "frames": 32,
+          "pings": 0,
+          "lines": [
+            [
+              0.033,
+              "event: updates"
+            ],
+            [
+              0.033,
+              "id: 1"
+            ],
+            [
+              0.033,
+              "data: {\"v\": 1, \"seq\": 1, \"nodes\": [\"TurnContext.before_agent\"]}"
+            ],
+            [
+              0.033,
+              "event: updates"
+            ],
+            [
+              0.033,
+              "id: 2"
+            ],
+            [
+              0.033,
+              "data: {\"v\": 1, \"seq\": 2, \"nodes\": [\"LanguageGuard.before_agent\"]}"
+            ],
+            [
+              0.035,
+              "event: updates"
+            ],
+            [
+              0.035,
+              "id: 3"
+            ],
+            [
+              0.035,
+              "data: {\"v\": 1, \"seq\": 3, \"nodes\": [\"SkillsMiddleware.before_agent\"]}"
+            ],
+            [
+              0.036,
+              "event: updates"
+            ],
+            [
+              0.036,
+              "id: 4"
+            ],
+            [
+              0.036,
+              "data: {\"v\": 1, \"seq\": 4, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.036,
+              "event: updates"
+            ],
+            [
+              0.036,
+              "id: 5"
+            ],
+            [
+              0.036,
+              "data: {\"v\": 1, \"seq\": 5, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.037,
+              "event: updates"
+            ],
+            [
+              0.037,
+              "id: 6"
+            ],
+            [
+              0.037,
+              "data: {\"v\": 1, \"seq\": 6, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.037,
+              "event: updates"
+            ],
+            [
+              0.037,
+              "id: 7"
+            ],
+            [
+              0.037,
+              "data: {\"v\": 1, \"seq\": 7, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.045,
+              "event: updates"
+            ],
+            [
+              0.045,
+              "id: 8"
+            ],
+            [
+              0.045,
+              "data: {\"v\": 1, \"seq\": 8, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.045,
+              "event: updates"
+            ],
+            [
+              0.045,
+              "id: 9"
+            ],
+            [
+              0.045,
+              "data: {\"v\": 1, \"seq\": 9, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.046,
+              "event: updates"
+            ],
+            [
+              0.046,
+              "id: 10"
+            ],
+            [
+              0.046,
+              "data: {\"v\": 1, \"seq\": 10, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ],
+            [
+              0.046,
+              "event: updates"
+            ],
+            [
+              0.046,
+              "id: 11"
+            ],
+            [
+              0.046,
+              "data: {\"v\": 1, \"seq\": 11, \"nodes\": [\"TurnLimits.after_model\"]}"
+            ],
+            [
+              0.047,
+              "event: updates"
+            ],
+            [
+              0.047,
+              "id: 12"
+            ],
+            [
+              0.047,
+              "data: {\"v\": 1, \"seq\": 12, \"nodes\": [\"PlanTodoList.after_model\"]}"
+            ],
+            [
+              0.049,
+              "event: updates"
+            ],
+            [
+              0.049,
+              "id: 13"
+            ],
+            [
+              0.049,
+              "data: {\"v\": 1, \"seq\": 13, \"nodes\": [\"tools\"]}"
+            ],
+            [
+              0.049,
+              "event: updates"
+            ],
+            [
+              0.049,
+              "id: 14"
+            ],
+            [
+              0.049,
+              "data: {\"v\": 1, \"seq\": 14, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.049,
+              "event: updates"
+            ],
+            [
+              0.049,
+              "id: 15"
+            ],
+            [
+              0.049,
+              "data: {\"v\": 1, \"seq\": 15, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.05,
+              "event: updates"
+            ],
+            [
+              0.05,
+              "id: 16"
+            ],
+            [
+              0.05,
+              "data: {\"v\": 1, \"seq\": 16, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.05,
+              "event: updates"
+            ],
+            [
+              0.05,
+              "id: 17"
+            ],
+            [
+              0.05,
+              "data: {\"v\": 1, \"seq\": 17, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.053,
+              "event: updates"
+            ],
+            [
+              0.053,
+              "id: 18"
+            ],
+            [
+              0.053,
+              "data: {\"v\": 1, \"seq\": 18, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.053,
+              "event: updates"
+            ],
+            [
+              0.053,
+              "id: 19"
+            ],
+            [
+              0.053,
+              "data: {\"v\": 1, \"seq\": 19, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.053,
+              "event: updates"
+            ],
+            [
+              0.053,
+              "id: 20"
+            ],
+            [
+              0.053,
+              "data: {\"v\": 1, \"seq\": 20, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ]
+          ],
+          "seconds": 0.503
+        },
+        "server": {
+          "request": {
+            "events": [
+              [
+                0.707,
+                "gen CancelledError"
+              ],
+              [
+                0.707,
+                "gen finally: cancel flag set"
+              ],
+              [
+                3.278,
+                "turn end (cancel flag=True)"
+              ],
+              [
+                3.278,
+                "lock released"
+              ]
+            ],
+            "gate": {
+              "delay": 3.0,
+              "failures": 0,
+              "calls": 1,
+              "cancelled": 0,
+              "finished": 1,
+              "cancel_aware": true
+            },
+            "task": "<Task finished name='Task-7' coro=<agent_sse.<locals>.watched() done, defined at /Users/aleksei/projects/dkkk_copilot/scripts/spikes/s6_1_stream/http_proto.py:213> result=None>"
+          },
+          "log": [
+            {
+              "t": 0.2,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            },
+            {
+              "t": 0.201,
+              "kind": "info",
+              "what": "Request with no id for /state processing time:  0.001 s"
+            },
+            {
+              "t": 0.203,
+              "kind": "info",
+              "what": "Incoming POST-request for /agent"
+            },
+            {
+              "t": 0.204,
+              "kind": "metric",
+              "what": "aigw_service_user_u1",
+              "value": 1
+            },
+            {
+              "t": 0.204,
+              "kind": "metric",
+              "what": "aigw_service_requests_total",
+              "value": 1
+            },
+            {
+              "t": 0.204,
+              "kind": "audit",
+              "what": "BusinessRequestReceived"
+            },
+            {
+              "t": 0.233,
+              "kind": "warning",
+              "what": "response body is not json"
+            },
+            {
+              "t": 0.233,
+              "kind": "info",
+              "what": "Outgoing response to client system",
+              "body": "{}"
+            },
+            {
+              "t": 0.233,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.234,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.234,
+              "kind": "info",
+              "what": "Request processing time for /agent: 30 ms"
+            },
+            {
+              "t": 0.234,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 30
+            },
+            {
+              "t": 0.234,
+              "kind": "metric",
+              "what": "aigw_service_request_status_success_total",
+              "value": 1
+            },
+            {
+              "t": 0.707,
+              "kind": "info",
+              "what": "Outgoing response to client system (stream)"
+            },
+            {
+              "t": 0.708,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.709,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.709,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 503
+            },
+            {
+              "t": 5.708,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            }
+          ]
+        }
+      },
+      "generator_current": {
+        "client": {
+          "status": {},
+          "first_frame_s": null,
+          "last_frame_s": null,
+          "distinct_arrivals": 0,
+          "frames": 0,
+          "pings": 0,
+          "lines": [
+            [
+              0.502,
+              "client dropped the connection"
+            ]
+          ],
+          "seconds": 0.502
+        },
+        "server": {
+          "request": {
+            "events": [
+              [
+                0.667,
+                "gen CancelledError"
+              ],
+              [
+                0.667,
+                "gen finally; lock released"
+              ]
+            ],
+            "gate": {
+              "delay": 3.0,
+              "failures": 0,
+              "calls": 1,
+              "cancelled": 0,
+              "finished": 1,
+              "cancel_aware": true
+            }
+          },
+          "log": [
+            {
+              "t": 0.163,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            },
+            {
+              "t": 0.164,
+              "kind": "info",
+              "what": "Request with no id for /state processing time:  0.001 s"
+            },
+            {
+              "t": 0.166,
+              "kind": "info",
+              "what": "Incoming POST-request for /agent"
+            },
+            {
+              "t": 0.166,
+              "kind": "metric",
+              "what": "aigw_service_user_u1",
+              "value": 1
+            },
+            {
+              "t": 0.166,
+              "kind": "metric",
+              "what": "aigw_service_requests_total",
+              "value": 1
+            },
+            {
+              "t": 0.166,
+              "kind": "audit",
+              "what": "BusinessRequestReceived"
+            },
+            {
+              "t": 0.668,
+              "kind": "warning",
+              "what": "response body is not json"
+            },
+            {
+              "t": 0.668,
+              "kind": "info",
+              "what": "Outgoing response to client system",
+              "body": "{}"
+            },
+            {
+              "t": 0.668,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.669,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.669,
+              "kind": "info",
+              "what": "Request processing time for /agent: 503 ms"
+            },
+            {
+              "t": 0.669,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 503
+            },
+            {
+              "t": 0.669,
+              "kind": "metric",
+              "what": "aigw_service_request_status_success_total",
+              "value": 1
+            },
+            {
+              "t": 5.67,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            }
+          ]
+        }
+      },
+      "task_current": {
+        "client": {
+          "status": {},
+          "first_frame_s": null,
+          "last_frame_s": null,
+          "distinct_arrivals": 0,
+          "frames": 0,
+          "pings": 0,
+          "lines": [
+            [
+              0.503,
+              "client dropped the connection"
+            ]
+          ],
+          "seconds": 0.503
+        },
+        "server": {
+          "request": {
+            "events": [
+              [
+                0.699,
+                "gen CancelledError"
+              ],
+              [
+                0.699,
+                "gen finally: cancel flag set"
+              ],
+              [
+                3.27,
+                "turn end (cancel flag=True)"
+              ],
+              [
+                3.27,
+                "lock released"
+              ]
+            ],
+            "gate": {
+              "delay": 3.0,
+              "failures": 0,
+              "calls": 1,
+              "cancelled": 0,
+              "finished": 1,
+              "cancel_aware": true
+            },
+            "task": "<Task finished name='Task-7' coro=<agent_sse.<locals>.watched() done, defined at /Users/aleksei/projects/dkkk_copilot/scripts/spikes/s6_1_stream/http_proto.py:213> result=None>"
+          },
+          "log": [
+            {
+              "t": 0.194,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            },
+            {
+              "t": 0.195,
+              "kind": "info",
+              "what": "Request with no id for /state processing time:  0.001 s"
+            },
+            {
+              "t": 0.197,
+              "kind": "info",
+              "what": "Incoming POST-request for /agent"
+            },
+            {
+              "t": 0.197,
+              "kind": "metric",
+              "what": "aigw_service_user_u1",
+              "value": 1
+            },
+            {
+              "t": 0.197,
+              "kind": "metric",
+              "what": "aigw_service_requests_total",
+              "value": 1
+            },
+            {
+              "t": 0.197,
+              "kind": "audit",
+              "what": "BusinessRequestReceived"
+            },
+            {
+              "t": 0.7,
+              "kind": "warning",
+              "what": "response body is not json"
+            },
+            {
+              "t": 0.7,
+              "kind": "info",
+              "what": "Outgoing response to client system",
+              "body": "{}"
+            },
+            {
+              "t": 0.701,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.701,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.701,
+              "kind": "info",
+              "what": "Request processing time for /agent: 505 ms"
+            },
+            {
+              "t": 0.701,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 505
+            },
+            {
+              "t": 0.701,
+              "kind": "metric",
+              "what": "aigw_service_request_status_success_total",
+              "value": 1
+            },
+            {
+              "t": 5.703,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            }
+          ]
+        }
+      },
+      "task_patched_watch": {
+        "client": {
+          "status": {
+            "cache-control": "no-cache",
+            "x-accel-buffering": "no",
+            "content-type": "text/event-stream; charset=utf-8",
+            "x-trace-id": "4f2b4e8d-18a3-495d-ae08-5b18e08acdcf",
+            "x-request-time": "2026-10-28T11:24:59.503532+00:00",
+            "x-client-id": "AB12345678",
+            "x-session-id": "3a4ee00c-f9d8-49fa-86ff-c3daf44aab56",
+            "x-user-id": "u1",
+            "x-response-time": "2026-10-28T14:24:59.538972+03:00"
+          },
+          "first_frame_s": 0.037,
+          "last_frame_s": 0.065,
+          "distinct_arrivals": 2,
+          "frames": 32,
+          "pings": 0,
+          "lines": [
+            [
+              0.037,
+              "event: updates"
+            ],
+            [
+              0.037,
+              "id: 1"
+            ],
+            [
+              0.037,
+              "data: {\"v\": 1, \"seq\": 1, \"nodes\": [\"TurnContext.before_agent\"]}"
+            ],
+            [
+              0.038,
+              "event: updates"
+            ],
+            [
+              0.038,
+              "id: 2"
+            ],
+            [
+              0.038,
+              "data: {\"v\": 1, \"seq\": 2, \"nodes\": [\"LanguageGuard.before_agent\"]}"
+            ],
+            [
+              0.04,
+              "event: updates"
+            ],
+            [
+              0.04,
+              "id: 3"
+            ],
+            [
+              0.04,
+              "data: {\"v\": 1, \"seq\": 3, \"nodes\": [\"SkillsMiddleware.before_agent\"]}"
+            ],
+            [
+              0.04,
+              "event: updates"
+            ],
+            [
+              0.04,
+              "id: 4"
+            ],
+            [
+              0.04,
+              "data: {\"v\": 1, \"seq\": 4, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.041,
+              "event: updates"
+            ],
+            [
+              0.041,
+              "id: 5"
+            ],
+            [
+              0.041,
+              "data: {\"v\": 1, \"seq\": 5, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.041,
+              "event: updates"
+            ],
+            [
+              0.041,
+              "id: 6"
+            ],
+            [
+              0.041,
+              "data: {\"v\": 1, \"seq\": 6, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.042,
+              "event: updates"
+            ],
+            [
+              0.042,
+              "id: 7"
+            ],
+            [
+              0.042,
+              "data: {\"v\": 1, \"seq\": 7, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.049,
+              "event: updates"
+            ],
+            [
+              0.049,
+              "id: 8"
+            ],
+            [
+              0.049,
+              "data: {\"v\": 1, \"seq\": 8, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.05,
+              "event: updates"
+            ],
+            [
+              0.05,
+              "id: 9"
+            ],
+            [
+              0.05,
+              "data: {\"v\": 1, \"seq\": 9, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.05,
+              "event: updates"
+            ],
+            [
+              0.05,
+              "id: 10"
+            ],
+            [
+              0.05,
+              "data: {\"v\": 1, \"seq\": 10, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ],
+            [
+              0.05,
+              "event: updates"
+            ],
+            [
+              0.05,
+              "id: 11"
+            ],
+            [
+              0.05,
+              "data: {\"v\": 1, \"seq\": 11, \"nodes\": [\"TurnLimits.after_model\"]}"
+            ],
+            [
+              0.051,
+              "event: updates"
+            ],
+            [
+              0.051,
+              "id: 12"
+            ],
+            [
+              0.051,
+              "data: {\"v\": 1, \"seq\": 12, \"nodes\": [\"PlanTodoList.after_model\"]}"
+            ],
+            [
+              0.053,
+              "event: updates"
+            ],
+            [
+              0.053,
+              "id: 13"
+            ],
+            [
+              0.053,
+              "data: {\"v\": 1, \"seq\": 13, \"nodes\": [\"tools\"]}"
+            ],
+            [
+              0.053,
+              "event: updates"
+            ],
+            [
+              0.053,
+              "id: 14"
+            ],
+            [
+              0.053,
+              "data: {\"v\": 1, \"seq\": 14, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.053,
+              "event: updates"
+            ],
+            [
+              0.053,
+              "id: 15"
+            ],
+            [
+              0.053,
+              "data: {\"v\": 1, \"seq\": 15, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.054,
+              "event: updates"
+            ],
+            [
+              0.054,
+              "id: 16"
+            ],
+            [
+              0.054,
+              "data: {\"v\": 1, \"seq\": 16, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.054,
+              "event: updates"
+            ],
+            [
+              0.054,
+              "id: 17"
+            ],
+            [
+              0.054,
+              "data: {\"v\": 1, \"seq\": 17, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.057,
+              "event: updates"
+            ],
+            [
+              0.057,
+              "id: 18"
+            ],
+            [
+              0.057,
+              "data: {\"v\": 1, \"seq\": 18, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.057,
+              "event: updates"
+            ],
+            [
+              0.057,
+              "id: 19"
+            ],
+            [
+              0.057,
+              "data: {\"v\": 1, \"seq\": 19, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.058,
+              "event: updates"
+            ],
+            [
+              0.058,
+              "id: 20"
+            ],
+            [
+              0.058,
+              "data: {\"v\": 1, \"seq\": 20, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ]
+          ],
+          "seconds": 0.501
+        },
+        "server": {
+          "request": {
+            "events": [
+              [
+                0.708,
+                "gen CancelledError"
+              ],
+              [
+                0.708,
+                "gen finally: cancel flag set"
+              ],
+              [
+                3.306,
+                "turn end (cancel flag=True)"
+              ],
+              [
+                3.306,
+                "lock released"
+              ]
+            ],
+            "gate": {
+              "delay": 3.0,
+              "failures": 0,
+              "calls": 1,
+              "cancelled": 0,
+              "finished": 1,
+              "cancel_aware": true
+            },
+            "task": "<Task finished name='Task-7' coro=<agent_sse.<locals>.watched() done, defined at /Users/aleksei/projects/dkkk_copilot/scripts/spikes/s6_1_stream/http_proto.py:213> result=None>"
+          },
+          "log": [
+            {
+              "t": 0.203,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            },
+            {
+              "t": 0.204,
+              "kind": "info",
+              "what": "Request with no id for /state processing time:  0.001 s"
+            },
+            {
+              "t": 0.207,
+              "kind": "info",
+              "what": "Incoming POST-request for /agent"
+            },
+            {
+              "t": 0.207,
+              "kind": "metric",
+              "what": "aigw_service_user_u1",
+              "value": 1
+            },
+            {
+              "t": 0.207,
+              "kind": "metric",
+              "what": "aigw_service_requests_total",
+              "value": 1
+            },
+            {
+              "t": 0.207,
+              "kind": "audit",
+              "what": "BusinessRequestReceived"
+            },
+            {
+              "t": 0.241,
+              "kind": "warning",
+              "what": "response body is not json"
+            },
+            {
+              "t": 0.241,
+              "kind": "info",
+              "what": "Outgoing response to client system",
+              "body": "{}"
+            },
+            {
+              "t": 0.242,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.242,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.242,
+              "kind": "info",
+              "what": "Request processing time for /agent: 35 ms"
+            },
+            {
+              "t": 0.242,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 35
+            },
+            {
+              "t": 0.242,
+              "kind": "metric",
+              "what": "aigw_service_request_status_success_total",
+              "value": 1
+            },
+            {
+              "t": 0.709,
+              "kind": "info",
+              "what": "Outgoing response to client system (stream)"
+            },
+            {
+              "t": 0.709,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.709,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.71,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 502
+            },
+            {
+              "t": 5.719,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            }
+          ]
+        }
+      },
+      "task_patched_no_disconnect": {
+        "client": {
+          "status": {
+            "cache-control": "no-cache",
+            "x-accel-buffering": "no",
+            "content-type": "text/event-stream; charset=utf-8",
+            "x-trace-id": "978854d4-03d9-4306-80af-53cd915b6378",
+            "x-request-time": "2026-10-28T11:25:06.626412+00:00",
+            "x-client-id": "AB12345678",
+            "x-session-id": "d94fc7aa-a145-49de-a6a8-37fb34cbb0a0",
+            "x-user-id": "u1",
+            "x-response-time": "2026-10-28T14:25:06.647914+03:00"
+          },
+          "first_frame_s": 0.023,
+          "last_frame_s": 1.086,
+          "distinct_arrivals": 3,
+          "frames": 54,
+          "pings": 0,
+          "lines": [
+            [
+              0.023,
+              "event: updates"
+            ],
+            [
+              0.023,
+              "id: 1"
+            ],
+            [
+              0.023,
+              "data: {\"v\": 1, \"seq\": 1, \"nodes\": [\"TurnContext.before_agent\"]}"
+            ],
+            [
+              0.024,
+              "event: updates"
+            ],
+            [
+              0.024,
+              "id: 2"
+            ],
+            [
+              0.024,
+              "data: {\"v\": 1, \"seq\": 2, \"nodes\": [\"LanguageGuard.before_agent\"]}"
+            ],
+            [
+              0.025,
+              "event: updates"
+            ],
+            [
+              0.025,
+              "id: 3"
+            ],
+            [
+              0.025,
+              "data: {\"v\": 1, \"seq\": 3, \"nodes\": [\"SkillsMiddleware.before_agent\"]}"
+            ],
+            [
+              0.026,
+              "event: updates"
+            ],
+            [
+              0.026,
+              "id: 4"
+            ],
+            [
+              0.026,
+              "data: {\"v\": 1, \"seq\": 4, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.026,
+              "event: updates"
+            ],
+            [
+              0.026,
+              "id: 5"
+            ],
+            [
+              0.026,
+              "data: {\"v\": 1, \"seq\": 5, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.026,
+              "event: updates"
+            ],
+            [
+              0.026,
+              "id: 6"
+            ],
+            [
+              0.026,
+              "data: {\"v\": 1, \"seq\": 6, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.027,
+              "event: updates"
+            ],
+            [
+              0.027,
+              "id: 7"
+            ],
+            [
+              0.027,
+              "data: {\"v\": 1, \"seq\": 7, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.034,
+              "event: updates"
+            ],
+            [
+              0.034,
+              "id: 8"
+            ],
+            [
+              0.034,
+              "data: {\"v\": 1, \"seq\": 8, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.034,
+              "event: updates"
+            ],
+            [
+              0.034,
+              "id: 9"
+            ],
+            [
+              0.034,
+              "data: {\"v\": 1, \"seq\": 9, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.034,
+              "event: updates"
+            ],
+            [
+              0.034,
+              "id: 10"
+            ],
+            [
+              0.034,
+              "data: {\"v\": 1, \"seq\": 10, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ],
+            [
+              0.035,
+              "event: updates"
+            ],
+            [
+              0.035,
+              "id: 11"
+            ],
+            [
+              0.035,
+              "data: {\"v\": 1, \"seq\": 11, \"nodes\": [\"TurnLimits.after_model\"]}"
+            ],
+            [
+              0.035,
+              "event: updates"
+            ],
+            [
+              0.035,
+              "id: 12"
+            ],
+            [
+              0.035,
+              "data: {\"v\": 1, \"seq\": 12, \"nodes\": [\"PlanTodoList.after_model\"]}"
+            ],
+            [
+              0.037,
+              "event: updates"
+            ],
+            [
+              0.037,
+              "id: 13"
+            ],
+            [
+              0.037,
+              "data: {\"v\": 1, \"seq\": 13, \"nodes\": [\"tools\"]}"
+            ],
+            [
+              0.038,
+              "event: updates"
+            ],
+            [
+              0.038,
+              "id: 14"
+            ],
+            [
+              0.038,
+              "data: {\"v\": 1, \"seq\": 14, \"nodes\": [\"TurnContext.before_model\"]}"
+            ],
+            [
+              0.038,
+              "event: updates"
+            ],
+            [
+              0.038,
+              "id: 15"
+            ],
+            [
+              0.038,
+              "data: {\"v\": 1, \"seq\": 15, \"nodes\": [\"Cancellation.before_model\"]}"
+            ],
+            [
+              0.038,
+              "event: updates"
+            ],
+            [
+              0.038,
+              "id: 16"
+            ],
+            [
+              0.038,
+              "data: {\"v\": 1, \"seq\": 16, \"nodes\": [\"SkillsMiddleware.before_model\"]}"
+            ],
+            [
+              0.039,
+              "event: updates"
+            ],
+            [
+              0.039,
+              "id: 17"
+            ],
+            [
+              0.039,
+              "data: {\"v\": 1, \"seq\": 17, \"nodes\": [\"TurnLimits.before_model\"]}"
+            ],
+            [
+              0.041,
+              "event: updates"
+            ],
+            [
+              0.041,
+              "id: 18"
+            ],
+            [
+              0.041,
+              "data: {\"v\": 1, \"seq\": 18, \"nodes\": [\"model\"]}"
+            ],
+            [
+              0.042,
+              "event: updates"
+            ],
+            [
+              0.042,
+              "id: 19"
+            ],
+            [
+              0.042,
+              "data: {\"v\": 1, \"seq\": 19, \"nodes\": [\"PlanCompletionGuard.after_model\"]}"
+            ],
+            [
+              0.042,
+              "event: updates"
+            ],
+            [
+              0.042,
+              "id: 20"
+            ],
+            [
+              0.042,
+              "data: {\"v\": 1, \"seq\": 20, \"nodes\": [\"AnswerGroundingGuard.after_model\"]}"
+            ]
+          ],
+          "seconds": 1.087
+        },
+        "server": {
+          "request": {
+            "events": [
+              [
+                1.16,
+                "turn end (cancel flag=False)"
+              ],
+              [
+                1.16,
+                "lock released"
+              ],
+              [
+                1.161,
+                "gen finally"
+              ]
+            ],
+            "gate": {
+              "delay": 1.0,
+              "failures": 0,
+              "calls": 1,
+              "cancelled": 0,
+              "finished": 1,
+              "cancel_aware": true
+            },
+            "task": "<Task finished name='Task-7' coro=<agent_sse.<locals>.watched() done, defined at /Users/aleksei/projects/dkkk_copilot/scripts/spikes/s6_1_stream/http_proto.py:213> result=None>"
+          },
+          "log": [
+            {
+              "t": 0.073,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            },
+            {
+              "t": 0.074,
+              "kind": "info",
+              "what": "Request with no id for /state processing time:  0.001 s"
+            },
+            {
+              "t": 0.077,
+              "kind": "info",
+              "what": "Incoming POST-request for /agent"
+            },
+            {
+              "t": 0.077,
+              "kind": "metric",
+              "what": "aigw_service_user_u1",
+              "value": 1
+            },
+            {
+              "t": 0.077,
+              "kind": "metric",
+              "what": "aigw_service_requests_total",
+              "value": 1
+            },
+            {
+              "t": 0.077,
+              "kind": "audit",
+              "what": "BusinessRequestReceived"
+            },
+            {
+              "t": 0.096,
+              "kind": "warning",
+              "what": "response body is not json"
+            },
+            {
+              "t": 0.096,
+              "kind": "info",
+              "what": "Outgoing response to client system",
+              "body": "{}"
+            },
+            {
+              "t": 0.096,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 0.096,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 0.097,
+              "kind": "info",
+              "what": "Request processing time for /agent: 20 ms"
+            },
+            {
+              "t": 0.097,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 20
+            },
+            {
+              "t": 0.097,
+              "kind": "metric",
+              "what": "aigw_service_request_status_success_total",
+              "value": 1
+            },
+            {
+              "t": 1.161,
+              "kind": "info",
+              "what": "Outgoing response to client system (stream)"
+            },
+            {
+              "t": 1.161,
+              "kind": "metric",
+              "what": "aigw_service_responses_total",
+              "value": 1
+            },
+            {
+              "t": 1.161,
+              "kind": "audit",
+              "what": "BusinessRequestFinished"
+            },
+            {
+              "t": 1.161,
+              "kind": "metric",
+              "what": "aigw_service_process_duration_ms",
+              "value": 1082
+            },
+            {
+              "t": 4.172,
+              "kind": "info",
+              "what": "Incoming GET-request with no id for /state"
+            }
+          ]
+        }
+      },
+      "wall_s": 40.2
+    }
+  ]
+}

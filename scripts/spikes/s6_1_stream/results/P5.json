@@ -1,0 +1,521 @@
+{
+  "started": "2026-10-28T12:57:36+03:00",
+  "results": [
+    {
+      "check": "P5",
+      "plain": {
+        "messages_parts": 15,
+        "by_source": [
+          {
+            "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+            "type": "HumanMessage",
+            "node": "SkillsMiddleware.before_model",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "write_todos#c1",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:e7072321-ee57-3208-5090-3ed9f7ecbb70",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "План обновлён:\n1. [in_progress] Сопоставить термины\n2. [pending] Посчи…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "resolve_terms#c2",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:352d06f1-dfb8-f3cc-93d9-f7099cf60f07",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "analyzer: метанол=IN1",
+            "type": "AIMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": "tools:d2da0864-e2a2-0736-ebde-999e49659506",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "{\"status\": \"ok\", \"result\": \"Сопоставлено 2 из 2 терминов.\", \"data\": [{…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "Сводка ранней части разговора.",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:a64efd18-8654-4e26-5e1b-258b1bd7846d",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_internal_call",
+              "lc_source",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "run_scenarios#c3",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:a64efd18-8654-4e26-5e1b-258b1bd7846d",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "{\"status\": \"ok\", \"result\": \"Сценариев: 3. EBITDA: от 1200.0 до 1501.0.…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+            "type": "HumanMessage",
+            "node": "SkillsMiddleware.before_model",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "Сводка ранней части разговора.",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:e8f7ca38-1cd2-d0f5-5de3-9fb411a85059",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_internal_call",
+              "lc_source",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "write_todos#c4",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:e8f7ca38-1cd2-d0f5-5de3-9fb411a85059",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "План обновлён:\n1. [completed] Сопоставить термины\n2. [completed] Посчи…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "Сводка ранней части разговора.",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:aef915c5-263d-fe1c-6b1e-f99e01811ca3",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_internal_call",
+              "lc_source",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:aef915c5-263d-fe1c-6b1e-f99e01811ca3",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          }
+        ],
+        "summary_called": true,
+        "analyzer_called": 1
+      },
+      "summary_nostream": {
+        "messages_parts": 12,
+        "by_source": [
+          {
+            "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+            "type": "HumanMessage",
+            "node": "SkillsMiddleware.before_model",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "write_todos#c1",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:6dd38a62-9b4e-c3b6-5866-73984dd90961",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "План обновлён:\n1. [in_progress] Сопоставить термины\n2. [pending] Посчи…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "resolve_terms#c2",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:492851ea-3c2c-343f-9081-5a4f829533c3",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "analyzer: метанол=IN1",
+            "type": "AIMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": "tools:a432e062-0102-a9ab-d0ca-602efb421959",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "{\"status\": \"ok\", \"result\": \"Сопоставлено 2 из 2 терминов.\", \"data\": [{…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "run_scenarios#c3",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:a65956dc-0b24-fccb-a224-e67a3865cade",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "{\"status\": \"ok\", \"result\": \"Сценариев: 3. EBITDA: от 1200.0 до 1501.0.…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+            "type": "HumanMessage",
+            "node": "SkillsMiddleware.before_model",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "write_todos#c4",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:8b87413a-4294-660e-8997-dc3f4cabe0f9",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          },
+          {
+            "content": "План обновлён:\n1. [completed] Сопоставить термины\n2. [completed] Посчи…",
+            "type": "ToolMessage",
+            "node": "tools",
+            "tags": null,
+            "checkpoint_ns": null,
+            "ls_model_type": null,
+            "meta_keys": [
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "ls_integration"
+            ]
+          },
+          {
+            "content": "EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+            "type": "AIMessage",
+            "node": "model",
+            "tags": null,
+            "checkpoint_ns": "model:48eb9498-414d-9da5-3b04-342943531bfa",
+            "ls_model_type": "chat",
+            "meta_keys": [
+              "checkpoint_ns",
+              "langgraph_checkpoint_ns",
+              "langgraph_node",
+              "langgraph_path",
+              "langgraph_step",
+              "langgraph_triggers",
+              "lc_versions",
+              "ls_integration",
+              "ls_model_type",
+              "ls_provider"
+            ]
+          }
+        ],
+        "summary_called": false,
+        "analyzer_called": 1
+      },
+      "wall_s": 0.1
+    }
+  ]
+}

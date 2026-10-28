@@ -1,0 +1,787 @@
+{
+  "started": "2026-10-28T12:56:37+03:00",
+  "results": [
+    {
+      "check": "P1",
+      "nodes": [
+        "TurnContext.before_agent",
+        "LanguageGuard.before_agent",
+        "SkillsMiddleware.before_agent",
+        "TurnContext.before_model",
+        "Cancellation.before_model",
+        "SkillsMiddleware.before_model",
+        "TurnLimits.before_model",
+        "model",
+        "PlanCompletionGuard.after_model",
+        "AnswerGroundingGuard.after_model",
+        "TurnLimits.after_model",
+        "PlanTodoList.after_model",
+        "tools",
+        "TurnSummary.after_agent"
+      ],
+      "events": [
+        " 0.002 U TurnContext.before_agent msgs=[] keys=['turn_id', 'step_results', 'guard_counters', 'turn_message_id', 'todos', 'model_ref', 'pinned_skills']",
+        " 0.003 U LanguageGuard.before_agent msgs=[] keys=[]",
+        " 0.005 U SkillsMiddleware.before_agent msgs=[] keys=['skills_metadata', 'skills_load_errors']",
+        " 0.005 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.005 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.006 M HumanMessage node=SkillsMiddleware.before_model tags=None <skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+        " 0.006 U SkillsMiddleware.before_model msgs=[<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…] keys=['pinned_skills']",
+        " 0.006 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.012 M AIMessage node=model tags=None write_todos#c1",
+        " 0.013 U model msgs=[write_todos#c1] keys=['_skill_tools_disclosed']",
+        " 0.013 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.014 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.014 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.014 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.016 M ToolMessage node=tools tags=None write_todos#c1",
+        " 0.016 U tools msgs=[write_todos#c1] keys=['todos']",
+        " 0.016 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.017 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.017 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.017 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.019 M AIMessage node=model tags=None resolve_terms#c2",
+        " 0.020 U model msgs=[resolve_terms#c2] keys=['_skill_tools_disclosed']",
+        " 0.020 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.020 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.021 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.021 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.023 M ToolMessage node=tools tags=None resolve_terms#c2",
+        " 0.023 U tools msgs=[resolve_terms#c2] keys=['step_results', 'resolved_terms']",
+        " 0.023 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.024 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.024 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.024 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.026 M AIMessage node=model tags=None run_scenarios#c3",
+        " 0.026 U model msgs=[run_scenarios#c3] keys=['_skill_tools_disclosed']",
+        " 0.027 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.027 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.027 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.028 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.542 M ToolMessage node=tools tags=None run_scenarios#c3",
+        " 0.542 U tools msgs=[run_scenarios#c3] keys=['step_results']",
+        " 0.543 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.543 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.544 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.544 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.547 M AIMessage node=model tags=None write_todos#c4",
+        " 0.549 U model msgs=[write_todos#c4] keys=['_skill_tools_disclosed']",
+        " 0.549 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.550 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.550 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.550 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.553 M ToolMessage node=tools tags=None write_todos#c4",
+        " 0.553 U tools msgs=[write_todos#c4] keys=['todos']",
+        " 0.553 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.554 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.554 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.554 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.557 M AIMessage node=model tags=None EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+        " 0.558 U model msgs=[EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.] keys=['_skill_tools_disclosed']",
+        " 0.559 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.559 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.559 U TurnLimits.after_model msgs=[] keys=[]",
+        " 0.560 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.560 U TurnSummary.after_agent msgs=[] keys=['turn_summaries']"
+      ],
+      "spread_s": [
+        0.002,
+        0.56
+      ],
+      "seconds": 0.561,
+      "parts": [
+        {
+          "t": 0.002,
+          "mode": "updates",
+          "data": {
+            "TurnContext.before_agent": {
+              "turn_id": "eb953c889e65493e97683f1fa1e0ed2d",
+              "step_results": "[{\"__reset__\": true}]",
+              "guard_counters": "{}",
+              "turn_message_id": "9fff7dcf-4762-427c-bb6c-0cb8b87f7434",
+              "todos": "[]",
+              "model_ref": "{\"file_name\": \"model.xlsx\", \"file_hash\": \"hash-u1\", \"replace…",
+              "pinned_skills": "[\"economic-answer\"]"
+            }
+          }
+        },
+        {
+          "t": 0.003,
+          "mode": "updates",
+          "data": {
+            "LanguageGuard.before_agent": null
+          }
+        },
+        {
+          "t": 0.005,
+          "mode": "updates",
+          "data": {
+            "SkillsMiddleware.before_agent": {
+              "skills_metadata": "[{\"name\": \"covenant-headroom\", \"description\": \"Запас по кове…",
+              "skills_load_errors": "[]"
+            }
+          }
+        },
+        {
+          "t": 0.005,
+          "mode": "updates",
+          "data": {
+            "TurnContext.before_model": null
+          }
+        },
+        {
+          "t": 0.005,
+          "mode": "updates",
+          "data": {
+            "Cancellation.before_model": null
+          }
+        },
+        {
+          "t": 0.006,
+          "mode": "messages",
+          "msg": {
+            "type": "HumanMessage",
+            "id": "363dea8d-b448-4d02-a501-8800142a9add",
+            "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…"
+          },
+          "meta": {
+            "langgraph_node": "SkillsMiddleware.before_model",
+            "langgraph_step": 6,
+            "langgraph_triggers": [
+              "branch:to:SkillsMiddleware.before_model"
+            ]
+          }
+        },
+        {
+          "t": 0.006,
+          "mode": "updates",
+          "data": {
+            "SkillsMiddleware.before_model": {
+              "pinned_skills": "\"Overwrite(value=[], type='__overwrite__')\"",
+              "messages": [
+                {
+                  "type": "HumanMessage",
+                  "id": "363dea8d-b448-4d02-a501-8800142a9add",
+                  "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "t": 0.006,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.before_model": {
+              "guard_counters": "{\"model_calls\": 1}"
+            }
+          }
+        },
+        {
+          "t": 0.012,
+          "mode": "messages",
+          "msg": {
+            "type": "AIMessage",
+            "id": "lc_run--01a181f0-b0b3-74c2-838e-bb7b63d10ea3-0",
+            "tool_calls": [
+              "write_todos#c1"
+            ]
+          },
+          "meta": {
+            "langgraph_node": "model",
+            "langgraph_step": 8,
+            "langgraph_triggers": [
+              "branch:to:model"
+            ],
+            "checkpoint_ns": "model:80d68965-b775-4766-e5dc-6f5b30ec1acc"
+          }
+        },
+        {
+          "t": 0.013,
+          "mode": "updates",
+          "data": {
+            "model": {
+              "messages": [
+                {
+                  "type": "AIMessage",
+                  "id": "lc_run--01a181f0-b0b3-74c2-838e-bb7b63d10ea3-0",
+                  "tool_calls": [
+                    "write_todos#c1"
+                  ]
+                }
+              ],
+              "_skill_tools_disclosed": "{}"
+            }
+          }
+        },
+        {
+          "t": 0.013,
+          "mode": "updates",
+          "data": {
+            "PlanCompletionGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.014,
+          "mode": "updates",
+          "data": {
+            "AnswerGroundingGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.014,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.after_model": {
+              "guard_counters": "{\"model_calls\": 1, \"tool_calls\": 1}"
+            }
+          }
+        },
+        {
+          "t": 0.014,
+          "mode": "updates",
+          "data": {
+            "PlanTodoList.after_model": null
+          }
+        },
+        {
+          "t": 0.016,
+          "mode": "messages",
+          "msg": {
+            "type": "ToolMessage",
+            "id": "fed74f7b-4180-4fa7-ad9c-a38ff79d67d6",
+            "content": "План обновлён:\n1. [in_progress] Сопоставить термины\n2. [pending] Посчи…",
+            "tool": "write_todos#c1",
+            "status": "success"
+          },
+          "meta": {
+            "langgraph_node": "tools",
+            "langgraph_step": 13,
+            "langgraph_triggers": [
+              "__pregel_push"
+            ]
+          }
+        },
+        {
+          "t": 0.016,
+          "mode": "updates",
+          "data": {
+            "tools": {
+              "todos": "[{\"content\": \"Сопоставить термины\", \"status\": \"in_progress\"}…",
+              "messages": [
+                {
+                  "type": "ToolMessage",
+                  "id": "fed74f7b-4180-4fa7-ad9c-a38ff79d67d6",
+                  "content": "План обновлён:\n1. [in_progress] Сопоставить термины\n2. [pending] Посчи…",
+                  "tool": "write_todos#c1",
+                  "status": "success"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "t": 0.016,
+          "mode": "updates",
+          "data": {
+            "TurnContext.before_model": null
+          }
+        },
+        {
+          "t": 0.017,
+          "mode": "updates",
+          "data": {
+            "Cancellation.before_model": null
+          }
+        },
+        {
+          "t": 0.017,
+          "mode": "updates",
+          "data": {
+            "SkillsMiddleware.before_model": null
+          }
+        },
+        {
+          "t": 0.017,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.before_model": {
+              "guard_counters": "{\"model_calls\": 2, \"tool_calls\": 1}"
+            }
+          }
+        },
+        {
+          "t": 0.019,
+          "mode": "messages",
+          "msg": {
+            "type": "AIMessage",
+            "id": "lc_run--01a181f0-b0ba-77b0-8a84-5d99b61e1c61-0",
+            "tool_calls": [
+              "resolve_terms#c2"
+            ]
+          },
+          "meta": {
+            "langgraph_node": "model",
+            "langgraph_step": 18,
+            "langgraph_triggers": [
+              "branch:to:model"
+            ],
+            "checkpoint_ns": "model:838b9d5d-5ef2-821b-ee61-ec5b65337bd9"
+          }
+        },
+        {
+          "t": 0.02,
+          "mode": "updates",
+          "data": {
+            "model": {
+              "messages": [
+                {
+                  "type": "AIMessage",
+                  "id": "lc_run--01a181f0-b0ba-77b0-8a84-5d99b61e1c61-0",
+                  "tool_calls": [
+                    "resolve_terms#c2"
+                  ]
+                }
+              ],
+              "_skill_tools_disclosed": "{}"
+            }
+          }
+        },
+        {
+          "t": 0.02,
+          "mode": "updates",
+          "data": {
+            "PlanCompletionGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.02,
+          "mode": "updates",
+          "data": {
+            "AnswerGroundingGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.021,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.after_model": {
+              "guard_counters": "{\"model_calls\": 2, \"tool_calls\": 2}"
+            }
+          }
+        },
+        {
+          "t": 0.021,
+          "mode": "updates",
+          "data": {
+            "PlanTodoList.after_model": null
+          }
+        },
+        {
+          "t": 0.023,
+          "mode": "messages",
+          "msg": {
+            "type": "ToolMessage",
+            "id": "84044248-ae82-4095-a76d-64cc47b4f25c",
+            "content": "{\"status\": \"ok\", \"result\": \"Сопоставлено 2 из 2 терминов.\", \"data\": [{…",
+            "tool": "resolve_terms#c2",
+            "status": "success"
+          },
+          "meta": {
+            "langgraph_node": "tools",
+            "langgraph_step": 23,
+            "langgraph_triggers": [
+              "__pregel_push"
+            ]
+          }
+        },
+        {
+          "t": 0.023,
+          "mode": "updates",
+          "data": {
+            "tools": {
+              "messages": [
+                {
+                  "type": "ToolMessage",
+                  "id": "84044248-ae82-4095-a76d-64cc47b4f25c",
+                  "content": "{\"status\": \"ok\", \"result\": \"Сопоставлено 2 из 2 терминов.\", \"data\": [{…",
+                  "tool": "resolve_terms#c2",
+                  "status": "success"
+                }
+              ],
+              "step_results": "[{\"call_id\": \"c2\", \"tool\": \"resolve_terms\", \"status\": \"ok\", …",
+              "resolved_terms": "{\"метанол\": {\"id\": \"IN1\", \"name\": \"Метанол\", \"confidence\": \"…"
+            }
+          }
+        },
+        {
+          "t": 0.023,
+          "mode": "updates",
+          "data": {
+            "TurnContext.before_model": null
+          }
+        },
+        {
+          "t": 0.024,
+          "mode": "updates",
+          "data": {
+            "Cancellation.before_model": null
+          }
+        },
+        {
+          "t": 0.024,
+          "mode": "updates",
+          "data": {
+            "SkillsMiddleware.before_model": null
+          }
+        },
+        {
+          "t": 0.024,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.before_model": {
+              "guard_counters": "{\"model_calls\": 3, \"tool_calls\": 2}"
+            }
+          }
+        },
+        {
+          "t": 0.026,
+          "mode": "messages",
+          "msg": {
+            "type": "AIMessage",
+            "id": "lc_run--01a181f0-b0c1-7910-a056-214999e68458-0",
+            "tool_calls": [
+              "run_scenarios#c3"
+            ]
+          },
+          "meta": {
+            "langgraph_node": "model",
+            "langgraph_step": 28,
+            "langgraph_triggers": [
+              "branch:to:model"
+            ],
+            "checkpoint_ns": "model:8a406f93-4590-aaaf-52c0-689ba72c2078"
+          }
+        },
+        {
+          "t": 0.026,
+          "mode": "updates",
+          "data": {
+            "model": {
+              "messages": [
+                {
+                  "type": "AIMessage",
+                  "id": "lc_run--01a181f0-b0c1-7910-a056-214999e68458-0",
+                  "tool_calls": [
+                    "run_scenarios#c3"
+                  ]
+                }
+              ],
+              "_skill_tools_disclosed": "{}"
+            }
+          }
+        },
+        {
+          "t": 0.027,
+          "mode": "updates",
+          "data": {
+            "PlanCompletionGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.027,
+          "mode": "updates",
+          "data": {
+            "AnswerGroundingGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.027,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.after_model": {
+              "guard_counters": "{\"model_calls\": 3, \"tool_calls\": 3, \"calc_calls\": 1}"
+            }
+          }
+        },
+        {
+          "t": 0.028,
+          "mode": "updates",
+          "data": {
+            "PlanTodoList.after_model": null
+          }
+        },
+        {
+          "t": 0.542,
+          "mode": "messages",
+          "msg": {
+            "type": "ToolMessage",
+            "id": "a4e3218c-a130-4ac6-b728-1a6001929eae",
+            "content": "{\"status\": \"ok\", \"result\": \"Сценариев: 3. EBITDA: от 1200.0 до 1501.0.…",
+            "tool": "run_scenarios#c3",
+            "status": "success"
+          },
+          "meta": {
+            "langgraph_node": "tools",
+            "langgraph_step": 33,
+            "langgraph_triggers": [
+              "__pregel_push"
+            ]
+          }
+        },
+        {
+          "t": 0.542,
+          "mode": "updates",
+          "data": {
+            "tools": {
+              "messages": [
+                {
+                  "type": "ToolMessage",
+                  "id": "a4e3218c-a130-4ac6-b728-1a6001929eae",
+                  "content": "{\"status\": \"ok\", \"result\": \"Сценариев: 3. EBITDA: от 1200.0 до 1501.0.…",
+                  "tool": "run_scenarios#c3",
+                  "status": "success"
+                }
+              ],
+              "step_results": "[{\"call_id\": \"c3\", \"tool\": \"run_scenarios\", \"status\": \"ok\", …"
+            }
+          }
+        },
+        {
+          "t": 0.543,
+          "mode": "updates",
+          "data": {
+            "TurnContext.before_model": null
+          }
+        },
+        {
+          "t": 0.543,
+          "mode": "updates",
+          "data": {
+            "Cancellation.before_model": null
+          }
+        },
+        {
+          "t": 0.544,
+          "mode": "updates",
+          "data": {
+            "SkillsMiddleware.before_model": null
+          }
+        },
+        {
+          "t": 0.544,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.before_model": {
+              "guard_counters": "{\"model_calls\": 4, \"tool_calls\": 3, \"calc_calls\": 1}"
+            }
+          }
+        },
+        {
+          "t": 0.547,
+          "mode": "messages",
+          "msg": {
+            "type": "AIMessage",
+            "id": "lc_run--01a181f0-b2ca-7c70-8fd9-93905f49b7c4-0",
+            "tool_calls": [
+              "write_todos#c4"
+            ]
+          },
+          "meta": {
+            "langgraph_node": "model",
+            "langgraph_step": 38,
+            "langgraph_triggers": [
+              "branch:to:model"
+            ],
+            "checkpoint_ns": "model:385c2258-9187-0019-e581-cd66c9358071"
+          }
+        },
+        {
+          "t": 0.549,
+          "mode": "updates",
+          "data": {
+            "model": {
+              "messages": [
+                {
+                  "type": "AIMessage",
+                  "id": "lc_run--01a181f0-b2ca-7c70-8fd9-93905f49b7c4-0",
+                  "tool_calls": [
+                    "write_todos#c4"
+                  ]
+                }
+              ],
+              "_skill_tools_disclosed": "{}"
+            }
+          }
+        },
+        {
+          "t": 0.549,
+          "mode": "updates",
+          "data": {
+            "PlanCompletionGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.55,
+          "mode": "updates",
+          "data": {
+            "AnswerGroundingGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.55,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.after_model": {
+              "guard_counters": "{\"model_calls\": 4, \"tool_calls\": 4, \"calc_calls\": 1}"
+            }
+          }
+        },
+        {
+          "t": 0.55,
+          "mode": "updates",
+          "data": {
+            "PlanTodoList.after_model": null
+          }
+        },
+        {
+          "t": 0.553,
+          "mode": "messages",
+          "msg": {
+            "type": "ToolMessage",
+            "id": "357d5970-ec8c-4140-9201-246095f2b590",
+            "content": "План обновлён:\n1. [completed] Сопоставить термины\n2. [completed] Посчи…",
+            "tool": "write_todos#c4",
+            "status": "success"
+          },
+          "meta": {
+            "langgraph_node": "tools",
+            "langgraph_step": 43,
+            "langgraph_triggers": [
+              "__pregel_push"
+            ]
+          }
+        },
+        {
+          "t": 0.553,
+          "mode": "updates",
+          "data": {
+            "tools": {
+              "todos": "[{\"content\": \"Сопоставить термины\", \"status\": \"completed\"}, …",
+              "messages": [
+                {
+                  "type": "ToolMessage",
+                  "id": "357d5970-ec8c-4140-9201-246095f2b590",
+                  "content": "План обновлён:\n1. [completed] Сопоставить термины\n2. [completed] Посчи…",
+                  "tool": "write_todos#c4",
+                  "status": "success"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "t": 0.553,
+          "mode": "updates",
+          "data": {
+            "TurnContext.before_model": null
+          }
+        },
+        {
+          "t": 0.554,
+          "mode": "updates",
+          "data": {
+            "Cancellation.before_model": null
+          }
+        },
+        {
+          "t": 0.554,
+          "mode": "updates",
+          "data": {
+            "SkillsMiddleware.before_model": null
+          }
+        },
+        {
+          "t": 0.554,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.before_model": {
+              "guard_counters": "{\"model_calls\": 5, \"tool_calls\": 4, \"calc_calls\": 1}"
+            }
+          }
+        },
+        {
+          "t": 0.557,
+          "mode": "messages",
+          "msg": {
+            "type": "AIMessage",
+            "id": "lc_run--01a181f0-b2d4-72e2-a68a-0a5fda6e08ed-0",
+            "content": "EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500."
+          },
+          "meta": {
+            "langgraph_node": "model",
+            "langgraph_step": 48,
+            "langgraph_triggers": [
+              "branch:to:model"
+            ],
+            "checkpoint_ns": "model:f8fa5512-1e28-ecec-4145-f2f7e19172aa"
+          }
+        },
+        {
+          "t": 0.558,
+          "mode": "updates",
+          "data": {
+            "model": {
+              "messages": [
+                {
+                  "type": "AIMessage",
+                  "id": "lc_run--01a181f0-b2d4-72e2-a68a-0a5fda6e08ed-0",
+                  "content": "EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500."
+                }
+              ],
+              "_skill_tools_disclosed": "{}"
+            }
+          }
+        },
+        {
+          "t": 0.559,
+          "mode": "updates",
+          "data": {
+            "PlanCompletionGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.559,
+          "mode": "updates",
+          "data": {
+            "AnswerGroundingGuard.after_model": null
+          }
+        },
+        {
+          "t": 0.559,
+          "mode": "updates",
+          "data": {
+            "TurnLimits.after_model": null
+          }
+        },
+        {
+          "t": 0.56,
+          "mode": "updates",
+          "data": {
+            "PlanTodoList.after_model": null
+          }
+        },
+        {
+          "t": 0.56,
+          "mode": "updates",
+          "data": {
+            "TurnSummary.after_agent": {
+              "turn_summaries": "[{\"turn_id\": \"eb953c889e65493e97683f1fa1e0ed2d\", \"question\":…"
+            }
+          }
+        }
+      ],
+      "wall_s": 0.6
+    }
+  ]
+}

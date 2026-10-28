@@ -1,0 +1,517 @@
+{
+  "started": "2026-10-28T12:57:10+03:00",
+  "results": [
+    {
+      "check": "P3",
+      "grounding_events": [
+        " 0.002 U TurnContext.before_agent msgs=[] keys=['turn_id', 'step_results', 'guard_counters', 'turn_message_id', 'todos', 'model_ref', 'pinned_skills']",
+        " 0.002 U LanguageGuard.before_agent msgs=[] keys=[]",
+        " 0.004 U SkillsMiddleware.before_agent msgs=[] keys=['skills_metadata', 'skills_load_errors']",
+        " 0.004 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.005 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.005 M HumanMessage node=SkillsMiddleware.before_model tags=None <skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+        " 0.005 U SkillsMiddleware.before_model msgs=[<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…] keys=['pinned_skills']",
+        " 0.005 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.012 M AIMessage node=model tags=None write_todos#c1",
+        " 0.013 U model msgs=[write_todos#c1] keys=['_skill_tools_disclosed']",
+        " 0.013 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.013 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.013 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.014 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.016 M ToolMessage node=tools tags=None write_todos#c1",
+        " 0.016 U tools msgs=[write_todos#c1] keys=['todos']",
+        " 0.016 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.016 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.017 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.017 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.019 M AIMessage node=model tags=None resolve_terms#c2",
+        " 0.019 U model msgs=[resolve_terms#c2] keys=['_skill_tools_disclosed']",
+        " 0.020 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.020 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.020 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.021 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.023 M ToolMessage node=tools tags=None resolve_terms#c2",
+        " 0.023 U tools msgs=[resolve_terms#c2] keys=['step_results', 'resolved_terms']",
+        " 0.023 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.023 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.023 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.024 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.026 M AIMessage node=model tags=None run_scenarios#c3",
+        " 0.026 U model msgs=[run_scenarios#c3] keys=['_skill_tools_disclosed']",
+        " 0.027 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.027 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.027 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.027 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.032 M ToolMessage node=tools tags=None run_scenarios#c3",
+        " 0.032 U tools msgs=[run_scenarios#c3] keys=['step_results']",
+        " 0.033 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.033 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.033 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.033 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.035 M AIMessage node=model tags=None write_todos#c4",
+        " 0.036 U model msgs=[write_todos#c4] keys=['_skill_tools_disclosed']",
+        " 0.036 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.036 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.037 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.037 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.039 M ToolMessage node=tools tags=None write_todos#c4",
+        " 0.039 U tools msgs=[write_todos#c4] keys=['todos']",
+        " 0.039 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.039 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.039 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.040 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.042 M AIMessage node=model tags=None EBITDA 2026 достигает 9999 при цене метанола 500.",
+        " 0.042 U model msgs=[EBITDA 2026 достигает 9999 при цене метанола 500.] keys=['_skill_tools_disclosed']",
+        " 0.043 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.043 M HumanMessage node=AnswerGroundingGuard.after_model tags=None В ответе есть числа, которых нет в результатах инструментов и в сообще…",
+        " 0.043 U AnswerGroundingGuard.after_model msgs=[В ответе есть числа, которых нет в результатах инструментов и в сообще…] keys=['guard_counters', 'jump_to']",
+        " 0.044 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.044 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.044 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.044 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.046 M AIMessage node=model tags=None EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+        " 0.047 U model msgs=[EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.] keys=['_skill_tools_disclosed']",
+        " 0.047 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.047 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.048 U TurnLimits.after_model msgs=[] keys=[]",
+        " 0.048 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.048 U TurnSummary.after_agent msgs=[] keys=['turn_summaries']"
+      ],
+      "grounding_bad_text_parts": [
+        {
+          "t": 0.042,
+          "mode": "messages",
+          "msg": {
+            "type": "AIMessage",
+            "id": "lc_run--01a181f1-32d6-7c03-813c-def963c52e0c-0",
+            "content": "EBITDA 2026 достигает 9999 при цене метанола 500."
+          },
+          "meta": {
+            "langgraph_node": "model",
+            "langgraph_step": 48,
+            "langgraph_triggers": [
+              "branch:to:model"
+            ],
+            "checkpoint_ns": "model:79cf84d6-a581-59e4-0387-52fcb922b6e1"
+          }
+        },
+        {
+          "t": 0.042,
+          "mode": "updates",
+          "data": {
+            "model": {
+              "messages": [
+                {
+                  "type": "AIMessage",
+                  "id": "lc_run--01a181f1-32d6-7c03-813c-def963c52e0c-0",
+                  "content": "EBITDA 2026 достигает 9999 при цене метанола 500."
+                }
+              ],
+              "_skill_tools_disclosed": "{}"
+            }
+          }
+        }
+      ],
+      "plan_events": [
+        " 0.001 U TurnContext.before_agent msgs=[] keys=['turn_id', 'step_results', 'guard_counters', 'turn_message_id', 'todos', 'model_ref', 'pinned_skills']",
+        " 0.001 U LanguageGuard.before_agent msgs=[] keys=[]",
+        " 0.002 U SkillsMiddleware.before_agent msgs=[] keys=['skills_metadata', 'skills_load_errors']",
+        " 0.003 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.003 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.003 M HumanMessage node=SkillsMiddleware.before_model tags=None <skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+        " 0.003 U SkillsMiddleware.before_model msgs=[<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…] keys=['pinned_skills']",
+        " 0.004 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.009 M AIMessage node=model tags=None write_todos#c1",
+        " 0.010 U model msgs=[write_todos#c1] keys=['_skill_tools_disclosed']",
+        " 0.010 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.011 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.011 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.011 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.013 M ToolMessage node=tools tags=None write_todos#c1",
+        " 0.013 U tools msgs=[write_todos#c1] keys=['todos']",
+        " 0.013 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.013 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.014 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.014 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.016 M AIMessage node=model tags=None resolve_terms#c2",
+        " 0.016 U model msgs=[resolve_terms#c2] keys=['_skill_tools_disclosed']",
+        " 0.017 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.017 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.017 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.018 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.019 M ToolMessage node=tools tags=None resolve_terms#c2",
+        " 0.019 U tools msgs=[resolve_terms#c2] keys=['step_results', 'resolved_terms']",
+        " 0.020 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.020 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.020 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.020 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.022 M AIMessage node=model tags=None run_scenarios#c3",
+        " 0.023 U model msgs=[run_scenarios#c3] keys=['_skill_tools_disclosed']",
+        " 0.023 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.024 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.024 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.024 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.027 M ToolMessage node=tools tags=None run_scenarios#c3",
+        " 0.027 U tools msgs=[run_scenarios#c3] keys=['step_results']",
+        " 0.027 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.027 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.027 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.027 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.029 M AIMessage node=model tags=None Рано: EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 50…",
+        " 0.030 U model msgs=[Рано: EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 50…] keys=['_skill_tools_disclosed']",
+        " 0.030 M HumanMessage node=PlanCompletionGuard.after_model tags=None В плане остались незакрытые шаги:\n1. [in_progress] Сопоставить термины…",
+        " 0.030 U PlanCompletionGuard.after_model msgs=[В плане остались незакрытые шаги:\n1. [in_progress] Сопоставить термины…] keys=['guard_counters', 'jump_to']",
+        " 0.031 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.031 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.031 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.031 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.033 M AIMessage node=model tags=None write_todos#c4",
+        " 0.034 U model msgs=[write_todos#c4] keys=['_skill_tools_disclosed']",
+        " 0.034 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.034 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.035 U TurnLimits.after_model msgs=[] keys=['guard_counters']",
+        " 0.035 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.037 M ToolMessage node=tools tags=None write_todos#c4",
+        " 0.037 U tools msgs=[write_todos#c4] keys=['todos']",
+        " 0.037 U TurnContext.before_model msgs=[] keys=[]",
+        " 0.037 U Cancellation.before_model msgs=[] keys=[]",
+        " 0.037 U SkillsMiddleware.before_model msgs=[] keys=[]",
+        " 0.037 U TurnLimits.before_model msgs=[] keys=['guard_counters']",
+        " 0.039 M AIMessage node=model tags=None EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+        " 0.040 U model msgs=[EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.] keys=['_skill_tools_disclosed']",
+        " 0.040 U PlanCompletionGuard.after_model msgs=[] keys=[]",
+        " 0.041 U AnswerGroundingGuard.after_model msgs=[] keys=[]",
+        " 0.041 U TurnLimits.after_model msgs=[] keys=[]",
+        " 0.041 U PlanTodoList.after_model msgs=[] keys=[]",
+        " 0.041 U TurnSummary.after_agent msgs=[] keys=['turn_summaries']"
+      ],
+      "plan_early_text_parts": [
+        {
+          "t": 0.029,
+          "mode": "messages",
+          "msg": {
+            "type": "AIMessage",
+            "id": "lc_run--01a181f1-3305-7901-9763-f23da269561b-0",
+            "content": "Рано: EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 50…"
+          },
+          "meta": {
+            "langgraph_node": "model",
+            "langgraph_step": 38,
+            "langgraph_triggers": [
+              "branch:to:model"
+            ],
+            "checkpoint_ns": "model:d2d43b93-46b1-5307-bf33-199c74c1ad47"
+          }
+        },
+        {
+          "t": 0.03,
+          "mode": "updates",
+          "data": {
+            "model": {
+              "messages": [
+                {
+                  "type": "AIMessage",
+                  "id": "lc_run--01a181f1-3305-7901-9763-f23da269561b-0",
+                  "content": "Рано: EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 50…"
+                }
+              ],
+              "_skill_tools_disclosed": "{}"
+            }
+          }
+        }
+      ],
+      "wall_s": 0.1
+    },
+    {
+      "check": "P5",
+      "messages_parts": 15,
+      "by_source": [
+        {
+          "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+          "type": "HumanMessage",
+          "node": "SkillsMiddleware.before_model",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "write_todos#c1",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:8da91394-5b2a-a129-2c2a-8a8c48398956",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "План обновлён:\n1. [in_progress] Сопоставить термины\n2. [pending] Посчи…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "resolve_terms#c2",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:cbebb1ea-c332-1b3c-3877-7ac46b2c6112",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "analyzer: метанол=IN1",
+          "type": "AIMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": "tools:fabff4d0-1567-6952-9a9a-f46b8497b069",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "{\"status\": \"ok\", \"result\": \"Сопоставлено 2 из 2 терминов.\", \"data\": [{…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "Сводка ранней части разговора.",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:ef74ed39-d4db-0a83-c4f6-da9e0721315b",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_internal_call",
+            "lc_source",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "run_scenarios#c3",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:ef74ed39-d4db-0a83-c4f6-da9e0721315b",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "{\"status\": \"ok\", \"result\": \"Сценариев: 3. EBITDA: от 1200.0 до 1501.0.…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "<skill name=\"economic-answer\" path=\"/skills/economic-answer/SKILL.md\">…",
+          "type": "HumanMessage",
+          "node": "SkillsMiddleware.before_model",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "Сводка ранней части разговора.",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:1e6c7def-c206-5f2c-c03f-70cce7018d9a",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_internal_call",
+            "lc_source",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "write_todos#c4",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:1e6c7def-c206-5f2c-c03f-70cce7018d9a",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "План обновлён:\n1. [completed] Сопоставить термины\n2. [completed] Посчи…",
+          "type": "ToolMessage",
+          "node": "tools",
+          "tags": null,
+          "checkpoint_ns": null,
+          "ls_model_type": null,
+          "meta_keys": [
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "ls_integration"
+          ]
+        },
+        {
+          "content": "Сводка ранней части разговора.",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:c843a78e-8f21-0c64-3120-e3a150739c2a",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_internal_call",
+            "lc_source",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        },
+        {
+          "content": "EBITDA 2026 растёт с 1200 до 1501 при цене метанола от 300 до 500.",
+          "type": "AIMessage",
+          "node": "model",
+          "tags": null,
+          "checkpoint_ns": "model:c843a78e-8f21-0c64-3120-e3a150739c2a",
+          "ls_model_type": "chat",
+          "meta_keys": [
+            "checkpoint_ns",
+            "langgraph_checkpoint_ns",
+            "langgraph_node",
+            "langgraph_path",
+            "langgraph_step",
+            "langgraph_triggers",
+            "lc_versions",
+            "ls_integration",
+            "ls_model_type",
+            "ls_provider"
+          ]
+        }
+      ],
+      "summary_called": true,
+      "analyzer_called": 1,
+      "wall_s": 0.1
+    }
+  ]
+}

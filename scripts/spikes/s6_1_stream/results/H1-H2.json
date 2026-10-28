@@ -1,0 +1,492 @@
+{
+  "started": "2026-10-28T14:21:21+03:00",
+  "results": [
+    {
+      "check": "H1",
+      "client": {
+        "status": {
+          "cache-control": "no-cache",
+          "x-accel-buffering": "no",
+          "content-type": "text/event-stream; charset=utf-8",
+          "x-trace-id": "6b20f9d7-06c3-4ca7-86cb-5251d1af6421",
+          "x-request-time": "2026-10-28T11:21:22.585731+00:00",
+          "x-client-id": "AB12345678",
+          "x-session-id": "794d3346-a583-40ab-a613-6b71202b2e0b",
+          "x-user-id": "u1",
+          "x-response-time": "2026-10-28T14:21:27.598574+03:00"
+        },
+        "first_frame_s": 5.018,
+        "last_frame_s": 5.019,
+        "distinct_arrivals": 1,
+        "frames": 5,
+        "pings": 0,
+        "lines": [
+          [
+            5.018,
+            "event: tick"
+          ],
+          [
+            5.018,
+            "id: 1"
+          ],
+          [
+            5.018,
+            "data: {\"v\": 1, \"seq\": 1, \"i\": 1}"
+          ],
+          [
+            5.018,
+            "event: tick"
+          ],
+          [
+            5.018,
+            "id: 2"
+          ],
+          [
+            5.018,
+            "data: {\"v\": 1, \"seq\": 2, \"i\": 2}"
+          ],
+          [
+            5.018,
+            "event: tick"
+          ],
+          [
+            5.018,
+            "id: 3"
+          ],
+          [
+            5.018,
+            "data: {\"v\": 1, \"seq\": 3, \"i\": 3}"
+          ],
+          [
+            5.018,
+            "event: tick"
+          ],
+          [
+            5.018,
+            "id: 4"
+          ],
+          [
+            5.018,
+            "data: {\"v\": 1, \"seq\": 4, \"i\": 4}"
+          ],
+          [
+            5.019,
+            "event: tick"
+          ],
+          [
+            5.019,
+            "id: 5"
+          ],
+          [
+            5.019,
+            "data: {\"v\": 1, \"seq\": 5, \"i\": 5}"
+          ]
+        ],
+        "seconds": 5.019
+      },
+      "server": {
+        "request": {
+          "events": [
+            [
+              0.195,
+              "send 1"
+            ],
+            [
+              1.195,
+              "send 2"
+            ],
+            [
+              2.196,
+              "send 3"
+            ],
+            [
+              3.198,
+              "send 4"
+            ],
+            [
+              4.2,
+              "send 5"
+            ],
+            [
+              5.202,
+              "gen finally"
+            ]
+          ]
+        },
+        "log": [
+          {
+            "t": 0.187,
+            "kind": "info",
+            "what": "Incoming GET-request with no id for /state"
+          },
+          {
+            "t": 0.188,
+            "kind": "info",
+            "what": "Request with no id for /state processing time:  0.001 s"
+          },
+          {
+            "t": 0.191,
+            "kind": "info",
+            "what": "Incoming POST-request for /ticks"
+          },
+          {
+            "t": 0.191,
+            "kind": "metric",
+            "what": "aigw_service_user_u1",
+            "value": 1
+          },
+          {
+            "t": 0.191,
+            "kind": "metric",
+            "what": "aigw_service_requests_total",
+            "value": 1
+          },
+          {
+            "t": 0.191,
+            "kind": "audit",
+            "what": "BusinessRequestReceived"
+          },
+          {
+            "t": 5.203,
+            "kind": "warning",
+            "what": "response body is not json"
+          },
+          {
+            "t": 5.204,
+            "kind": "info",
+            "what": "Outgoing response to client system",
+            "body": "{}"
+          },
+          {
+            "t": 5.204,
+            "kind": "metric",
+            "what": "aigw_service_responses_total",
+            "value": 1
+          },
+          {
+            "t": 5.204,
+            "kind": "audit",
+            "what": "BusinessRequestFinished"
+          },
+          {
+            "t": 5.204,
+            "kind": "info",
+            "what": "Request processing time for /ticks: 5014 ms"
+          },
+          {
+            "t": 5.205,
+            "kind": "metric",
+            "what": "aigw_service_process_duration_ms",
+            "value": 5014
+          },
+          {
+            "t": 5.205,
+            "kind": "metric",
+            "what": "aigw_service_request_status_success_total",
+            "value": 1
+          },
+          {
+            "t": 5.21,
+            "kind": "info",
+            "what": "Incoming GET-request with no id for /state"
+          }
+        ]
+      },
+      "wall_s": 6.5
+    },
+    {
+      "check": "H2",
+      "client": {
+        "status": {
+          "cache-control": "no-cache",
+          "x-accel-buffering": "no",
+          "content-type": "text/event-stream; charset=utf-8",
+          "x-trace-id": "1f8e33bf-f3a4-40c3-8221-44ff3055ad03",
+          "x-request-time": "2026-10-28T11:21:29.090615+00:00",
+          "x-client-id": "AB12345678",
+          "x-session-id": "c331826e-d594-4dd2-92b9-532f26599ef1",
+          "x-user-id": "u1",
+          "x-response-time": "2026-10-28T14:21:29.093630+03:00"
+        },
+        "first_frame_s": 0.005,
+        "last_frame_s": 4.011,
+        "distinct_arrivals": 5,
+        "frames": 5,
+        "pings": 0,
+        "lines": [
+          [
+            0.005,
+            "event: tick"
+          ],
+          [
+            0.005,
+            "id: 1"
+          ],
+          [
+            0.005,
+            "data: {\"v\": 1, \"seq\": 1, \"i\": 1}"
+          ],
+          [
+            1.006,
+            "event: tick"
+          ],
+          [
+            1.006,
+            "id: 2"
+          ],
+          [
+            1.006,
+            "data: {\"v\": 1, \"seq\": 2, \"i\": 2}"
+          ],
+          [
+            2.008,
+            "event: tick"
+          ],
+          [
+            2.008,
+            "id: 3"
+          ],
+          [
+            2.008,
+            "data: {\"v\": 1, \"seq\": 3, \"i\": 3}"
+          ],
+          [
+            3.009,
+            "event: tick"
+          ],
+          [
+            3.009,
+            "id: 4"
+          ],
+          [
+            3.009,
+            "data: {\"v\": 1, \"seq\": 4, \"i\": 4}"
+          ],
+          [
+            4.011,
+            "event: tick"
+          ],
+          [
+            4.011,
+            "id: 5"
+          ],
+          [
+            4.011,
+            "data: {\"v\": 1, \"seq\": 5, \"i\": 5}"
+          ]
+        ],
+        "seconds": 5.014
+      },
+      "server": {
+        "request": {
+          "events": [
+            [
+              0.219,
+              "send 1"
+            ],
+            [
+              1.221,
+              "send 2"
+            ],
+            [
+              2.223,
+              "send 3"
+            ],
+            [
+              3.224,
+              "send 4"
+            ],
+            [
+              4.226,
+              "send 5"
+            ],
+            [
+              5.227,
+              "gen finally"
+            ]
+          ]
+        },
+        "log": [
+          {
+            "t": 0.213,
+            "kind": "info",
+            "what": "Incoming GET-request with no id for /state"
+          },
+          {
+            "t": 0.214,
+            "kind": "info",
+            "what": "Request with no id for /state processing time:  0.002 s"
+          },
+          {
+            "t": 0.217,
+            "kind": "info",
+            "what": "Incoming POST-request for /ticks"
+          },
+          {
+            "t": 0.217,
+            "kind": "metric",
+            "what": "aigw_service_user_u1",
+            "value": 1
+          },
+          {
+            "t": 0.217,
+            "kind": "metric",
+            "what": "aigw_service_requests_total",
+            "value": 1
+          },
+          {
+            "t": 0.217,
+            "kind": "audit",
+            "what": "BusinessRequestReceived"
+          },
+          {
+            "t": 0.219,
+            "kind": "warning",
+            "what": "response body is not json"
+          },
+          {
+            "t": 0.219,
+            "kind": "info",
+            "what": "Outgoing response to client system",
+            "body": "{}"
+          },
+          {
+            "t": 0.219,
+            "kind": "metric",
+            "what": "aigw_service_responses_total",
+            "value": 1
+          },
+          {
+            "t": 0.219,
+            "kind": "audit",
+            "what": "BusinessRequestFinished"
+          },
+          {
+            "t": 0.22,
+            "kind": "info",
+            "what": "Request processing time for /ticks: 3 ms"
+          },
+          {
+            "t": 0.22,
+            "kind": "metric",
+            "what": "aigw_service_process_duration_ms",
+            "value": 3
+          },
+          {
+            "t": 0.22,
+            "kind": "metric",
+            "what": "aigw_service_request_status_success_total",
+            "value": 1
+          },
+          {
+            "t": 5.228,
+            "kind": "info",
+            "what": "Outgoing response to client system (stream)"
+          },
+          {
+            "t": 5.228,
+            "kind": "metric",
+            "what": "aigw_service_responses_total",
+            "value": 1
+          },
+          {
+            "t": 5.228,
+            "kind": "audit",
+            "what": "BusinessRequestFinished"
+          },
+          {
+            "t": 5.229,
+            "kind": "metric",
+            "what": "aigw_service_process_duration_ms",
+            "value": 5010
+          },
+          {
+            "t": 5.231,
+            "kind": "info",
+            "what": "Incoming GET-request with no id for /state"
+          }
+        ]
+      },
+      "json_response_status": 200,
+      "json_response_log": [
+        {
+          "t": 0.196,
+          "kind": "info",
+          "what": "Incoming GET-request with no id for /state"
+        },
+        {
+          "t": 0.198,
+          "kind": "info",
+          "what": "Request with no id for /state processing time:  0.001 s"
+        },
+        {
+          "t": 0.2,
+          "kind": "warning",
+          "what": "request body is not json"
+        },
+        {
+          "t": 0.201,
+          "kind": "info",
+          "what": "Incoming GET-request for /state"
+        },
+        {
+          "t": 0.201,
+          "kind": "metric",
+          "what": "aigw_service_user_u1",
+          "value": 1
+        },
+        {
+          "t": 0.201,
+          "kind": "metric",
+          "what": "aigw_service_requests_total",
+          "value": 1
+        },
+        {
+          "t": 0.201,
+          "kind": "audit",
+          "what": "BusinessRequestReceived"
+        },
+        {
+          "t": 0.202,
+          "kind": "info",
+          "what": "Outgoing response to client system",
+          "body": "{'requests': {}, 'log': [{'t': 0.196, 'kind': 'info', 'what'"
+        },
+        {
+          "t": 0.202,
+          "kind": "metric",
+          "what": "aigw_service_responses_total",
+          "value": 1
+        },
+        {
+          "t": 0.202,
+          "kind": "audit",
+          "what": "BusinessRequestFinished"
+        },
+        {
+          "t": 0.202,
+          "kind": "info",
+          "what": "Request processing time for /state: 2 ms"
+        },
+        {
+          "t": 0.202,
+          "kind": "metric",
+          "what": "aigw_service_process_duration_ms",
+          "value": 2
+        },
+        {
+          "t": 0.203,
+          "kind": "metric",
+          "what": "aigw_service_request_status_success_total",
+          "value": 1
+        },
+        {
+          "t": 0.204,
+          "kind": "info",
+          "what": "Incoming GET-request with no id for /state"
+        }
+      ],
+      "wall_s": 7.9
+    }
+  ]
+}

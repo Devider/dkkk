@@ -1,0 +1,200 @@
+{
+  "started": "2026-10-28T12:58:40+03:00",
+  "results": [
+    {
+      "check": "G1",
+      "streamed": {
+        "chunks": 1,
+        "first_chunk_s": 2.435,
+        "total_s": 2.435,
+        "usage_per_chunk": [
+          true
+        ],
+        "fc_per_chunk": [
+          true
+        ],
+        "message": {
+          "content": "",
+          "tool_calls": [
+            {
+              "name": "resolve_terms",
+              "args": {
+                "terms": [
+                  {
+                    "role": "output",
+                    "text": "EBITDA"
+                  },
+                  {
+                    "role": "input",
+                    "text": "цена метанола"
+                  }
+                ]
+              },
+              "id": "42803891-19a5-4071-ae45-f2112f0d30db",
+              "type": "tool_call"
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs_keys": [
+            "function_call",
+            "functions_state_id"
+          ],
+          "functions_state_id": "01a181f2-96f5-7a06-90ff-33900ba7b7bc",
+          "usage_metadata": {
+            "output_tokens": 48,
+            "input_tokens": 1069,
+            "total_tokens": 1117,
+            "input_token_details": {
+              "cache_read": 0
+            }
+          }
+        }
+      },
+      "ainvoke": {
+        "content": "",
+        "tool_calls": [
+          {
+            "name": "resolve_terms",
+            "args": {
+              "terms": [
+                {
+                  "role": "output",
+                  "text": "EBITDA"
+                },
+                {
+                  "role": "input",
+                  "text": "цена метанола"
+                }
+              ]
+            },
+            "id": "be3d8b90-c90d-421b-946b-68b54ce303fe",
+            "type": "tool_call"
+          }
+        ],
+        "invalid_tool_calls": [],
+        "additional_kwargs_keys": [
+          "function_call",
+          "functions_state_id"
+        ],
+        "functions_state_id": "01a181f2-9ed5-781e-aad1-4238b556d823",
+        "usage_metadata": {
+          "output_tokens": 48,
+          "input_tokens": 32,
+          "total_tokens": 80,
+          "input_token_details": {
+            "cache_read": 1037
+          }
+        }
+      },
+      "ok": true,
+      "wall_s": 3.0
+    },
+    {
+      "check": "G2",
+      "state_id_in_merged": "01a181f2-96f5-7a06-90ff-33900ba7b7bc",
+      "assistant_in_payload": {
+        "role": "assistant",
+        "function_call": {
+          "name": "resolve_terms",
+          "arguments": {
+            "terms": [
+              {
+                "role": "output",
+                "text": "EBITDA"
+              },
+              {
+                "role": "input",
+                "text": "цена метанола"
+              }
+            ]
+          }
+        },
+        "functions_state_id": "01a181f2-96f5-7a06-90ff-33900ba7b7bc"
+      },
+      "second": {
+        "chunks": 1,
+        "first_chunk_s": 0.874,
+        "total_s": 0.874,
+        "usage_per_chunk": [
+          true
+        ],
+        "fc_per_chunk": [
+          true
+        ],
+        "message": {
+          "content": "",
+          "tool_calls": [
+            {
+              "name": "run_scenarios",
+              "args": {
+                "inputs": [
+                  {
+                    "id": "IN1",
+                    "max": 500,
+                    "min": 300,
+                    "step": 100
+                  }
+                ],
+                "outputs": [
+                  "OUT2"
+                ],
+                "year": 2026
+              },
+              "id": "32bf16d8-d969-4dae-bf56-c5f4f716f06b",
+              "type": "tool_call"
+            }
+          ],
+          "invalid_tool_calls": [],
+          "additional_kwargs_keys": [
+            "function_call",
+            "functions_state_id"
+          ],
+          "functions_state_id": "01a181f2-a202-7003-8207-46f3557864f6",
+          "usage_metadata": {
+            "output_tokens": 64,
+            "input_tokens": 122,
+            "total_tokens": 186,
+            "input_token_details": {
+              "cache_read": 1037
+            }
+          }
+        }
+      },
+      "ok": true,
+      "wall_s": 0.9
+    },
+    {
+      "check": "G3",
+      "text": {
+        "chunks": 1,
+        "usage_per_chunk": [
+          true
+        ],
+        "usage": {
+          "output_tokens": 9,
+          "input_tokens": 20,
+          "total_tokens": 29,
+          "input_token_details": {
+            "cache_read": 0
+          }
+        }
+      },
+      "function": {
+        "chunks": 1,
+        "usage_per_chunk": [
+          true
+        ],
+        "usage": {
+          "output_tokens": 48,
+          "input_tokens": 1069,
+          "total_tokens": 1117,
+          "input_token_details": {
+            "cache_read": 0
+          }
+        }
+      },
+      "ok": true,
+      "wall_s": 1.0
+    }
+  ]
+}

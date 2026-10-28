@@ -1,0 +1,131 @@
+{
+  "started": "2026-10-28T12:58:54+03:00",
+  "results": [
+    {
+      "check": "G4",
+      "runs": [
+        {
+          "run": 1,
+          "seconds": 20.57,
+          "calls": [
+            "write_todos",
+            "resolve_terms",
+            "run_scenarios",
+            "write_todos",
+            "derive",
+            "write_todos",
+            "read_file",
+            "write_todos",
+            "derive",
+            "derive",
+            "derive",
+            "write_todos"
+          ],
+          "model_chunks": 0,
+          "chunks_per_call": [],
+          "text_calls": 0,
+          "answer_chunks": 0,
+          "answer_first_s": null,
+          "answer_last_s": null,
+          "streamed_equals_final": false,
+          "final": "## Вывод\nEBITDA 2026 при цене метанола 300–500 составляет от 1 200,0 до 1 501,0. Запас по EBITDA значителен даже при верхней границе цены; чувствительность к изменению цены умеренная (рост на 10% даёт +3,76%).\n\n## Ключевые цифры\n| Показатель | Год | Значение | Ед. |\n| --- | --- | --- | --- |\n| EBITD",
+          "llm_call_lines": [
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 1, \"elapsed_s\": 1.044, \"token_usage\": {\"input_tokens\": 2823, \"output_tokens\": 73, \"total_tokens\": 2896}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 2, \"elapsed_s\": 1.059, \"token_usage\": {\"input_tokens\": 3980, \"output_tokens\": 46, \"total_tokens\": 4026}, \"tool_calls\": [\"resolve_terms\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 3, \"elapsed_s\": 0.819, \"token_usage\": {\"input_tokens\": 2864, \"output_tokens\": 64, \"total_tokens\": 2928}, \"tool_calls\": [\"run_scenarios\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 4, \"elapsed_s\": 1.377, \"token_usage\": {\"input_tokens\": 3214, \"output_tokens\": 134, \"total_tokens\": 3348}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 5, \"elapsed_s\": 0.735, \"token_usage\": {\"input_tokens\": 1799, \"output_tokens\": 61, \"total_tokens\": 1860}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 6, \"elapsed_s\": 1.357, \"token_usage\": {\"input_tokens\": 1947, \"output_tokens\": 153, \"total_tokens\": 2100}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 7, \"elapsed_s\": 0.476, \"token_usage\": {\"input_tokens\": 1786, \"output_tokens\": 27, \"total_tokens\": 1813}, \"tool_calls\": [\"read_file\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 8, \"elapsed_s\": 1.62, \"token_usage\": {\"input_tokens\": 2738, \"output_tokens\": 153, \"total_tokens\": 2891}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 9, \"elapsed_s\": 2.936, \"token_usage\": {\"input_tokens\": 2449, \"output_tokens\": 337, \"total_tokens\": 2786}, \"tool_calls\": [], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 10, \"elapsed_s\": 0.839, \"token_usage\": {\"input_tokens\": 1596, \"output_tokens\": 82, \"total_tokens\": 1678}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 11, \"elapsed_s\": 1.826, \"token_usage\": {\"input_tokens\": 419, \"output_tokens\": 189, \"total_tokens\": 608}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 12, \"elapsed_s\": 0.98, \"token_usage\": {\"input_tokens\": 511, \"output_tokens\": 57, \"total_tokens\": 568}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 13, \"elapsed_s\": 1.421, \"token_usage\": {\"input_tokens\": 403, \"output_tokens\": 153, \"total_tokens\": 556}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-1\", \"turn_id\": \"2d08d8ac3cec4b6387a30ea20bf1f8c7\", \"node\": \"model\", \"call\": 14, \"elapsed_s\": 2.946, \"token_usage\": {\"input_tokens\": 4466, \"output_tokens\": 337, \"total_tokens\": 4803}, \"tool_calls\": [], \"error\": null}"
+          ]
+        },
+        {
+          "run": 2,
+          "seconds": 19.63,
+          "calls": [
+            "write_todos",
+            "resolve_terms",
+            "run_scenarios",
+            "write_todos",
+            "describe_model",
+            "get_values",
+            "write_todos",
+            "derive",
+            "derive",
+            "derive",
+            "derive",
+            "derive",
+            "write_todos"
+          ],
+          "model_chunks": 0,
+          "chunks_per_call": [],
+          "text_calls": 0,
+          "answer_chunks": 0,
+          "answer_first_s": null,
+          "answer_last_s": null,
+          "streamed_equals_final": false,
+          "final": "## Вывод\nEBITDA 2026 при цене метанола 300 составляет 1 200, а при 500 — 1 501. Запас по EBITDA между этими сценариями — около 301.\n\n## Ключевые цифры\n| Показатель | Год | Значение | Ед. |\n| --- | --- | --- | --- |\n| EBITDA (Метанол = 300) | 2026 | 1 200.0 | — |\n| EBITDA (Метанол = 400) | 2026 | 1 3",
+          "llm_call_lines": [
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 1, \"elapsed_s\": 0.903, \"token_usage\": {\"input_tokens\": 58, \"output_tokens\": 72, \"total_tokens\": 130}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 2, \"elapsed_s\": 0.601, \"token_usage\": {\"input_tokens\": 1149, \"output_tokens\": 46, \"total_tokens\": 1195}, \"tool_calls\": [\"resolve_terms\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 3, \"elapsed_s\": 0.728, \"token_usage\": {\"input_tokens\": 1326, \"output_tokens\": 64, \"total_tokens\": 1390}, \"tool_calls\": [\"run_scenarios\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 4, \"elapsed_s\": 1.138, \"token_usage\": {\"input_tokens\": 1676, \"output_tokens\": 123, \"total_tokens\": 1799}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 5, \"elapsed_s\": 0.356, \"token_usage\": {\"input_tokens\": 1775, \"output_tokens\": 14, \"total_tokens\": 1789}, \"tool_calls\": [\"describe_model\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 6, \"elapsed_s\": 1.012, \"token_usage\": {\"input_tokens\": 1934, \"output_tokens\": 29, \"total_tokens\": 1963}, \"tool_calls\": [\"get_values\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 7, \"elapsed_s\": 1.027, \"token_usage\": {\"input_tokens\": 1580, \"output_tokens\": 87, \"total_tokens\": 1667}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 8, \"elapsed_s\": 2.59, \"token_usage\": {\"input_tokens\": 1617, \"output_tokens\": 324, \"total_tokens\": 1941}, \"tool_calls\": [], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 9, \"elapsed_s\": 0.961, \"token_usage\": {\"input_tokens\": 1500, \"output_tokens\": 88, \"total_tokens\": 1588}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 10, \"elapsed_s\": 1.711, \"token_usage\": {\"input_tokens\": 1944, \"output_tokens\": 92, \"total_tokens\": 2036}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 11, \"elapsed_s\": 1.569, \"token_usage\": {\"input_tokens\": 586, \"output_tokens\": 89, \"total_tokens\": 675}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 12, \"elapsed_s\": 0.942, \"token_usage\": {\"input_tokens\": 616, \"output_tokens\": 89, \"total_tokens\": 705}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 13, \"elapsed_s\": 1.015, \"token_usage\": {\"input_tokens\": 518, \"output_tokens\": 94, \"total_tokens\": 612}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 14, \"elapsed_s\": 1.372, \"token_usage\": {\"input_tokens\": 599, \"output_tokens\": 127, \"total_tokens\": 726}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-2\", \"turn_id\": \"d0ad466fb6c441d98a03cb2ccb178deb\", \"node\": \"model\", \"call\": 15, \"elapsed_s\": 2.556, \"token_usage\": {\"input_tokens\": 642, \"output_tokens\": 324, \"total_tokens\": 966}, \"tool_calls\": [], \"error\": null}"
+          ]
+        },
+        {
+          "run": 3,
+          "seconds": 13.49,
+          "calls": [
+            "write_todos",
+            "resolve_terms",
+            "run_scenarios",
+            "write_todos",
+            "derive",
+            "derive",
+            "derive",
+            "write_todos"
+          ],
+          "model_chunks": 0,
+          "chunks_per_call": [],
+          "text_calls": 0,
+          "answer_chunks": 0,
+          "answer_first_s": null,
+          "answer_last_s": null,
+          "streamed_equals_final": false,
+          "final": "## Вывод\nEBITDA в 2026 году при цене метанола 300 составит 1200, а при 500 — 1501; разница составляет −301 (снижение на 25% при переходе от 300 к 500).\n\n## Ключевые цифры\n| Показатель | Год | Значение | Ед. |\n| --- | --- | --- | --- |\n| EBITDA (Метанол = 300) | 2026 | 1200.0 | млн руб. |\n| EBITDA (М",
+          "llm_call_lines": [
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 1, \"elapsed_s\": 1.042, \"token_usage\": {\"input_tokens\": 58, \"output_tokens\": 82, \"total_tokens\": 140}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 2, \"elapsed_s\": 0.709, \"token_usage\": {\"input_tokens\": 1233, \"output_tokens\": 48, \"total_tokens\": 1281}, \"tool_calls\": [\"resolve_terms\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 3, \"elapsed_s\": 0.822, \"token_usage\": {\"input_tokens\": 2824, \"output_tokens\": 64, \"total_tokens\": 2888}, \"tool_calls\": [\"run_scenarios\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 4, \"elapsed_s\": 1.474, \"token_usage\": {\"input_tokens\": 3174, \"output_tokens\": 103, \"total_tokens\": 3277}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 5, \"elapsed_s\": 2.546, \"token_usage\": {\"input_tokens\": 1515, \"output_tokens\": 302, \"total_tokens\": 1817}, \"tool_calls\": [], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 6, \"elapsed_s\": 1.05, \"token_usage\": {\"input_tokens\": 2148, \"output_tokens\": 106, \"total_tokens\": 2254}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 7, \"elapsed_s\": 0.627, \"token_usage\": {\"input_tokens\": 1786, \"output_tokens\": 45, \"total_tokens\": 1831}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 8, \"elapsed_s\": 0.56, \"token_usage\": {\"input_tokens\": 574, \"output_tokens\": 43, \"total_tokens\": 617}, \"tool_calls\": [\"derive\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 9, \"elapsed_s\": 1.183, \"token_usage\": {\"input_tokens\": 609, \"output_tokens\": 104, \"total_tokens\": 713}, \"tool_calls\": [\"write_todos\"], \"error\": null}",
+            "{\"trace_id\": \"g4-3\", \"turn_id\": \"524e83c6e4764c65a91c36d497d75f76\", \"node\": \"model\", \"call\": 10, \"elapsed_s\": 2.376, \"token_usage\": {\"input_tokens\": 543, \"output_tokens\": 312, \"total_tokens\": 855}, \"tool_calls\": [], \"error\": null}"
+          ]
+        }
+      ],
+      "wall_s": 53.8
+    }
+  ]
+}
