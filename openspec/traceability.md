@@ -71,5 +71,5 @@
 | S0.5 | Каркас OpenSpec | `openspec/config.yaml`, этот файл; сделано без change |
 | S0.6 | Инструменты разработки | ✓ 2026-10-28: MCP `langchain-docs` в `.mcp.json`, раздел «LangChain documentation (MCP)» в CLAUDE.md / AGENTS.md; ответ через MCP проверен — `archive/2026-10-28-s0-6-langchain-docs-mcp/` (`skip_specs`) |
 | S0.7 | Копия движка в `src/excel_engine/` | ✓ 2026-10-26: полное замыкание, AST-идентичность и паритет на Methanex (Docker) (`skip_specs`) |
-| S6.1 | Spike потока | 2026-10-28, отчёт — `changes/s6-1-stream-spike/design.md` «Results»: ADR-14 подтверждён (`updates` + `custom`, `version="v2"`, ход в задаче), `ProgressReporter` — §8 №17а, эскиз `log_requests`; по итогам владелец оставил финальный ответ целиком (FR-26, ADR-15), S6.6 «ответ по токенам» снята; открыто в контуре: C1 (SSE через AI GW, блокирует выпуск E6) (`skip_specs`) |
+| S6.1 | Spike потока | ✓ 2026-10-28, отчёт — `archive/2026-10-28-s6-1-stream-spike/design.md` «Results»: ADR-14 подтверждён (`updates` + `custom`, `version="v2"`, ход в задаче), `ProgressReporter` — §8 №17а, эскиз `log_requests`; по итогам владелец оставил финальный ответ целиком (FR-26, ADR-15), S6.6 «ответ по токенам» снята; открыто в контуре: C1 (SSE через AI GW, блокирует выпуск E6) (`skip_specs`) |
 | S5.4 | Удаление v1 | Чистка кода и документации (`skip_specs`) |
