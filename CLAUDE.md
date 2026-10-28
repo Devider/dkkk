@@ -159,6 +159,22 @@ pure-Python Snowball stemmer — NLTK was removed; this is a byte-for-byte port 
   55% per-parameter, ~1% full-query pass — consistent with `0.55^8 ≈ 0.8%` at ~8 params/query. Don't be
   surprised by a low query-level pass rate; check per-param accuracy instead.
 
+## LangChain documentation (MCP)
+
+`.mcp.json` registers the project MCP server `langchain-docs` (`https://docs.langchain.com/mcp`, HTTP, public
+docs, no auth). Claude Code picks it up from the repo and asks once to approve it; the approval lands in the
+personal `.claude/settings.local.json` (`enabledMcpjsonServers`), which is not committed. Tools: `search_docs_by_lang_chain` (search, returns page links) and
+`query_docs_filesystem_docs_by_lang_chain` (read a page: `head -200 /<page path>.mdx`).
+
+- Look up `langchain`, `langgraph`, `deepagents` and `langchain-gigachat` APIs there before relying on memory,
+  especially for middleware hooks, `create_agent` arguments and `deepagents` features (skills, backends,
+  summarization).
+- The docs describe the latest release; the project pins exact versions in `pyproject.toml` (S0.1). When a page
+  says "requires deepagents>=X", compare with the pin, and confirm behavior in the installed package source
+  before building on it.
+- The server needs internet access; inside the closed network it is not reachable — fall back to the installed
+  package sources.
+
 ## Key quirks / gotchas
 
 - **Loguru + f-strings crash on exception text containing `{}`**: never write

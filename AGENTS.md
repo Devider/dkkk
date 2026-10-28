@@ -59,6 +59,18 @@ poetry update            # after pyproject.toml changes
 - **Agent examples**: `api/v1/agent_examples/` — reference LangGraph agents (react, memorizer, graph).
 - **All deps from public PyPI** — both private repos (`sberosc`, `nexus-release`) were removed.
 
+## LangChain documentation (MCP)
+
+The repo ships an MCP config, `.mcp.json`, with one server: `langchain-docs` — `https://docs.langchain.com/mcp`
+(HTTP, public, no auth). Any MCP-capable assistant (Claude Code reads `.mcp.json` directly) gets two tools:
+`search_docs_by_lang_chain` (search, returns page links) and `query_docs_filesystem_docs_by_lang_chain`
+(read a page as `<page path>.mdx`).
+
+- Check `langchain`, `langgraph`, `deepagents` and `langchain-gigachat` APIs there instead of relying on memory.
+- The docs track the latest release, while `pyproject.toml` pins exact versions: compare any "requires X>=…"
+  note with the pin and confirm in the installed package source.
+- Needs internet access; in the closed network use the installed package sources instead.
+
 ## Key quirks
 
 - **Engine cache отсутствует**: каждый `ExcelWorkbook` поднимает собственный `soffice` (spawn ~1 с, open+calc ~0.6 с) и грузит книгу ReadOnly — кэшировать процессы НЕЛЬЗЯ (общий LO-документ сломал бы параллельные запросы; с одиночным процессом утечки памяти). Переиспользование daemon'а — возможная future-оптимизация.
