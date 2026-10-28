@@ -1,0 +1,48 @@
+# Примеры запросов skill covenant-headroom с ожидаемым поведением (spec §11 «Структура»). Модель этот файл не читает.
+# expect.plan_includes и expect.caveat_includes — подстроки (регистр не важен) шагов плана и раздела «Оговорки».
+# expect.answer: analytic — ответ с разделами; question — один вопрос о недостающем, без расчёта.
+
+- id: CH1
+  query: "DSCR 2026 при падении цены метанола на 10–30 %: при какой цене DSCR = 1,2 и хватает ли запаса?"
+  expect:
+    skill: covenant-headroom
+    plan_includes: [порог, баз, сетк, пробо, запас]
+    tools: [resolve_terms, get_values, run_scenarios, derive]
+    answer: analytic
+    caveat_includes: [порог, шаг]
+
+- id: CH2
+  query: "Хватит ли запаса по DSCR в 2026 году, если ковенант — не ниже 1,2?"
+  expect:
+    skill: covenant-headroom
+    plan_includes: [порог, баз]
+    tools: [resolve_terms, get_values, derive]
+    answer: analytic
+    caveat_includes: [порог]
+
+- id: CH3
+  query: "Хватит ли запаса по DSCR в 2026 году?"
+  expect:
+    skill: covenant-headroom
+    plan_includes: [порог]
+    tools: [resolve_terms]
+    answer: question
+    caveat_includes: []
+
+- id: CH4
+  query: "Net Debt/EBITDA 2027 должен быть не выше 3. Какой запас и при какой цене метанола от 200 до 400 мы его пробьём?"
+  expect:
+    skill: covenant-headroom
+    plan_includes: [порог, баз, сетк, пробо]
+    tools: [resolve_terms, get_values, run_scenarios, derive]
+    answer: analytic
+    caveat_includes: [порог, шаг]
+
+- id: CH5
+  query: "What is the DSCR headroom in 2026 against a 1.3 covenant, and at what methanol price from 250 to 450 do we breach it?"
+  expect:
+    skill: covenant-headroom
+    plan_includes: [порог, сетк, пробо]
+    tools: [resolve_terms, get_values, run_scenarios, derive]
+    answer: analytic
+    caveat_includes: [порог]

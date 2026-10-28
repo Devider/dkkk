@@ -32,6 +32,10 @@ class ToolCatalog:
         """Tools a skill opens after it is read (passed to ``SkillsMiddleware(tools=...)``)."""
         return [self._tools[n] for n, s in self._specs.items() if s.availability != BASE]
 
+    def tool_skills(self) -> dict[str, str]:
+        """Skill tool name → the skill that opens it (``SkillToolGate`` names the skill to read)."""
+        return {n: s.availability for n, s in self._specs.items() if s.availability != BASE}
+
     def engine_tool_names(self) -> set[str]:
         """Tools that run a LibreOffice recalculation (``engine_gate``, calc limits)."""
         return {n for n, s in self._specs.items() if s.uses_engine}
@@ -41,11 +45,12 @@ def default_catalog() -> ToolCatalog:
     """Catalog with every tool implemented so far."""
     # pylint: disable=import-outside-toplevel
     from aigw_service.api.v2.tools.calc_tools import CALC_TOOLS
+    from aigw_service.api.v2.tools.dependencies import TRACE_DEPENDENCIES
     from aigw_service.api.v2.tools.derive import DERIVE
     from aigw_service.api.v2.tools.read_tools import READ_TOOLS
     from aigw_service.api.v2.tools.resolve_terms import RESOLVE_TERMS
 
     catalog = ToolCatalog()
-    for spec in [RESOLVE_TERMS, *READ_TOOLS, *CALC_TOOLS, DERIVE]:
+    for spec in [RESOLVE_TERMS, *READ_TOOLS, *CALC_TOOLS, DERIVE, TRACE_DEPENDENCIES]:
         catalog.register(spec)
     return catalog

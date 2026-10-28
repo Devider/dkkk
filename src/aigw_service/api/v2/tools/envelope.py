@@ -24,6 +24,7 @@ class ErrorCode(StrEnum):
     ENGINE_UNAVAILABLE = "engine_unavailable"
     ENGINE_TIMEOUT = "engine_timeout"
     PLAN_REQUIRED = "plan_required"
+    SKILL_REQUIRED = "skill_required"
     LIMIT_EXCEEDED = "limit_exceeded"
     CANCELLED = "cancelled"
     INTERNAL_ERROR = "internal_error"
@@ -43,6 +44,7 @@ ERROR_TEXT: dict[ErrorCode, str] = {
     ErrorCode.ENGINE_UNAVAILABLE: "Движок пересчёта недоступен",
     ErrorCode.ENGINE_TIMEOUT: "Расчёт не уложился в отведённое время",
     ErrorCode.PLAN_REQUIRED: "Расчёт без плана не выполняется",
+    ErrorCode.SKILL_REQUIRED: "Инструмент открывается только после чтения своего skill",
     ErrorCode.LIMIT_EXCEEDED: "Исчерпан лимит вызовов",
     ErrorCode.CANCELLED: "Ход прерван",
     ErrorCode.INTERNAL_ERROR: "Непредвиденная ошибка инструмента",
@@ -64,6 +66,7 @@ DEFAULT_HINTS: dict[ErrorCode, str] = {
     ErrorCode.ENGINE_UNAVAILABLE: "Пропусти этот шаг с причиной и доведи остальные шаги плана.",
     ErrorCode.ENGINE_TIMEOUT: "Сузь сетку: меньше входов или крупнее шаг — и повтори.",
     ErrorCode.PLAN_REQUIRED: "Сначала составь план через write_todos.",
+    ErrorCode.SKILL_REQUIRED: "Прочитай SKILL.md этого skill через read_file и повтори вызов.",
     ErrorCode.LIMIT_EXCEEDED: "Больше не вызывай инструменты: подготовь частичный ответ по полученным результатам.",
     ErrorCode.CANCELLED: "Подготовь частичный ответ по полученным результатам.",
     ErrorCode.INTERNAL_ERROR: "Пропусти этот шаг с причиной и доведи остальные шаги плана.",

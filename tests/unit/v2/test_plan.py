@@ -25,6 +25,7 @@ from aigw_service.api.v2.middleware.grounding import AnswerGroundingGuard
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import NOT_DONE_REASON, ForcePlanFirst, PlanCompletionGuard, has_plan
+from aigw_service.api.v2.middleware.skill_gate import SkillToolGate
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.summarization import CopilotSummarization
 from aigw_service.api.v2.middleware.telemetry import Telemetry
@@ -273,6 +274,7 @@ class TestFactory:
             Telemetry,  # S4.3: §8 №5
             CopilotSummarization,  # S2.7: §8 №7
             SkillsMiddleware,
+            SkillToolGate,  # S3.4 D1: inside SkillsMiddleware, before ForcePlanFirst
             FilesystemMiddleware,
             PlanTodoList,
             ForcePlanFirst,
@@ -286,7 +288,7 @@ class TestFactory:
             TurnSummary,
             ContextMeter,  # S2.7: innermost model wrapper (design D5)
         ]
-        assert stack[9].mode == "always"
+        assert stack[10].mode == "always"
 
     def test_off_installs_nothing(self) -> None:
         from aigw_service.api.v2.tools.catalog import default_catalog  # pylint: disable=import-outside-toplevel

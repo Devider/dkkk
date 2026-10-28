@@ -19,6 +19,7 @@ from aigw_service.api.v2.tools.context import ModelIndex
 from aigw_service.api.v2.tools.envelope import (
     DEFAULT_HINTS,
     ERROR_TEXT,
+    TRANSIENT_CODES,
     ErrorCode,
     Number,
     ToolError,
@@ -52,8 +53,8 @@ async def tool_message(tools: list, call: AIMessage) -> dict:
 class TestCatalogue:
     """FR-7 «Справочник кодов ошибок»."""
 
-    def test_thirteen_codes_each_with_text_and_hint(self) -> None:
-        assert len(ErrorCode) == 13
+    def test_fourteen_codes_each_with_text_and_hint(self) -> None:
+        assert len(ErrorCode) == 14
         for code in ErrorCode:
             assert ERROR_TEXT[code].strip()
             assert DEFAULT_HINTS[code].strip()
@@ -63,6 +64,13 @@ class TestCatalogue:
 
     def test_specific_hint_overrides_default(self) -> None:
         assert failure("no_values", hint="Возьми IN13").hint == "Возьми IN13"
+
+    def test_skill_required(self) -> None:
+        """S3.4: a skill tool called before its skill is read; the model fixes it, the system never retries."""
+        envelope = failure("skill_required")
+        assert envelope.code is ErrorCode.SKILL_REQUIRED
+        assert "read_file" in envelope.hint
+        assert ErrorCode.SKILL_REQUIRED not in TRANSIENT_CODES
 
     def test_unknown_code_rejected(self) -> None:
         with pytest.raises(ValueError, match="not a valid ErrorCode"):

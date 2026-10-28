@@ -20,7 +20,7 @@ def _numeric(values: dict) -> dict[int, float]:
     return {int(year): float(v) for year, v in (values or {}).items() if isinstance(v, (int, float))}
 
 
-def _sheet_rows(workbook: Any, name: str) -> list[list[Any]]:
+def sheet_rows(workbook: Any, name: str) -> list[list[Any]]:
     sheet = workbook[name]
     return [
         [c.value for c in row] for row in sheet.iter_rows(min_row=1, max_row=sheet.max_row, max_col=sheet.max_column)
@@ -42,7 +42,7 @@ def build_model_index(path: str) -> ModelIndex:
     """One openpyxl pass; IDs are numbered in the same order as ``_build_catalog_with_ids`` (IN0…, OUT0…)."""
     workbook = openpyxl.load_workbook(path, data_only=True)
     try:
-        input_rows, output_rows = _sheet_rows(workbook, "Inputs"), _sheet_rows(workbook, "Outputs")
+        input_rows, output_rows = sheet_rows(workbook, "Inputs"), sheet_rows(workbook, "Outputs")
     finally:
         workbook.close()
     input_mapping, output_mapping = create_input_mapping(input_rows), create_output_mapping(output_rows)

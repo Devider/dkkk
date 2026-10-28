@@ -1,10 +1,10 @@
-"""Skills target-seeking and scenario-analysis of agent v2 on Methanex (story S3.3, design D5).
+"""Scenario skills of agent v2 on Methanex (stories S3.3 design D5, S3.4 design D7).
 
-Queries and expectations come from ``evals.yaml`` of both skills. Live mode (default): GigaChat by ``.env`` and
+Queries and expectations come from ``evals.yaml`` of the scenario skills (all four, or those given by ``--skills``). Live mode (default): GigaChat by ``.env`` and
 LibreOffice — run inside the app image. ``--scripted``: a scripted model, no network and no engine, checks the harness
 (it calls no tools, so ``tools_ok`` is false there except for questions).
 
-    python scripts/eval/scenario_skills.py [--scripted] [--only ID ...]
+    python scripts/eval/scenario_skills.py [--scripted] [--skills NAME ...] [--only ID ...]
 """
 
 import argparse
@@ -36,17 +36,18 @@ from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
 from aigw_service.api.v2.skills_check import SKILLS_DIR
 from aigw_service.api.v2.tools.catalog import default_catalog
 from aigw_service.api.v2.turn.registry import ModelRegistry
+from aigw_service.config import APP_CONFIG
 
-SKILLS = ("target-seeking", "scenario-analysis")
+SKILLS = ("target-seeking", "scenario-analysis", "covenant-headroom", "sensitivity-drivers")
 WORKBOOK = REPO / "models" / "Methanex_FinModel.xlsx"
 OUT_DIR = REPO / "scripts" / "eval" / "results"
 USER = "eval0001"
 ENGINE_TOOLS = default_catalog().engine_tool_names()
 
 
-def load_cases() -> list[dict]:
+def load_cases(skills: tuple[str, ...] = SKILLS) -> list[dict]:
     cases = []
-    for skill in SKILLS:
+    for skill in skills:
         cases += yaml.safe_load((SKILLS_DIR / skill / "evals.yaml").read_text(encoding="utf-8"))
     return cases
 
@@ -63,15 +64,18 @@ def scripted_model(case: dict) -> ScriptedChatModel:
     """Reads the expected skill, writes a plan with the expected words and answers as expected — no tools."""
     expect = case["expect"]
     read = tool_call("read_file", "r1", file_path=f"/skills/{expect['skill']}/SKILL.md")
+    words = expect["plan_includes"] or ["расчёт"]
     if expect["answer"] == "question":
-        todos = [{"content": "Расчёт", "status": "blocked", "reason": "не указан год"}]
+        todos = [{"content": f"Шаг: {word}", "status": "blocked", "reason": "не хватает данных"} for word in words]
         return ScriptedChatModel(
-            steps=[read, tool_call("write_todos", "p1", todos=todos), AIMessage("За какой год посчитать?")]
+            steps=[read, tool_call("write_todos", "p1", todos=todos), AIMessage("Уточните недостающие данные.")]
         )
-    todos = [{"content": f"Шаг: {word}", "status": "completed"} for word in expect["plan_includes"] or ["вывод"]]
+    todos = [{"content": f"Шаг: {word}", "status": "completed"} for word in words]
     caveats = "; ".join(expect["caveat_includes"]) or "нет"
-    answer = f"## Вывод\nРасчёт выполнен.\n\n## Оговорки\nДопущения: {caveats}.\n"
-    return ScriptedChatModel(steps=[read, tool_call("write_todos", "p1", todos=todos), AIMessage(answer)])
+    answer = AIMessage(f"## Вывод\nРасчёт выполнен.\n\n## Оговорки\nДопущения: {caveats}.\n")
+    # No tool results here: AnswerGroundingGuard (FR-13) returns an answer with numbers («10 %») for regeneration
+    regenerations = [answer] * APP_CONFIG.agent.grounding_max_returns
+    return ScriptedChatModel(steps=[read, tool_call("write_todos", "p1", todos=todos), answer, *regenerations])
 
 
 def skills_read(messages: list) -> list[str]:
@@ -158,13 +162,14 @@ def summary(results: list[dict]) -> dict:
 async def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--scripted", action="store_true", help="scripted model: no network, no engine")
+    parser.add_argument("--skills", nargs="*", choices=SKILLS, default=list(SKILLS), help="scenario skills to run")
     parser.add_argument("--only", nargs="*", default=[], help="query IDs from evals.yaml, e.g. SA2 TS1")
     args = parser.parse_args()
 
     store = InMemoryStore()
     upload_dir = Path(tempfile.mkdtemp(prefix="skills-eval-"))
     await uploaded(store, upload_dir)
-    cases = [c for c in load_cases() if not args.only or c["id"] in args.only]
+    cases = [c for c in load_cases(tuple(args.skills)) if not args.only or c["id"] in args.only]
     results = []
     for case in cases:
         result = await run_case(case, args.scripted, store, upload_dir)

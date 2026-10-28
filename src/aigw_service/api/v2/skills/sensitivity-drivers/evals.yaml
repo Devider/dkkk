@@ -1,0 +1,48 @@
+# Примеры запросов skill sensitivity-drivers с ожидаемым поведением (spec §11 «Структура»). Модель этот файл не читает.
+# expect.plan_includes и expect.caveat_includes — подстроки (регистр не важен) шагов плана и раздела «Оговорки».
+# expect.answer: analytic — ответ с разделами; question — один вопрос о недостающем, без расчёта.
+
+- id: SD1
+  query: "Что сильнее всего влияет на EBITDA в 2026 году?"
+  expect:
+    skill: sensitivity-drivers
+    plan_includes: [драйвер, эластичн, рейтинг]
+    tools: [resolve_terms, trace_dependencies, get_values, run_scenarios, derive]
+    answer: analytic
+    caveat_includes: [по умолчанию]
+
+- id: SD2
+  query: "Что сильнее влияет на DSCR 2026 — цена метанола или цена газа Henry Hub, при изменении на ±20 %?"
+  expect:
+    skill: sensitivity-drivers
+    plan_includes: [эластичн, рейтинг]
+    tools: [resolve_terms, get_values, run_scenarios, derive]
+    answer: analytic
+    caveat_includes: ["20 %"]
+
+- id: SD3
+  query: "Почему DSCR в 2027 году ниже, чем в 2026?"
+  expect:
+    skill: sensitivity-drivers
+    plan_includes: [связи, изменени]
+    tools: [resolve_terms, get_values, trace_dependencies, derive]
+    answer: analytic
+    caveat_includes: [вклад]
+
+- id: SD4
+  query: "Какие драйверы сильнее всего влияют на чистую прибыль?"
+  expect:
+    skill: sensitivity-drivers
+    plan_includes: [драйвер]
+    tools: [resolve_terms]
+    answer: question
+    caveat_includes: []
+
+- id: SD5
+  query: "What are the key drivers of EBITDA in 2027?"
+  expect:
+    skill: sensitivity-drivers
+    plan_includes: [драйвер, эластичн]
+    tools: [resolve_terms, trace_dependencies, run_scenarios, derive]
+    answer: analytic
+    caveat_includes: [по умолчанию]

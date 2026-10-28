@@ -43,6 +43,12 @@ def write_skill(root: Path, folder: str = "demo-skill", text: str | None = None)
     return root
 
 
+def known_tools() -> set[str]:
+    """What ``AgentFactory.build`` validates skills against: base tools and skill tools (S3.4)."""
+    catalog = default_catalog()
+    return {t.name for t in [*catalog.base_tools(), *catalog.skill_tools()]}
+
+
 class DemoArgs(BaseModel):
     x: int
 
@@ -63,7 +69,13 @@ def catalog_with_skill_tool() -> ToolCatalog:
 
 
 async def run(
-    tmp_path: Path, steps: list, skills: Path, catalog: ToolCatalog | None = None, user: str = "u1", store: Any = None
+    tmp_path: Path,
+    steps: list,
+    skills: Path,
+    catalog: ToolCatalog | None = None,
+    user: str = "u1",
+    store: Any = None,
+    plan_mode: str = "off",
 ) -> tuple[dict, ScriptedChatModel]:
     model = ScriptedChatModel(steps=steps)
     store = store or await uploaded_store(user, INDEX, str(tmp_path))
@@ -72,7 +84,7 @@ async def run(
         catalog or default_catalog(),
         store=store,
         upload_dir=str(tmp_path),
-        plan_mode="off",
+        plan_mode=plan_mode,
         skills_dir=skills,
         pinned_skills=(),
     ).build()
@@ -99,7 +111,7 @@ class TestValidation:
     def test_empty_and_shipped_catalogues_are_valid(self, tmp_path: Path) -> None:
         assert validate_skills(tmp_path, set()) == []
         assert (SKILLS_DIR / "README.md").is_file()
-        validate_skills(SKILLS_DIR, {t.name for t in default_catalog().base_tools()})
+        validate_skills(SKILLS_DIR, known_tools())
 
     @pytest.mark.parametrize(
         ("text", "problem"),
@@ -190,6 +202,24 @@ class TestSkillsInAgent:
         assert "demo_calc" not in model.calls[0]["tools"]
         assert "demo_calc" in model.calls[1]["tools"]
         assert json.loads(tool_messages(out)[1].content)["result"] == "demo 2"
+
+    @pytest.mark.parametrize("plan_mode", ["off", "auto"])
+    async def test_hidden_tool_refused_with_skill_to_read(self, tmp_path: Path, plan_mode: str) -> None:
+        """S3.4 D1: before the read — skill_required with the path (also without a plan), the tool does not run."""
+        skills = write_skill(tmp_path / "skills", text=skill_md(tools="demo_calc"))
+        out, _ = await run(
+            tmp_path,
+            [tool_call("demo_calc", "c1", x=2), AIMessage("ок")],
+            skills,
+            catalog_with_skill_tool(),
+            plan_mode=plan_mode,
+        )
+        message = tool_messages(out)[0]
+        body = json.loads(message.content)
+        assert message.status == "error"
+        assert body["code"] == "skill_required"
+        assert "/skills/skill/SKILL.md" in body["hint"]  # DEMO_TOOL is opened by the skill named «skill»
+        assert not out.get("step_results")
 
     @pytest.mark.parametrize(
         "path", ["/etc/passwd", "/skills/../skills_check.py", "/skills/../../../../.env", "/other/file.md"]

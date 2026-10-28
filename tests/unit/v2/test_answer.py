@@ -36,9 +36,15 @@ EBITDA 2026 растёт с ценой метанола: при 300 — 1 200,5,
 """
 
 
+def known_tools() -> set[str]:
+    """What ``AgentFactory.build`` validates skills against: base tools and skill tools (S3.4)."""
+    catalog = default_catalog()
+    return {t.name for t in [*catalog.base_tools(), *catalog.skill_tools()]}
+
+
 class TestSkill:
     def test_shipped_and_valid(self) -> None:
-        names = [s.name for s in validate_skills(SKILLS_DIR, {t.name for t in default_catalog().base_tools()})]
+        names = [s.name for s in validate_skills(SKILLS_DIR, known_tools())]
         assert "economic-answer" in names
         assert DEFAULT_PINNED == ("economic-answer",)
 

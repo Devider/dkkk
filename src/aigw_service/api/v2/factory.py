@@ -19,6 +19,7 @@ from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
 from aigw_service.api.v2.middleware.resilience import engine_retry, model_retry, tool_errors
+from aigw_service.api.v2.middleware.skill_gate import SkillToolGate
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
 from aigw_service.api.v2.middleware.summarization import ContextBudget, summarization_middleware
 from aigw_service.api.v2.middleware.telemetry import Telemetry
@@ -85,6 +86,9 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             # §8 №7 (S2.7, design D1): compresses the request's history; inside StopEventGuard, outside limits
             summarization_middleware(self.model, backend, self.prompt_budget),
             skills_middleware(backend, self.catalog.skill_tools()),  # §8 №8: catalogue of skills, skill tools
+            # §11 «Активация» п. 3 (S3.4 D1): inside SkillsMiddleware, which has attached every tool it showed;
+            # a skill tool still detached gets skill_required with the skill to read — before ForcePlanFirst
+            SkillToolGate(self.catalog.tool_skills()),
             files_middleware(backend),  # §8 №9: read_file only (AR-Q14)
             PlanTodoList(),  # §8 №10: write_todos with skipped / blocked and a reason (FR-5)
             *force,
