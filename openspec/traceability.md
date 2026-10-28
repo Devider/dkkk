@@ -22,7 +22,7 @@
 | FR-10 | Недостающие данные → `blocked`, продолжение плана | agent-planning | S2.6 | S1.4 | S2.6 ✓ (вопрос только о недостающем — eval S5.1) |
 | FR-11 | Недостижимая цель — результат, а не ошибка | agent-tools | S1.4 | — | S1.4 ✓ |
 | FR-12 | Структура ответа | agent-answer | S3.2 | — | S3.2 ✓ (оценка аналитика ≥ 4 из 5 — eval S5.1) |
-| FR-13 | Числа ответа только из источников | agent-answer | S4.1 | S1.7, S5.1 | S1.7 ✓ (`derive` с проверкой операндов по источникам; точка пересечения строго на отрезке — `fix-derive-crossing-segment` ✓), S4.1 ✓ (`AnswerGroundingGuard`: 1 перегенерация, затем «н/д» с оговоркой; малые целые 0–10 не проверяются — design D2) (100 % на GigaChat — eval S5.1) |
+| FR-13 | Числа ответа только из источников | agent-answer | S4.1 | S1.7, S5.1, S6.6 | S1.7 ✓ (`derive` с проверкой операндов по источникам; точка пересечения строго на отрезке — `fix-derive-crossing-segment` ✓), S4.1 ✓ (`AnswerGroundingGuard`: 1 перегенерация, затем «н/д» с оговоркой; малые целые 0–10 не проверяются — design D2) (100 % на GigaChat — eval S5.1) |
 | FR-14 | Деловой русский, без кодов и traceback | agent-answer | S3.2 | — | S3.2 ✓ |
 | FR-15 | Контракт API (ZIP) без изменений | agent-api | S4.2 | — | S4.2 ✓ (блокировка хода — в памяти процесса; дедлайн хода — S2.8 ✓) |
 | FR-16 | Многоходовость через выжимки | agent-loop | S2.6 | S1.6 | S2.6 ✓, S1.6 ✓ (`ref` в выжимке) |
@@ -30,6 +30,12 @@
 | FR-18 | Декларативные skills без правки кода | agent-skills | S3.1 | S3.3, S3.4 | S3.1 ✓, S3.3 ✓ (`target-seeking`, `scenario-analysis`; U1, U3 — скриптовая модель; шаг сетки по умолчанию — 5 точек, точки в оговорках; паритет с v1 и живой прогон — открыто до S5.3, в контуре), S3.4 ✓ (`covenant-headroom`, `sensitivity-drivers` и skill-инструмент `trace_dependencies`; скрытый инструмент → `skill_required` с путём skill; порог ковенанта только из запроса; U2, U8 — скриптовая модель; живой прогон своих eval-запросов — открыто до S5.1, в контуре) |
 | FR-19 | Активация skill моделью или `AGENT_PINNED_SKILLS` | agent-skills | S3.5 | — | S3.5 ✓ (`AGENT_PINNED_SKILLS`, по умолчанию `economic-answer`; неизвестное имя и закреплённые тексты больше дословного хвоста истории останавливают старт; без `economic-answer` — предупреждение FR-12; скриптовая модель. Метрика «нужный skill прочитан» и выбор закреплений на GigaChat — открыто до S5.1, в контуре) |
 | FR-20 | Переключатель `AGENT_ENGINE = v1 / v2` | agent-api | S2.1 | S4.2 | S2.1 ✓, S4.2 ✓ (`v1_api` на обоих движках) |
+| FR-21 | Потоковый endpoint `/invoke-agent/stream`, тот же ход; ZIP не меняется | agent-stream | S6.3 | S6.2 | — |
+| FR-22 | Прогресс: фазы, план, начало и конец вызова инструмента с подписью | agent-stream | S6.2 | S6.4 | — |
+| FR-23 | Сводки шагов и итог хода без LLM | agent-stream | S6.4 | — | — |
+| FR-24 | Гигиена потока: без ID, кодов, имён инструментов и токенов вне окна ответа | agent-stream | S6.2 | S6.5 | — |
+| FR-25 | Ровно одно терминальное событие `answer` / `error` | agent-stream | S6.3 | — | — |
+| FR-26 | Ответ по токенам в окне ответа, `answer.reset`; проверка чисел в потоке выключена | agent-stream | S6.6 | S6.5 | — |
 
 ## Архитектурные требования
 
@@ -39,7 +45,7 @@
 | AR-Q2 | Тесты без сети и LibreOffice | agent-eval | S5.2 | — | — |
 | AR-Q3 | LangChain только в рантайме и адаптере | agent-tools | S1.1 | — | S1.1 ✓ |
 | AR-Q4 | Зафиксированные версии, сборка из зеркала | agent-platform | S0.1 | — | S0.1 ✓ (сборка в контуре не проверена) |
-| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.7, S2.8, S3.5, S4.4 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`), S2.7 ✓ (`AGENT_MAX_PROMPT_TOKENS`, `AGENT_SUMMARY_TRIGGER`, `AGENT_SUMMARY_KEEP`), S3.5 ✓ (`AGENT_PINNED_SKILLS`), S4.4 ✓ (`AGENT_PREVIEW_CHECK`, `AGENT_PREVIEW_CHECK_PERCENT`) |
+| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.7, S2.8, S3.5, S4.4, S6.5, S6.6 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`), S2.7 ✓ (`AGENT_MAX_PROMPT_TOKENS`, `AGENT_SUMMARY_TRIGGER`, `AGENT_SUMMARY_KEEP`), S3.5 ✓ (`AGENT_PINNED_SKILLS`), S4.4 ✓ (`AGENT_PREVIEW_CHECK`, `AGENT_PREVIEW_CHECK_PERCENT`) |
 | AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | S1.6 ✓ (вынос > `AGENT_RESULT_MAX_CHARS`, `ref`, полные `numbers` в `step_results`), S2.7 ✓ (сжатие запроса, а не состояния — design D1; замер слоёв `CONTEXT LAYERS` в `ContextMeter` — design D5; счёт токенов приближённый, калибровка на GigaChat — S5.1) |
 | AR-Q7 | Изоляция пользователей | agent-tools | S1.6 | S4.2 | S1.6 ✓ (`/results/` по `user_id` из контекста; пространство без `thread_id` — design D4), S4.2 ✓ (история на уровне API) |
 | AR-Q8 | Конкурентность движка | agent-tools | S1.5 | — | S1.5 ✓ (размер пула — по замеру S0.4) |
@@ -50,6 +56,9 @@
 | AR-Q13 | Журнал, Langfuse, `TOOL ARGS` | agent-api | S4.3 | — | S4.3 ✓ (`Telemetry`: строки `LLM CALL` / `TOOL CALL` с кодами без текстов исключений; `langfuse_user_id` и тег `agent_engine`; дерево хода с вложенным смысловым слоем — тестами) (открыто: `TOOL ARGS` v1-формы и `run_tool_queries.py` на v2 — отложено решением разработчика; проверка трассы в self-hosted Langfuse — в контуре) |
 | AR-Q14 | Нет записи и `execute`; LangSmith запрещён | agent-skills | S3.1 | S4.3 | S3.1 ✓ (включая запрет LangSmith) |
 | AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | S2.1 ✓, S3.1 ✓ |
+| AR-Q16 | Поток без буферизации, первое событие ≤ 1 с, heartbeat | agent-stream | S6.3 | S6.1 | — |
+| AR-Q17 | Разрыв потока не отменяет вызов; блокировка до конца хода | agent-stream | S6.3 | S6.2 | — |
+| AR-Q18 | Строка `STREAM`, тег Langfuse, версия схемы событий | agent-stream | S6.5 | AR-Q5 | — |
 | ADR-10 | A/B-проверка preview-модели в middleware | agent-platform | S4.4 | AR-Q5 | S4.4 ✓ (`PreviewModelCheck` перед `ContextMeter`, а не №6 §8 — design D1; вызовы сравниваются без LLM, тексты — судьёй; `PREVIEW CHECK` в журнале; скриптовая модель. Живой прогон с preview-моделью — открыто, в контуре) |
 
 ## Story без дельты спек
@@ -62,4 +71,5 @@
 | S0.5 | Каркас OpenSpec | `openspec/config.yaml`, этот файл; сделано без change |
 | S0.6 | Инструменты разработки | ✓ 2026-10-28: MCP `langchain-docs` в `.mcp.json`, раздел «LangChain documentation (MCP)» в CLAUDE.md / AGENTS.md; ответ через MCP проверен — `archive/2026-10-28-s0-6-langchain-docs-mcp/` (`skip_specs`) |
 | S0.7 | Копия движка в `src/excel_engine/` | ✓ 2026-10-26: полное замыкание, AST-идентичность и паритет на Methanex (Docker) (`skip_specs`) |
+| S6.1 | Spike потока | Режим `astream`, таблица «узел → событие», место `ProgressReporter`, SSE за `log_requests` и через шлюз контура — отчёт в `design.md` (`skip_specs`) |
 | S5.4 | Удаление v1 | Чистка кода и документации (`skip_specs`) |

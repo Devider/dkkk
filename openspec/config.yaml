@@ -19,8 +19,8 @@ context: |
   - Мастер-спеки openspec/specs/ не пишутся заранее: требование появляется там из дельты
     story-владельца (traceability.md) при архивации. Остальные story делают MODIFIED.
   - Capabilities: agent-platform, agent-tools, agent-loop, agent-planning, agent-skills,
-    agent-answer, agent-api, agent-eval.
-  - Spike и замеры (S0.2, S0.3, S0.4) не меняют спеки: skip_specs, результат — отчёт в design.md.
+    agent-answer, agent-api, agent-eval, agent-stream.
+  - Spike и замеры (S0.2, S0.3, S0.4, S6.1) не меняют спеки: skip_specs, результат — отчёт в design.md.
   - Неизменяемые компоненты (§2 спецификации): тела функций индекса модели, смыслового слоя,
     движка пересчёта и tools.py не правятся. api/os_router.py и api/metric_router.py не редактировать.
   - v1 и v2 не импортируют друг друга; LangChain импортируется только в api/v2 (AR-Q3).
