@@ -10,7 +10,7 @@ import aiofiles
 import gigachat.context as gc_ctx
 import pandas as pd
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from langchain_core.messages import HumanMessage
 from langfuse.langchain import CallbackHandler
 
@@ -19,6 +19,7 @@ from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependen
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.service import AgentV2
+from aigw_service.api.v2.stream.sse import SSE_HEADERS, one_shot, sse_body
 from aigw_service.api.v2.turn.disconnect import disconnect_watch
 from aigw_service.api.v2.turn.lock import TURN_BUSY_MESSAGE, TurnBusyError
 from aigw_service.api.v2.turn.registry import ModelRegistry
@@ -155,6 +156,84 @@ def get_cb_handler():
     return get_or_create_cb_handler
 
 
+def _session_ids(headers: dict) -> tuple[str, str]:
+    """``session_id`` (from the header or a new one) and ``thread_id``."""
+    user_id = headers.get("x-user-id")
+    session_id = headers.get("x-session-id") or str(uuid4())
+    # Composite key: MemorySaver partitions purely by thread_id, with no notion of user_id, so
+    # two different users sharing (or both lacking) a session id would otherwise see each
+    # other's conversation history once the checkpointer is attached.
+    return session_id, f"{user_id}:{session_id}"
+
+
+def _turn_setup(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    message: str,
+    headers: dict,
+    agent: AgentGraph | AgentV2,
+    cb_handler: Optional[CallbackHandler],
+    session_id: str,
+    endpoint: str,
+) -> tuple[dict, RequestContext | None]:
+    """``config`` of the turn and, for agent v2, its ``RequestContext``; shared by both invoke endpoints."""
+    user_id = headers.get("x-user-id")
+    x_client_id = headers.get("x-client-id")
+    thread_id = f"{user_id}:{session_id}"
+    logger.info(
+        "Incoming user request: user_id={}, session={}, message={}...",
+        user_id,
+        thread_id,
+        message[:200] if message else "",
+    )
+
+    config = {
+        "configurable": {
+            "thread_id": thread_id,
+            "user_id": user_id,
+        },
+        "metadata": {
+            "lang_fuse_user_id": user_id,
+            "client_id": x_client_id,
+            "langfuse_session_id": thread_id,
+            "endpoint": endpoint,
+            # AR-Q13 (S4.3 D2): keys the Langfuse handler reads; the old ones above stay for dashboards
+            "langfuse_user_id": user_id,
+            "langfuse_tags": [f"agent_engine={'v2' if isinstance(agent, AgentV2) else 'v1'}"],
+        },
+    }
+    if cb_handler is not None:
+        config["callbacks"] = [cb_handler]
+    else:
+        logger.warning("cb_handler is None - LAngfuse tracing is disabled or unavailable, skipping callbacks")
+    logger.info("config before entering process message: {}", config)
+    if not isinstance(agent, AgentV2):
+        return config, None
+    config["metadata"]["agent_engine"] = "v2"
+    context = RequestContext(
+        user_id=user_id,
+        session_id=session_id,
+        trace_id=headers.get("x-trace-id") or "",
+        client_id=x_client_id or "",
+    )
+    return config, context
+
+
+async def _v1_answer(agent: AgentGraph, message: str, headers: dict, thread_id: str, config: dict) -> str:
+    """One turn of the v1 graph; the text of its last message."""
+    user_id = headers.get("x-user-id")
+    result = await agent.graph.ainvoke(
+        {
+            "messages": [HumanMessage(content=message)],
+            "thread_id": thread_id,
+            "user_id": user_id,
+        },
+        config=config,
+    )
+
+    logger.info("Invoking agent with thread_id={}, user_id={}", thread_id, user_id)
+    msg = result["messages"][-1]
+    return msg.content if hasattr(msg, "content") else str(msg)
+
+
 @router.post(
     "/invoke-agent",
     status_code=status.HTTP_200_OK,
@@ -192,65 +271,15 @@ async def invoke_agent(
 ) -> StreamingResponse:
     _setup_request_headers(headers=headers)
     agent.logger = logger
-    user_id = headers.get("x-user-id")
-    x_client_id = headers.get("x-client-id")
-    session_id = headers.get("x-session-id") or str(uuid4())
-    # Composite key: MemorySaver partitions purely by thread_id, with no notion of user_id, so
-    # two different users sharing (or both lacking) a session id would otherwise see each
-    # other's conversation history once the checkpointer is attached.
-    thread_id = f"{user_id}:{session_id}"
+    session_id, thread_id = _session_ids(headers)
 
     try:
-        logger.info(
-            "Incoming user request: user_id={}, session={}, message={}...",
-            user_id,
-            thread_id,
-            request.message[:200] if request.message else "",
-        )
-
-        config = {
-            "configurable": {
-                "thread_id": thread_id,
-                "user_id": user_id,
-            },
-            "metadata": {
-                "lang_fuse_user_id": user_id,
-                "client_id": x_client_id,
-                "langfuse_session_id": thread_id,
-                "endpoint": "/invoke-agent",
-                # AR-Q13 (S4.3 D2): keys the Langfuse handler reads; the old ones above stay for dashboards
-                "langfuse_user_id": user_id,
-                "langfuse_tags": [f"agent_engine={'v2' if isinstance(agent, AgentV2) else 'v1'}"],
-            },
-        }
-        if cb_handler is not None:
-            config["callbacks"] = [cb_handler]
-        else:
-            logger.warning("cb_handler is None - LAngfuse tracing is disabled or unavailable, skipping callbacks")
-        logger.info("config before entering process message: {}", config)
-        if isinstance(agent, AgentV2):
-            config["metadata"]["agent_engine"] = "v2"
-            context = RequestContext(
-                user_id=user_id,
-                session_id=session_id,
-                trace_id=headers.get("x-trace-id") or "",
-                client_id=x_client_id or "",
-            )
+        config, context = _turn_setup(request.message, headers, agent, cb_handler, session_id, "/invoke-agent")
+        if context is not None:
             async with disconnect_watch(http_request, context.cancel):  # AR-Q12: stop after the current call
                 result_content = await agent.answer(request.message, context, config)
         else:
-            result = await agent.graph.ainvoke(
-                {
-                    "messages": [HumanMessage(content=request.message)],
-                    "thread_id": thread_id,
-                    "user_id": user_id,
-                },
-                config=config,
-            )
-
-            logger.info("Invoking agent with thread_id={}, user_id={}", thread_id, user_id)
-            msg = result["messages"][-1]
-            result_content = msg.content if hasattr(msg, "content") else str(msg)
+            result_content = await _v1_answer(agent, request.message, headers, thread_id, config)
         logger.info("Content text: {}", result_content)
 
         zip_buffer = BytesIO()
@@ -292,3 +321,76 @@ async def invoke_agent(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             content=FailedDependencyResponse(error_description=str(e)).model_dump(),
         )
+
+
+# =====================================================================================================================
+# ПОТОКОВЫЙ ВЫЗОВ АГЕНТА (S6.3, FR-21, ADR-13)
+# =====================================================================================================================
+STREAM_DESCRIPTION = (
+    "Тот же ход агента, что у /invoke-agent, доставленный событиями SSE (text/event-stream). Кадр: "
+    "`event: <тип>`, `id: <seq>`, `data: <JSON>`; общие поля data — v, seq, ts, trace_id. Типы: turn.started, phase, "
+    "plan, tool.started, tool.finished, summary, answer, error. Поток заканчивается ровно одним событием answer или "
+    "error. Пока событий нет, приходит комментарий `: ping`. Ошибки до старта хода (422, 409) — обычные HTTP-ответы. "
+    "При AGENT_ENGINE=v1 поток упрощённый: turn.started, затем answer или error."
+)
+
+
+@router.post(
+    "/invoke-agent/stream",
+    status_code=status.HTTP_200_OK,
+    response_class=StreamingResponse,
+    summary="Потоковый вызов ИИ-агента Copilot'a: ход агента событиями SSE",
+    description=STREAM_DESCRIPTION,
+    responses={
+        status.HTTP_200_OK: {
+            "description": "Поток событий хода (SSE), последнее событие — answer или error",
+            "content": {"text/event-stream": {"schema": {"type": "string"}}},
+        },
+        status.HTTP_409_CONFLICT: {
+            "description": "Идёт предыдущий ход этой сессии",
+            "model": FailedDependencyResponse,
+        },
+        status.HTTP_424_FAILED_DEPENDENCY: {
+            "description": "Ошибка до старта хода",
+            "model": FailedDependencyResponse,
+        },
+    },
+    openapi_extra={"x-AI-ready": True},
+)
+async def invoke_agent_stream(
+    request: CopilotAgentRequest,
+    headers: dict = Depends(common_headers),
+    agent: AgentGraph | AgentV2 = Depends(get_agent),
+    cb_handler: Optional[CallbackHandler] = Depends(get_cb_handler()),
+) -> Response:
+    """FR-21: 409 / 422 / 424 before the stream; afterwards everything, StopEvent included, is an event.
+
+    A client that goes away is noticed by ``sse_body`` (Starlette cancels it); ``disconnect_watch`` is not used
+    here because Starlette's own listener takes ``http.disconnect`` (spike S6.1, H3).
+    """
+    _setup_request_headers(headers=headers)
+    agent.logger = logger
+    session_id, thread_id = _session_ids(headers)
+    try:
+        config, context = _turn_setup(request.message, headers, agent, cb_handler, session_id, "/invoke-agent/stream")
+        if context is not None:
+            events = agent.stream(request.message, context, config)  # TurnBusyError before the first event
+        else:
+            events = one_shot(
+                headers.get("x-trace-id") or "",
+                session_id,
+                lambda: _v1_answer(agent, request.message, headers, thread_id, config),
+            )
+    except TurnBusyError:
+        logger.warning("Turn of {} is still running, stream rejected with 409", thread_id)
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content=FailedDependencyResponse(error_description=TURN_BUSY_MESSAGE).model_dump(),
+        )
+    except Exception as e:  # pylint: disable=broad-exception-caught  # same contract as /invoke-agent
+        logger.opt(exception=True).error("Agent stream failed to start: {}", str(e))
+        return JSONResponse(
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
+            content=FailedDependencyResponse(error_description=str(e)).model_dump(),
+        )
+    return StreamingResponse(sse_body(events), media_type="text/event-stream", headers=SSE_HEADERS)

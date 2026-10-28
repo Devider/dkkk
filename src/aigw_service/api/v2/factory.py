@@ -159,8 +159,8 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         known = {t.name for t in [*self.catalog.base_tools(), *self.catalog.skill_tools()]}
         self._check_pins({s.name for s in validate_skills(self.skills_dir, known)})
         return create_agent(
-            self.model,
-            self.catalog.base_tools(),
+            model=self.model,
+            tools=self.catalog.base_tools(),
             system_prompt=SYSTEM_PROMPT,
             middleware=self.middleware(),
             state_schema=CopilotAgentState,
