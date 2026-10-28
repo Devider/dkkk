@@ -39,7 +39,7 @@
 | AR-Q2 | Тесты без сети и LibreOffice | agent-eval | S5.2 | — | — |
 | AR-Q3 | LangChain только в рантайме и адаптере | agent-tools | S1.1 | — | S1.1 ✓ |
 | AR-Q4 | Зафиксированные версии, сборка из зеркала | agent-platform | S0.1 | — | S0.1 ✓ (сборка в контуре не проверена) |
-| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.7, S2.8, S3.5 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`), S2.7 ✓ (`AGENT_MAX_PROMPT_TOKENS`, `AGENT_SUMMARY_TRIGGER`, `AGENT_SUMMARY_KEEP`), S3.5 ✓ (`AGENT_PINNED_SKILLS`) |
+| AR-Q5 | Параметры агента через `config/agent` | agent-platform | S2.1 | S1.6, S2.5, S2.7, S2.8, S3.5, S4.4 | S2.1 ✓, S2.5 ✓ (лимиты хода), S2.8 ✓ (`AGENT_TURN_TIMEOUT`), S1.6 ✓ (`AGENT_RESULT_MAX_CHARS`), S2.7 ✓ (`AGENT_MAX_PROMPT_TOKENS`, `AGENT_SUMMARY_TRIGGER`, `AGENT_SUMMARY_KEEP`), S3.5 ✓ (`AGENT_PINNED_SKILLS`), S4.4 ✓ (`AGENT_PREVIEW_CHECK`, `AGENT_PREVIEW_CHECK_PERCENT`) |
 | AR-Q6 | Бюджет контекста, вынос результатов | agent-tools | S1.6 | S2.7 | S1.6 ✓ (вынос > `AGENT_RESULT_MAX_CHARS`, `ref`, полные `numbers` в `step_results`), S2.7 ✓ (сжатие запроса, а не состояния — design D1; замер слоёв `CONTEXT LAYERS` в `ContextMeter` — design D5; счёт токенов приближённый, калибровка на GigaChat — S5.1) |
 | AR-Q7 | Изоляция пользователей | agent-tools | S1.6 | S4.2 | S1.6 ✓ (`/results/` по `user_id` из контекста; пространство без `thread_id` — design D4), S4.2 ✓ (история на уровне API) |
 | AR-Q8 | Конкурентность движка | agent-tools | S1.5 | — | S1.5 ✓ (размер пула — по замеру S0.4) |
@@ -50,6 +50,7 @@
 | AR-Q13 | Журнал, Langfuse, `TOOL ARGS` | agent-api | S4.3 | — | S4.3 ✓ (`Telemetry`: строки `LLM CALL` / `TOOL CALL` с кодами без текстов исключений; `langfuse_user_id` и тег `agent_engine`; дерево хода с вложенным смысловым слоем — тестами) (открыто: `TOOL ARGS` v1-формы и `run_tool_queries.py` на v2 — отложено решением разработчика; проверка трассы в self-hosted Langfuse — в контуре) |
 | AR-Q14 | Нет записи и `execute`; LangSmith запрещён | agent-skills | S3.1 | S4.3 | S3.1 ✓ (включая запрет LangSmith) |
 | AR-Q15 | ruff, pylint, покрытие, русские промпты, валидация skills | agent-platform | S2.1 | S3.1 | S2.1 ✓, S3.1 ✓ |
+| ADR-10 | A/B-проверка preview-модели в middleware | agent-platform | S4.4 | AR-Q5 | S4.4 ✓ (`PreviewModelCheck` перед `ContextMeter`, а не №6 §8 — design D1; вызовы сравниваются без LLM, тексты — судьёй; `PREVIEW CHECK` в журнале; скриптовая модель. Живой прогон с preview-моделью — открыто, в контуре) |
 
 ## Story без дельты спек
 

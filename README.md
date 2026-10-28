@@ -192,6 +192,8 @@ for scenario in combinations:
 | `AGENT_ENGINE` | `v1` | Движок агента: `v1` — граф `main_graph.py`, `v2` — `create_agent` (`api/v2/`) |
 | `AGENT_MODEL` | `gigachat` | Модель v2: `gigachat` (api_key или сертификаты — по `LOCAL` и `GIGACHAT_*`) или `scripted` |
 | `AGENT_SCRIPT_PATH` | — | JSON-сценарий скриптовой модели: `[{"tool": "имя", "args": {...}} \| {"content": "текст"}]` |
+| `AGENT_PREVIEW_CHECK` | `False` | v2: фоновая A/B-проверка — доля вызовов модели агента повторяется на `<GIGACHAT_MODEL>-preview`, ответы сравниваются (вызовы инструментов — по именам и аргументам, тексты — LLM-судьёй), итог — строка журнала `PREVIEW CHECK`. Ответ и время хода не меняются. Только при `AGENT_MODEL=gigachat`; preview-модель есть только во внутреннем контуре. Независима от `ENABLE_PREVIEW_MODEL_CHECK` v1 |
+| `AGENT_PREVIEW_CHECK_PERCENT` | `0.05` | v2: доля проверяемых вызовов модели, [0, 1]; вне интервала — ошибка при старте |
 | `AGENT_LLM_RETRY_ATTEMPTS` | `3` | v2: повторы вызова модели агента при сетевых ошибках, 5xx и 429; повторы 429 смыслового слоя (`resolve_terms`) |
 | `AGENT_LLM_RETRY_WAIT` | `2.0` | v2: первая пауза между повторами, с (дальше удваивается) |
 | `AGENT_MAX_MODEL_CALLS` | `40` | v2: вызовов модели за ход, включая последний вызов для частичного ответа |
