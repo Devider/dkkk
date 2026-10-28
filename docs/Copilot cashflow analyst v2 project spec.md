@@ -472,7 +472,7 @@ Skill — это папка с `SKILL.md` в формате Agent Skills: ког
 
 **Финальный ответ** (FR-26, ADR-15). Текст ответа приходит одним событием `answer`, когда агент вышел из цикла и все проверки прошли: ответ модели без вызовов инструментов, после которого `PlanCompletionGuard` и `AnswerGroundingGuard` не вернули его модели. Пока модель пишет ответ и он проверяется, в потоке — фаза `answering` / `checking`. Числа ответа проверяются, как в `/invoke-agent` (FR-13). Отклонённые ранние ответы в поток не попадают.
 
-**Кадр.** Каждое событие — кадр SSE: `event: <тип>`, `id: <seq>`, `data: <JSON>`. Общие поля `data`: `v` (версия схемы, сейчас `1`), `seq` (номер с 1), `ts` (RFC-3339), `trace_id`. Heartbeat — строка-комментарий `: ping` (AR-Q16), каждые 15 с, пока нет событий; до S6.5 интервал — константа `api/v2/stream/sse.py:HEARTBEAT_S`, S6.5 переносит его в `AGENT_STREAM_HEARTBEAT`. Заголовки ответа: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`.
+**Кадр.** Каждое событие — кадр SSE: `event: <тип>`, `id: <seq>`, `data: <JSON>`. Общие поля `data`: `v` (версия схемы, сейчас `1`), `seq` (номер с 1), `ts` (RFC-3339), `trace_id`. Heartbeat — строка-комментарий `: ping` (AR-Q16), каждые `AGENT_STREAM_HEARTBEAT` с (по умолчанию 15), пока нет событий (S6.5). Заголовки ответа: `Content-Type: text/event-stream`, `Cache-Control: no-cache`, `X-Accel-Buffering: no`.
 
 **Каталог событий** (схема `v = 1`, изменения только добавочные):
 
@@ -536,7 +536,7 @@ Skill — это папка с `SKILL.md` в формате Agent Skills: ког
 - **Трассировка.** Self-hosted Langfuse во внутреннем контуре через текущий callback-handler (`router.py:get_cb_handler`). Дерево хода: узлы middleware, вызовы LLM, инструменты, вложенные вызовы смыслового слоя. `langfuse_session_id = thread_id`, `langfuse_user_id = user_id`, тег `agent_engine=v2`.
 - **Сводка хода на сервере.** `TurnSummary` пишется в журнал сервера и в Langfuse: план, статусы, сопоставленные термины, числа и коды ошибок без текстов исключений.
 - **Метрики хода.** Длительность, число вызовов LLM и расчётов, исход (полный / частичный / уточнение / отказ) — через существующий механизм метрик, без правки `metric_router.py`.
-- **Поток.** Строка `STREAM` на каждый поток: `trace_id`, `turn_id`, время до первого события, число событий по типам, исход, разрыв клиентом. События целиком в журнал не пишутся, в Langfuse — тег `stream=true` на трассе хода (AR-Q18).
+- **Поток.** Строка `STREAM` на каждый поток (S6.5 design D1–D2): `trace_id`, `turn_id`, движок, время от приёма запроса до первого события, длительность потока, число событий по типам и ping, исход (`outcome` из `answer` или `kind` из `error`), разрыв клиентом. Пишется после последнего кадра или в момент разрыва и описывает то, что получил клиент; итог хода после разрыва — в `TURN SUMMARY` (связь по `turn_id`). События целиком в журнал не пишутся. Метрики: `aigw_service_streams_total`, `aigw_service_stream_first_event_ms`, `aigw_service_stream_disconnects_total`, `aigw_service_stream_errors_total`. В Langfuse — тег `stream=true` на трассе хода `/invoke-agent/stream` для обоих движков (AR-Q18). Контракт схемы `v = 1` — слепок `tests/unit/v2/contracts/stream_events_v1.json`: тест пропускает только новые необязательные поля и новые типы событий и сверяет схему с `openapi_copilot.yaml`.
 
 **Журнал запросов и поток** (`api/middleware.py:log_requests`). Текущая логика журналирования не ломается:
 

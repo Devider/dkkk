@@ -194,6 +194,7 @@ for scenario in combinations:
 | `AGENT_SCRIPT_PATH` | — | JSON-сценарий скриптовой модели: `[{"tool": "имя", "args": {...}} \| {"content": "текст"}]` |
 | `AGENT_PREVIEW_CHECK` | `False` | v2: фоновая A/B-проверка — доля вызовов модели агента повторяется на `<GIGACHAT_MODEL>-preview`, ответы сравниваются (вызовы инструментов — по именам и аргументам, тексты — LLM-судьёй), итог — строка журнала `PREVIEW CHECK`. Ответ и время хода не меняются. Только при `AGENT_MODEL=gigachat`; preview-модель есть только во внутреннем контуре. Независима от `ENABLE_PREVIEW_MODEL_CHECK` v1 |
 | `AGENT_PREVIEW_CHECK_PERCENT` | `0.05` | v2: доля проверяемых вызовов модели, [0, 1]; вне интервала — ошибка при старте |
+| `AGENT_STREAM_HEARTBEAT` | `15` | v2 и v1: интервал комментария SSE `: ping` в `/invoke-agent/stream`, с, пока нет событий (прокси не закрывает соединение во время долгого расчёта). Не больше 0 — ошибка при старте |
 | `AGENT_LLM_RETRY_ATTEMPTS` | `3` | v2: повторы вызова модели агента при сетевых ошибках, 5xx и 429; повторы 429 смыслового слоя (`resolve_terms`) |
 | `AGENT_LLM_RETRY_WAIT` | `2.0` | v2: первая пауза между повторами, с (дальше удваивается) |
 | `AGENT_MAX_MODEL_CALLS` | `40` | v2: вызовов модели за ход, включая последний вызов для частичного ответа |
@@ -216,6 +217,33 @@ for scenario in combinations:
 | `AGENT_DUP_TOOL_THRESHOLD` | `3` | v1: порог повторов одинакового вызова инструмента |
 | `AGENT_STOP_ON_CRITICAL` | `True` | StopEvent GigaChat → HTTP 503 |
 | `AGENT_STOP_ON_ERROR` | `False` | Останавливать ход на любой ошибке LLM |
+
+## Поток: журнал и метрики
+
+`/invoke-agent/stream` пишет на каждый поток одну строку журнала `STREAM {json}`. Строка пишется после последнего кадра, а если клиент ушёл, — в момент окончания потока. Она описывает то, что получил клиент. Итог хода после разрыва — в `TURN SUMMARY`, строки связываются по `turn_id`. Тексты событий, план и термины в строку не попадают.
+
+| Поле | Значение |
+| --- | --- |
+| `trace_id` | `x-trace-id` запроса |
+| `turn_id` | ID хода; `null` для v1 и для хода, не дошедшего до начала (отказ «загрузите модель») |
+| `engine` | `v1` / `v2` |
+| `first_event_ms` | от приёма запроса endpoint до первого события, мс (ping не считается) |
+| `duration_ms` | длительность потока, мс |
+| `events` | число отданных событий по типам; кадр, на котором клиент оборвал соединение, тоже считается |
+| `pings` | число комментариев `: ping` |
+| `outcome` | `full` / `partial` / `clarify` / `refusal` (из `answer`) или `unavailable` / `failed` (из `error`); `null`, если клиент ушёл до терминального события |
+| `disconnected` | `true`, если терминального события не было |
+
+Метрики (через тот же механизм, что метрики журнала запросов):
+
+| Метрика | Значение |
+| --- | --- |
+| `aigw_service_streams_total` | 1 на каждый поток |
+| `aigw_service_stream_first_event_ms` | `first_event_ms`, если было хоть одно событие |
+| `aigw_service_stream_disconnects_total` | 1, если клиент ушёл до терминального события |
+| `aigw_service_stream_errors_total` | 1, если поток закончился `error` |
+
+Записи и метрики журнала запросов для потока прежние: успех считается по HTTP-статусу, а он всегда 200. В Langfuse у трассы потокового хода есть тег `stream=true` рядом с `agent_engine=<v1|v2>`. Схема событий `v = 1` меняется только добавочно. Контрактный тест `tests/unit/v2/test_stream_contract.py` сверяет её со слепком `tests/unit/v2/contracts/stream_events_v1.json` и с `openapi_copilot.yaml`. Новое необязательное поле или новый тип события записывается в слепок командой `UPDATE_STREAM_CONTRACT=1 pytest tests/unit/v2/test_stream_contract.py`.
 
 ## Архитектура
 
