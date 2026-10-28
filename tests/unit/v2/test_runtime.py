@@ -63,6 +63,20 @@ class TestSettings:
         with pytest.raises(ValidationError, match="Input should be"):
             AgentSettings()
 
+    def test_stream_heartbeat_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("AGENT_STREAM_HEARTBEAT", raising=False)
+        assert AgentSettings().stream_heartbeat == 15.0
+
+    def test_stream_heartbeat_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AGENT_STREAM_HEARTBEAT", "0.5")
+        assert AgentSettings().stream_heartbeat == 0.5
+
+    @pytest.mark.parametrize("value", ["0", "-1"])
+    def test_stream_heartbeat_must_be_positive(self, monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+        monkeypatch.setenv("AGENT_STREAM_HEARTBEAT", value)
+        with pytest.raises(ValidationError, match="greater than 0"):
+            AgentSettings()
+
     def test_every_agent_variable_is_in_readme(self) -> None:
         readme = README.read_text(encoding="utf-8")
         agent_vars = [

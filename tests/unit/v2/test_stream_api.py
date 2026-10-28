@@ -8,21 +8,19 @@ live uvicorn started in the test's own event loop.
 import asyncio
 import json
 import os
-import socket
 import time
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
-import uvicorn
 from gigachat.exceptions import ForbiddenError
 from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
-from tests.unit.test_log_requests import RecordingLogger
 from tests.unit.v2.fakes import uploaded_store
+from tests.unit.v2.stream_stands import StreamRecorder
 from tests.unit.v2.test_api import STOP_BODY, Api, answer_text, v2
 from tests.unit.v2.test_prechecks import INDEX
 from tests.unit.v2.test_resilience import raising, response_error
@@ -33,12 +31,12 @@ from aigw_service.api.v2.middleware import cancellation
 from aigw_service.api.v2.prompts.middleware import CANCELLED_ANSWER
 from aigw_service.api.v2.scripted import ScriptedChatModel, tool_call
 from aigw_service.api.v2.service import AgentV2
-from aigw_service.api.v2.stream import sse
+from aigw_service.api.v2.stream import observe
 from aigw_service.api.v2.stream.events import EVENT_TYPES, StreamEvent
 from aigw_service.api.v2.stream.hygiene import violations
 from aigw_service.api.v2.tools import calc_tools
 from aigw_service.api.v2.turn.lock import TURN_BUSY_MESSAGE, TurnLocks
-from aigw_service.context import APP_CTX
+from aigw_service.config import APP_CONFIG
 
 SESSION = "9b2f6c1e-1d2a-4b3c-8d4e-5f6a7b8c9d0e"
 STREAM = "/api/v1/invoke-agent/stream"
@@ -123,6 +121,13 @@ class FakeV1:
     async def ainvoke(self, state: dict, config: dict) -> dict:
         self.inputs.append({"state": state, "config": config})
         return {"messages": [AIMessage(self.text)]}
+
+
+def counts(events: list[StreamEvent]) -> dict[str, int]:
+    found: dict[str, int] = {}
+    for event in events:
+        found[event.event] = found.get(event.event, 0) + 1
+    return found
 
 
 # ---------------------------------------------------------------- ASGI
@@ -273,6 +278,56 @@ class TestStreamOutcomes:
 # ---------------------------------------------------------------- live uvicorn
 
 
+class TestStreamLine:
+    """AR-Q18 (S6.5): one ``STREAM`` line per stream, stream metrics, ``log_requests`` records unchanged."""
+
+    async def test_u2(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, domain: list, recorder: StreamRecorder
+    ) -> None:
+        agent, _ = await fresh(u2_steps, tmp_path, "a")
+        events, _ = parse_sse((await StreamApi(monkeypatch, agent).stream()).text)
+        (line,) = recorder.streams
+        assert (line["trace_id"], line["engine"], line["outcome"], line["disconnected"]) == (
+            HEADERS["x-trace-id"],
+            "v2",
+            "full",
+            False,
+        )
+        assert line["turn_id"]
+        assert line["events"] == counts(events)
+        assert 0 <= line["first_event_ms"] <= line["duration_ms"]
+        metrics = [r[1] for r in recorder.records if r[0] == "metric"]
+        assert metrics.count(observe.STREAMS_METRIC) == 1
+        assert metrics.count(observe.FIRST_EVENT_METRIC) == 1
+        assert observe.DISCONNECTS_METRIC not in metrics
+        assert observe.ERRORS_METRIC not in metrics
+        assert ANSWER_U2 not in json.dumps(line, ensure_ascii=False)
+
+    async def test_stop_event(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, recorder: StreamRecorder) -> None:
+        steps = lambda: [
+            tool_call("write_todos", "c1", todos=todos("in_progress")),
+            raising(response_error(ForbiddenError, 403, STOP_BODY)),
+        ]
+        agent, _ = await fresh(steps, tmp_path, "a")
+        await StreamApi(monkeypatch, agent).stream()
+        (line,) = recorder.streams
+        assert (line["outcome"], line["disconnected"]) == ("unavailable", False)
+        assert [r[1] for r in recorder.records if r[0] == "metric"].count(observe.ERRORS_METRIC) == 1
+
+    async def test_v1(self, monkeypatch: pytest.MonkeyPatch, recorder: StreamRecorder) -> None:
+        await StreamApi(monkeypatch, FakeV1()).stream("Привет")  # type: ignore[arg-type]
+        (line,) = recorder.streams
+        assert (line["engine"], line["turn_id"], line["outcome"]) == ("v1", None, "full")
+        assert line["events"] == {"turn.started": 1, "answer": 1}
+
+    async def test_zip_has_no_stream_line(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, recorder: StreamRecorder
+    ) -> None:
+        agent, _ = await fresh(lambda: [AIMessage("Привет!")], tmp_path, "a")
+        await StreamApi(monkeypatch, agent).ask("Привет", session=SESSION)
+        assert recorder.streams == []
+
+
 class TimedGate:
     """Engine gate with an awaitable calculation; optionally the calculation runs a child process (like soffice)."""
 
@@ -300,36 +355,6 @@ def alive(pid: int) -> bool:
     except ProcessLookupError:
         return False
     return True
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
-
-
-@pytest.fixture
-async def live() -> AsyncIterator[str]:
-    """``app_main`` on a real uvicorn in this event loop; dependency overrides come from ``StreamApi``."""
-    from aigw_service.api import app_main  # pylint: disable=import-outside-toplevel
-
-    port = free_port()
-    server = uvicorn.Server(uvicorn.Config(app_main, host="127.0.0.1", port=port, lifespan="off", log_level="warning"))
-    task = asyncio.ensure_future(server.serve())
-    while not server.started:
-        await asyncio.sleep(0.01)
-    try:
-        yield f"http://127.0.0.1:{port}"
-    finally:
-        server.should_exit = True
-        await asyncio.wait_for(task, 10)
-
-
-@pytest.fixture
-def recorder(monkeypatch: pytest.MonkeyPatch) -> RecordingLogger:
-    rec = RecordingLogger()
-    monkeypatch.setattr(APP_CTX, "get_logger", lambda: rec)
-    return rec
 
 
 async def read_live(
@@ -380,11 +405,11 @@ class TestLiveStream:
         tmp_path: Path,
         domain: list,
         live: str,
-        recorder: RecordingLogger,
+        recorder: StreamRecorder,
     ) -> None:
         gate = TimedGate(1.5)
         monkeypatch.setattr(calc_tools, "_gate", lambda: gate)
-        monkeypatch.setattr(sse, "HEARTBEAT_S", 0.2)
+        monkeypatch.setattr(APP_CONFIG.agent, "stream_heartbeat", 0.2)  # S6.5: AGENT_STREAM_HEARTBEAT
         steps = lambda: [
             tool_call("write_todos", "c1", todos=todos("in_progress")),
             scenarios("c2"),
@@ -415,7 +440,7 @@ class TestLiveStream:
         tmp_path: Path,
         domain: list,
         live: str,
-        recorder: RecordingLogger,
+        recorder: StreamRecorder,
     ) -> None:
         gate = TimedGate(0.5, child_s=1.0)
         monkeypatch.setattr(calc_tools, "_gate", lambda: gate)
@@ -441,6 +466,10 @@ class TestLiveStream:
             assert not alive(gate.pids[0])
             assert len(model.calls) == calls_at_disconnect  # no model call after the disconnect
             assert any(r == ("audit", "BusinessRequestFinished", {}, HEADERS["x-trace-id"]) for r in recorder.records)
+            (line,) = recorder.streams  # S6.5: the line of the stream the client left
+            assert (line["outcome"], line["disconnected"]) == (None, True)
+            assert line["events"]["tool.started"] >= 1
+            assert observe.DISCONNECTS_METRIC in [r[1] for r in recorder.records if r[0] == "metric"]
             nxt = await client.post(STREAM, json={"message": "Привет"}, headers=headers_for())
         events, _ = parse_sse(nxt.text)
         assert events[-1].event == "answer"

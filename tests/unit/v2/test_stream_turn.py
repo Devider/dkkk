@@ -736,3 +736,38 @@ class TestStreamScenarios:
         summaries = [e.summary for e in events if e.event == "tool.finished"]  # type: ignore[attr-defined]
         assert summaries
         assert all(s and "IN1" not in s and "/results/" not in s and "run_scenarios" not in s for s in summaries)
+
+
+class TestTurnId:
+    """S6.5 design D3: ``TurnStream.turn_id`` for the ``STREAM`` line."""
+
+    async def test_first_turn_id_of_any_node(self) -> None:
+        parts = [
+            {"type": "custom", "ns": (), "data": {"turn_id": "not-an-update"}},
+            {"type": "updates", "ns": (), "data": {"Other.before_agent": None, "X.before_agent": {"turn_id": "t1"}}},
+            {"type": "updates", "ns": (), "data": {"Y.before_agent": {"turn_id": "t2"}}},
+            answer_part(),
+        ]
+        stream = TurnStream(FakeAgent(parts), {}, ctx(), {}, lambda: None)
+        await collect(stream)
+        assert stream.turn_id == "t1"
+
+    async def test_none_without_update(self) -> None:
+        stream = TurnStream(FakeAgent([answer_part()]), {}, ctx(), {}, lambda: None)
+        await collect(stream)
+        assert stream.turn_id is None
+
+    async def test_u2_turn_id_is_the_checkpoint_one(self, stack: Stack, domain: list) -> None:
+        saver, config = InMemorySaver(), {"configurable": {"thread_id": "u1:s1"}}
+        service = AgentV2(await stack.agent(u2_steps, checkpointer=saver), TurnLocks())
+        stream = service.stream(QUESTION, ctx(), config)
+        await collect(stream)
+        state = await service.agent.aget_state(config)
+        assert stream.turn_id
+        assert stream.turn_id == state.values["turn_id"]
+
+    async def test_no_workbook_refusal(self, stack: Stack) -> None:
+        stream = AgentV2(await stack.agent(list, upload=False), TurnLocks()).stream(QUESTION, ctx(), {})
+        events = await collect(stream)
+        assert events[-1].outcome == "refusal"  # type: ignore[attr-defined]
+        assert stream.turn_id is None  # TurnContext refuses before it starts a turn: the STREAM line has no turn_id

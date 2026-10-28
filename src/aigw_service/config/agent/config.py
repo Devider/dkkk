@@ -63,6 +63,14 @@ class AgentSettings(BaseAppSettings):
         validation_alias="AGENT_PREVIEW_CHECK_PERCENT",
     )
 
+    # Stream heartbeat (AR-Q16, S6.5): seconds between SSE ``: ping`` comments while no event is due. No upper
+    # bound: the right value depends on the proxy idle timeout of the environment
+    stream_heartbeat: float = Field(
+        default=15.0,
+        gt=0,
+        validation_alias="AGENT_STREAM_HEARTBEAT",
+    )
+
     # Retry — количество попыток вызова LLM при транзитных ошибках
     llm_retry_attempts: int = Field(
         default=3,

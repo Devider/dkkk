@@ -1,4 +1,5 @@
 import tempfile
+import time
 import zipfile
 from functools import lru_cache
 from io import BytesIO
@@ -19,6 +20,7 @@ from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependen
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.api.v2.context import RequestContext
 from aigw_service.api.v2.service import AgentV2
+from aigw_service.api.v2.stream.observe import StreamStats
 from aigw_service.api.v2.stream.sse import SSE_HEADERS, one_shot, sse_body
 from aigw_service.api.v2.turn.disconnect import disconnect_watch
 from aigw_service.api.v2.turn.lock import TURN_BUSY_MESSAGE, TurnBusyError
@@ -156,6 +158,11 @@ def get_cb_handler():
     return get_or_create_cb_handler
 
 
+STREAM_PATH = "/invoke-agent/stream"
+STREAM_TAG = "stream=true"
+"""AR-Q18 (S6.5 design D5): the Langfuse tag of a turn started through ``STREAM_PATH``, for both engines."""
+
+
 def _session_ids(headers: dict) -> tuple[str, str]:
     """``session_id`` (from the header or a new one) and ``thread_id``."""
     user_id = headers.get("x-user-id")
@@ -200,6 +207,8 @@ def _turn_setup(  # pylint: disable=too-many-arguments,too-many-positional-argum
             "langfuse_tags": [f"agent_engine={'v2' if isinstance(agent, AgentV2) else 'v1'}"],
         },
     }
+    if endpoint == STREAM_PATH:
+        config["metadata"]["langfuse_tags"].append(STREAM_TAG)
     if cb_handler is not None:
         config["callbacks"] = [cb_handler]
     else:
@@ -330,13 +339,14 @@ STREAM_DESCRIPTION = (
     "Тот же ход агента, что у /invoke-agent, доставленный событиями SSE (text/event-stream). Кадр: "
     "`event: <тип>`, `id: <seq>`, `data: <JSON>`; общие поля data — v, seq, ts, trace_id. Типы: turn.started, phase, "
     "plan, tool.started, tool.finished, summary, answer, error. Поток заканчивается ровно одним событием answer или "
-    "error. Пока событий нет, приходит комментарий `: ping`. Ошибки до старта хода (422, 409) — обычные HTTP-ответы. "
+    "error. Пока событий нет, каждые AGENT_STREAM_HEARTBEAT с (по умолчанию 15) приходит комментарий `: ping`. "
+    "Ошибки до старта хода (422, 409) — обычные HTTP-ответы. "
     "При AGENT_ENGINE=v1 поток упрощённый: turn.started, затем answer или error."
 )
 
 
 @router.post(
-    "/invoke-agent/stream",
+    STREAM_PATH,
     status_code=status.HTTP_200_OK,
     response_class=StreamingResponse,
     summary="Потоковый вызов ИИ-агента Copilot'a: ход агента событиями SSE",
@@ -366,13 +376,15 @@ async def invoke_agent_stream(
     """FR-21: 409 / 422 / 424 before the stream; afterwards everything, StopEvent included, is an event.
 
     A client that goes away is noticed by ``sse_body`` (Starlette cancels it); ``disconnect_watch`` is not used
-    here because Starlette's own listener takes ``http.disconnect`` (spike S6.1, H3).
+    here because Starlette's own listener takes ``http.disconnect`` (spike S6.1, H3). The ``STREAM`` line's clock
+    starts here, before the turn is set up: the time to the first event is what the client waits (AR-Q18).
     """
+    started = time.perf_counter()
     _setup_request_headers(headers=headers)
     agent.logger = logger
     session_id, thread_id = _session_ids(headers)
     try:
-        config, context = _turn_setup(request.message, headers, agent, cb_handler, session_id, "/invoke-agent/stream")
+        config, context = _turn_setup(request.message, headers, agent, cb_handler, session_id, STREAM_PATH)
         if context is not None:
             events = agent.stream(request.message, context, config)  # TurnBusyError before the first event
         else:
@@ -393,4 +405,6 @@ async def invoke_agent_stream(
             status_code=status.HTTP_424_FAILED_DEPENDENCY,
             content=FailedDependencyResponse(error_description=str(e)).model_dump(),
         )
-    return StreamingResponse(sse_body(events), media_type="text/event-stream", headers=SSE_HEADERS)
+    stats = StreamStats(headers.get("x-trace-id") or "", "v2" if context is not None else "v1", started)
+    body = sse_body(events, APP_CONFIG.agent.stream_heartbeat, stats)
+    return StreamingResponse(body, media_type="text/event-stream", headers=SSE_HEADERS)

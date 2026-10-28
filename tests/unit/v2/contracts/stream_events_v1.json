@@ -1,0 +1,357 @@
+{
+  "turn.started": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "session_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    }
+  },
+  "phase": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "phase": {
+      "type": "string",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        "planning",
+        "executing",
+        "checking",
+        "answering"
+      ]
+    },
+    "text": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    }
+  },
+  "plan": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "steps": {
+      "type": "array",
+      "nullable": false,
+      "required": true,
+      "items": {
+        "n": {
+          "type": "integer",
+          "nullable": false,
+          "required": true
+        },
+        "title": {
+          "type": "string",
+          "nullable": false,
+          "required": true
+        },
+        "status": {
+          "type": "string",
+          "nullable": false,
+          "required": true,
+          "enum": [
+            "pending",
+            "in_progress",
+            "completed",
+            "skipped",
+            "blocked"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "nullable": true,
+          "required": false
+        }
+      }
+    }
+  },
+  "tool.started": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "call": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "step": {
+      "type": "integer",
+      "nullable": true,
+      "required": true
+    },
+    "label": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    }
+  },
+  "tool.finished": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "call": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "label": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "outcome": {
+      "type": "string",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        "ok",
+        "retry",
+        "failed"
+      ]
+    },
+    "elapsed_s": {
+      "type": "number",
+      "nullable": false,
+      "required": true
+    },
+    "summary": {
+      "type": "string",
+      "nullable": true,
+      "required": false
+    },
+    "text": {
+      "type": "string",
+      "nullable": true,
+      "required": false
+    }
+  },
+  "summary": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "completed": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "skipped": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "blocked": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "text": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    }
+  },
+  "answer": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "text": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "outcome": {
+      "type": "string",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        "full",
+        "partial",
+        "clarify",
+        "refusal"
+      ]
+    }
+  },
+  "error": {
+    "v": {
+      "type": "integer",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        1
+      ]
+    },
+    "seq": {
+      "type": "integer",
+      "nullable": false,
+      "required": true
+    },
+    "ts": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "trace_id": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    },
+    "kind": {
+      "type": "string",
+      "nullable": false,
+      "required": true,
+      "enum": [
+        "unavailable",
+        "failed"
+      ]
+    },
+    "text": {
+      "type": "string",
+      "nullable": false,
+      "required": true
+    }
+  }
+}

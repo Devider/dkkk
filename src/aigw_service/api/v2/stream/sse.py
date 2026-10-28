@@ -9,14 +9,13 @@ import json
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 
 from aigw_service.api.v2.stream.events import TERMINAL, EventFactory, StreamEvent
+from aigw_service.api.v2.stream.observe import StreamStats
 from aigw_service.api.v2.stream.turn import FAILED_TEXT
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
 
 logger = APP_CTX.get_logger()
 
-HEARTBEAT_S = 15.0
-"""AR-Q16: a comment while no event is due. A constant until S6.5 moves it to ``AGENT_STREAM_HEARTBEAT``."""
 SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 PING = b": ping\n\n"
 
@@ -30,30 +29,41 @@ def encode(event: StreamEvent) -> bytes:
     return f"event: {event.event}\nid: {event.seq}\ndata: {data}\n\n".encode()
 
 
-async def sse_body(events: AsyncIterable[StreamEvent], heartbeat_s: float | None = None) -> AsyncIterator[bytes]:
-    """Frames for ``events`` with ``PING`` while waiting; ends right after the terminal event.
+async def sse_body(
+    events: AsyncIterable[StreamEvent], heartbeat_s: float, stats: StreamStats | None = None
+) -> AsyncIterator[bytes]:
+    """Frames for ``events`` with ``PING`` every ``heartbeat_s`` while waiting (AR-Q16, ``AGENT_STREAM_HEARTBEAT``);
+    ends right after the terminal event.
+
+    ``stats`` hears of every frame and ping handed to the client and is closed when the body ends, a client that
+    went away included (AR-Q18, S6.5 design D1): ``turn_id`` is read from ``events`` (``TurnStream``) at that moment.
 
     The pending read is never cancelled by the heartbeat: a cancelled read of ``TurnStream`` would set
     ``RequestContext.cancel`` and stop the turn (design D2). When the consumer goes away, the pending read is
     cancelled (or the iterator closed), which is what stops the turn after its current call (AR-Q17).
     """
-    interval = HEARTBEAT_S if heartbeat_s is None else heartbeat_s
     iterator = aiter(events)
     pending: asyncio.Future[StreamEvent] | None = None
     try:
         while True:
             pending = asyncio.ensure_future(anext(iterator))
-            while not (await asyncio.wait({pending}, timeout=interval))[0]:
+            while not (await asyncio.wait({pending}, timeout=heartbeat_s))[0]:
+                if stats is not None:
+                    stats.ping()
                 yield PING
             read, pending = pending, None
             try:
                 event = read.result()
             except StopAsyncIteration:
                 return
+            if stats is not None:
+                stats.event(event)
             yield encode(event)
             if event.event in TERMINAL:
                 return
     finally:
+        if stats is not None:
+            stats.close(getattr(events, "turn_id", None))
         if pending is not None and not pending.done():
             pending.cancel()  # no await here: the cancellation reaches the iterator on the next loop step
         else:

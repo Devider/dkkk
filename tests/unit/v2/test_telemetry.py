@@ -257,6 +257,9 @@ class FakeSemanticLayer:
         return {"q_analysis": None, "resolved_inputs": []}
 
 
+STREAM_URL = "/api/v1/invoke-agent/stream"
+
+
 class FakeV1:
     """The v1 branch of the router: ``agent.graph.ainvoke`` with the config it got."""
 
@@ -308,6 +311,31 @@ class TestLangfuse:
         response = await api.ask()
         assert response.status_code == 200
         assert_langfuse_metadata(agent.configs[0]["metadata"], "v1")
+
+    async def test_v1_stream_tag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """AR-Q18 (S6.5 D5): a turn started through the stream endpoint carries ``stream=true``."""
+        agent = FakeV1()
+        api = Api(monkeypatch, agent)  # type: ignore[arg-type]
+        response = await api.client.post(STREAM_URL, json={"message": "Привет"}, headers=HEADERS)
+        assert response.status_code == 200
+        assert agent.configs[0]["metadata"]["langfuse_tags"] == ["agent_engine=v1", "stream=true"]
+
+    async def test_v2_stream_tag(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        configs: list[dict] = []
+
+        class StreamRecordingV2(AgentV2):
+            def stream(self, message: str, context: RequestContext, config: dict[str, Any]) -> Any:
+                configs.append(config)
+                return super().stream(message, context, config)
+
+        store = await uploaded_store("u1", INDEX, str(tmp_path))
+        model = ScriptedChatModel(steps=[AIMessage("Привет!")])
+        agent = StreamRecordingV2(
+            AgentFactory(model, default_catalog(), store=store, upload_dir=str(tmp_path)).build(), TurnLocks()
+        )
+        response = await Api(monkeypatch, agent).client.post(STREAM_URL, json={"message": "Привет"}, headers=HEADERS)
+        assert response.status_code == 200
+        assert configs[0]["metadata"]["langfuse_tags"] == ["agent_engine=v2", "stream=true"]
 
     async def test_v2_tree(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, lines: dict) -> None:
         monkeypatch.setattr(rt, "_ema_analyzer", FakeSemanticLayer)

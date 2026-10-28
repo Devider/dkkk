@@ -1,16 +1,19 @@
 """Unit tests never start a real LibreOffice pool: calculation tools get an in-process gate."""
 
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pandas as pd
 import pytest
 from tests.unit.v2.fakes import InlineGate
+from tests.unit.v2.stream_stands import StreamRecorder, live_server
 
 from aigw_service.api.v2.middleware import context_meter
 from aigw_service.api.v2.tools import calc_tools
 from aigw_service.api.v2.tools import resolve_terms as rt
 from aigw_service.api.v2.tools.resolve_terms import Pick
+from aigw_service.context import APP_CTX
 from excel_engine import ExcelAnalysisToolResult
 
 
@@ -50,3 +53,18 @@ def layer_logs(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
 
     monkeypatch.setattr(context_meter.logger, "info", info)
     return logged
+
+
+@pytest.fixture
+def recorder(monkeypatch: pytest.MonkeyPatch) -> StreamRecorder:
+    """The service logger replaced by a recorder: ``log_requests`` records and ``STREAM`` lines (S6.3, S6.5)."""
+    rec = StreamRecorder()
+    monkeypatch.setattr(APP_CTX, "get_logger", lambda: rec)
+    return rec
+
+
+@pytest.fixture
+async def live() -> AsyncIterator[str]:
+    """Base URL of a live uvicorn serving ``app_main`` (S6.3 ``TestLiveStream``, U10)."""
+    async for url in live_server():
+        yield url

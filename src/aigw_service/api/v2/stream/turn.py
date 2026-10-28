@@ -8,7 +8,7 @@ released when the turn ends, not when the stream does.
 """
 
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from typing import Any
 
 from aigw_service.api.v2.context import RequestContext
@@ -44,6 +44,8 @@ class TurnStream:  # pylint: disable=too-many-instance-attributes  # one turn: a
         translator: StreamTranslator | None = None,
     ) -> None:
         self.context = context
+        self.turn_id: str | None = None
+        """Set by ``TurnContext`` in the first node update; only the ``STREAM`` line reads it (S6.5 design D3)."""
         self._agent = agent
         self._input = agent_input
         self._config = config
@@ -69,6 +71,7 @@ class TurnStream:  # pylint: disable=too-many-instance-attributes  # one turn: a
                 version=STREAM_VERSION,
             )
             async for part in stream:
+                self._note_turn_id(part)
                 for draft in self._translator.feed(part):
                     self._put(draft)
             for draft in self._translator.finish():  # FR-23: the turn summary goes right before the answer
@@ -82,6 +85,16 @@ class TurnStream:  # pylint: disable=too-many-instance-attributes  # one turn: a
         finally:
             self._release()  # AR-Q17: the lock lives as long as the turn
             self._queue.put_nowait(_END)
+
+    def _note_turn_id(self, part: Mapping[str, Any]) -> None:
+        """The first ``turn_id`` of any node update; the node name is not checked, the state key is unique."""
+        data = part.get("data")
+        if self.turn_id is not None or part.get("type") != "updates" or not isinstance(data, Mapping):
+            return
+        for update in data.values():
+            if isinstance(update, Mapping) and isinstance(update.get("turn_id"), str):
+                self.turn_id = update["turn_id"]
+                return
 
     def __aiter__(self) -> AsyncIterator[StreamEvent]:
         return self._events()

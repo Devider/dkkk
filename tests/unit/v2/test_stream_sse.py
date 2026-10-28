@@ -2,15 +2,20 @@
 
 import asyncio
 import json
+import time
 from typing import Any
 
 import pytest
+from tests.unit.v2.test_stream_observe import Logger, stream_lines
 from tests.unit.v2.test_stream_turn import FakeAgent, answer_part, ctx
 
 from aigw_service.api.v2.stream import sse
 from aigw_service.api.v2.stream.events import EventFactory
+from aigw_service.api.v2.stream.observe import StreamStats
 from aigw_service.api.v2.stream.sse import PING, encode, one_shot, sse_body
 from aigw_service.api.v2.stream.turn import FAILED_TEXT, TurnStream
+from aigw_service.config.agent.config import AgentSettings
+from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
 
 
@@ -43,7 +48,11 @@ class TestEncode:
     def test_constants(self) -> None:
         assert PING == b": ping\n\n"
         assert sse.SSE_HEADERS == {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-        assert sse.HEARTBEAT_S == 15.0
+        assert not hasattr(sse, "HEARTBEAT_S")  # S6.5: the interval is AGENT_STREAM_HEARTBEAT
+
+    def test_heartbeat_default_is_in_settings(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("AGENT_STREAM_HEARTBEAT", raising=False)
+        assert AgentSettings().stream_heartbeat == 15.0
 
 
 async def frames_of(body: Any) -> list[bytes]:
@@ -90,6 +99,47 @@ class TestSseBody:
         await body.aclose()
         assert context.cancel.is_set()
         await stream.task
+
+
+@pytest.fixture
+def log(monkeypatch: pytest.MonkeyPatch) -> Logger:
+    logger = Logger()
+    monkeypatch.setattr(APP_CTX, "get_logger", lambda: logger)
+    return logger
+
+
+class TestSseBodyStats:
+    """S6.5 design D1: ``sse_body`` feeds ``StreamStats`` and closes it once."""
+
+    async def test_finished_stream(self, log: Logger) -> None:
+        agent, context = FakeAgent([answer_part()], delay=0.3), ctx()
+        stream = TurnStream(agent, {}, context, {}, lambda: None)
+        stats = StreamStats("t-1", "v2", started=time.perf_counter())
+        frames = await frames_of(sse_body(stream, heartbeat_s=0.1, stats=stats))
+        (line,) = stream_lines(log)
+        kinds = [parse(f)[0] for f in frames if f != PING]
+        assert line["events"] == {kind: kinds.count(kind) for kind in kinds}
+        assert line["pings"] == frames.count(PING) > 0
+        assert (line["outcome"], line["disconnected"], line["engine"]) == ("full", False, "v2")
+        assert 0 <= line["first_event_ms"] <= line["duration_ms"]
+
+    async def test_client_gone(self, log: Logger) -> None:
+        agent, context = FakeAgent([answer_part()], delay=0.5), ctx()
+        stream = TurnStream(agent, {}, context, {}, lambda: None)
+        body = sse_body(stream, heartbeat_s=0.05, stats=StreamStats("t-1", "v2", started=time.perf_counter()))
+        assert parse(await anext(body))[0] == "turn.started"
+        assert await anext(body) == PING
+        await body.aclose()
+        (line,) = stream_lines(log)
+        assert (line["outcome"], line["disconnected"]) == (None, True)
+        assert line["events"] == {"turn.started": 1}
+        await stream.task
+
+    async def test_turn_id_from_the_turn_stream(self, log: Logger) -> None:
+        parts = [{"type": "updates", "ns": (), "data": {"TurnContext.before_agent": {"turn_id": "t9"}}}, answer_part()]
+        stream = TurnStream(FakeAgent(parts), {}, ctx(), {}, lambda: None)
+        await frames_of(sse_body(stream, heartbeat_s=1, stats=StreamStats("t-1", "v2", started=time.perf_counter())))
+        assert stream_lines(log)[0]["turn_id"] == "t9"
 
 
 class TestOneShot:
