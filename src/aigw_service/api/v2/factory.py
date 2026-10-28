@@ -19,6 +19,7 @@ from aigw_service.api.v2.middleware.grounding import AnswerGroundingGuard
 from aigw_service.api.v2.middleware.language import LanguageGuard
 from aigw_service.api.v2.middleware.limits import TurnLimits
 from aigw_service.api.v2.middleware.plan import ForcePlanFirst, PlanCompletionGuard
+from aigw_service.api.v2.middleware.preview_check import PreviewModelCheck, default_preview_checker
 from aigw_service.api.v2.middleware.resilience import engine_retry, model_retry, tool_errors
 from aigw_service.api.v2.middleware.skill_gate import SkillToolGate
 from aigw_service.api.v2.middleware.stop_event import StopEventGuard
@@ -56,6 +57,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         skills_dir: Path | None = None,
         pinned_skills: Sequence[str] | None = None,
         prompt_budget: ContextBudget | None = None,
+        preview_check: PreviewModelCheck | None = None,
     ) -> None:
         self.model = model
         self.store = store
@@ -68,6 +70,20 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         # §11 «Активация» п. 2: None — the list from AGENT_PINNED_SKILLS
         self.pinned_skills = tuple(APP_CONFIG.agent.pinned_skills if pinned_skills is None else pinned_skills)
         self.prompt_budget = prompt_budget or ContextBudget.from_settings()
+        # ADR-10 (S4.4 design D4): None — by AGENT_PREVIEW_CHECK and AGENT_MODEL; tests pass their own check
+        self.preview_check = preview_check if preview_check is not None else self._preview_from_settings()
+
+    @staticmethod
+    def _preview_from_settings() -> PreviewModelCheck | None:
+        settings = APP_CONFIG.agent
+        if not settings.preview_check:
+            return None
+        if settings.model != "gigachat":  # the preview model is GigaChat's; a scripted run has none
+            logger.warning(
+                "AGENT_PREVIEW_CHECK=true без AGENT_MODEL=gigachat: A/B-проверка preview-модели не включена"
+            )
+            return None
+        return PreviewModelCheck(default_preview_checker(), settings.preview_check_percent)
 
     def service_store(self) -> Any:
         """One store for ``/results/`` (read and write, S1.6), the registry and the calculation cache."""
@@ -79,6 +95,7 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
         guard = [PlanCompletionGuard(APP_CONFIG.agent.plan_max_returns)] if planned else []  # §8 №19, FR-8
         settings = APP_CONFIG.agent
         engine_tools = self.catalog.engine_tool_names()
+        preview = [self.preview_check] if self.preview_check is not None else []
         backend = file_backend(self.skills_dir, self.service_store())
         return [
             # §8 №1: workbook, index and card; no workbook — answer without LLM; pins skills (FR-12)
@@ -106,6 +123,8 @@ class AgentFactory:  # pylint: disable=too-many-instance-attributes  # one field
             AnswerGroundingGuard(settings.grounding_max_returns),  # §8 №18, FR-13: in every plan mode
             *guard,  # after_* hooks run bottom-up, the plan is checked first
             TurnSummary(),  # §8 №20: dialog memory in the prompt, the turn's digest after it (FR-16)
+            # §8 №6 (S4.4 design D1): sees the request the model really gets; inside the retries — one check a call
+            *preview,
             # S2.7 design D5: innermost model wrapper, logs the layers of the request the model really gets
             ContextMeter(self.prompt_budget.max_prompt_tokens),
         ]

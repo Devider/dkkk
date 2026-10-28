@@ -118,3 +118,11 @@ SUMMARY_MESSAGE_NO_PATH = """\
 <summary>
 {summary}
 </summary>"""
+
+PREVIEW_JUDGE_PROMPT = """\
+Сравни два ответа ассистента на один и тот же запрос и оцени их схожесть по смыслу по шкале от 0 до 100.
+Ответ 1: {main}
+Ответ 2: {preview}
+Верни анализ различий и итоговый процент схожести в формате:
+<анализ различий> | Итоговый процент схожести: <число>%"""
+"""Judge of the background A/B check (ADR-10, S4.4 design D5): seen by the judge, never by the agent's model."""

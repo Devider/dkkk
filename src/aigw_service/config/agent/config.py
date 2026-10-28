@@ -50,6 +50,19 @@ class AgentSettings(BaseAppSettings):
         validation_alias="AGENT_PINNED_SKILLS",
     )
 
+    # Background A/B check of agent v2 on <GIGACHAT_MODEL>-preview (ADR-10, S4.4): off by default, GigaChat only;
+    # the share of model calls checked. Independent of v1's ENABLE_PREVIEW_MODEL_CHECK / PREVIEW_MODEL_CHECK_PERCENT
+    preview_check: bool = Field(
+        default=False,
+        validation_alias="AGENT_PREVIEW_CHECK",
+    )
+    preview_check_percent: float = Field(
+        default=0.05,
+        ge=0,
+        le=1,
+        validation_alias="AGENT_PREVIEW_CHECK_PERCENT",
+    )
+
     # Retry — количество попыток вызова LLM при транзитных ошибках
     llm_retry_attempts: int = Field(
         default=3,
