@@ -22,7 +22,6 @@ def log(msg):
     with open(LOG_FILE, "a") as f:
         f.write(msg + "\n")
 
-
 # Обязательные заголовки
 HEADERS = {
     "x-trace-id": "550e8400-e29b-41d4-a716-446655440000",
@@ -89,14 +88,12 @@ def test_invoke_agent():
     log("ТЕСТ 2: AI-агент — анализ debt/ebitda 2025")
     log("=" * 60)
 
-    payload = json.dumps(
-        {
-            "message": (
-                "Проанализируй model.xlsx со значением метанола 2025 (450,500) "
-                "и шагом 5. Покажи мне значения debt/ebitda 2025 для этих значений."
-            )
-        }
-    )
+    payload = json.dumps({
+        "message": (
+            "Проанализируй model.xlsx со значением метанола 2025 (450,500) "
+            "и шагом 5. Покажи мне значения debt/ebitda 2025 для этих значений."
+        )
+    })
 
     t0 = time.time()
     status, data = request(
@@ -120,7 +117,6 @@ def test_invoke_agent():
         log("Содержимое txt_response.txt:")
         try:
             import zipfile
-
             with zipfile.ZipFile(zip_path) as z:
                 if "txt_response.txt" in z.namelist():
                     log(z.read("txt_response.txt").decode("utf-8"))
@@ -139,7 +135,7 @@ def measure_memory():
                     rss = line.strip()
                 if line.startswith("VmSize:"):
                     vms = line.strip()
-            log("\n--- Память процесса ---")
+            log(f"\n--- Память процесса ---")
             log(f"{rss}")
             log(f"{vms}")
     except Exception:

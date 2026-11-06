@@ -13,6 +13,8 @@ import multiprocessing
 from typing import Any, ClassVar, TypedDict
 
 from langchain_core.messages import HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables.config import get_async_callback_manager_for_config
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
@@ -136,12 +138,42 @@ class OrchestratorTools:
         available_outputs: dict[str, str],
         filename: str | None,
         user_id: str | None,
+        config: RunnableConfig | None = None,
     ) -> ToolCallResult:
         if tool_name == "analyze_model_inputs_for_target":
-            return await self._run_ift(reformulated_query, available_inputs, available_outputs, filename, user_id)
+            return await self._run_ift(
+                reformulated_query, available_inputs, available_outputs, filename, user_id, config
+            )
         if tool_name == "analyze_excel_model":
-            return await self._run_ema(reformulated_query, available_inputs, available_outputs, filename, user_id)
+            return await self._run_ema(
+                reformulated_query, available_inputs, available_outputs, filename, user_id, config
+            )
         raise ValueError(f"Unknown orchestrator tool: {tool_name}")
+
+    async def _dispatch_lo_calc(
+        self, tool_name: str, kwargs: dict[str, Any], config: RunnableConfig | None
+    ) -> dict[str, Any]:
+        """Выполняет LO-расчёт в пуле, оборачивая его явным LangChain tool-run'ом.
+
+        Используем ``on_tool_start``/``on_tool_end``/``on_tool_error`` через callback-менеджер,
+        унаследованный от ``config`` узла графа, а не сырой ``Langfuse.start_as_current_observation``:
+        LangGraph выполняет тело каждого узла в свежесозданном ``asyncio.Task``, чей скопированный
+        context НЕ содержит OTEL-спан, который Langfuse's ``CallbackHandler.on_chain_start``
+        прикрепляет к ambient-контексту - поэтому raw OTEL-подход давал отдельный root trace без
+        родителя (проверено эмпирически). ``parent_run_id``-механизм LangChain, в отличие от этого,
+        корректно прокидывается через ``config["callbacks"]"`` и всегда даёт правильное вложение.
+        Безопасно no-op'ает, если в ``config`` нет колбэков (трейсинг отключён) - ``on_tool_start``
+        без хендлеров ничего не делает.
+        """
+        manager = get_async_callback_manager_for_config(config or {})
+        run_manager = await manager.on_tool_start({"name": tool_name}, str(kwargs), name=tool_name, inputs=kwargs)
+        try:
+            calc = await asyncio.to_thread(self._lo_pool.submit(_run_lo_calc, tool_name, kwargs).result)
+        except Exception as e:
+            await run_manager.on_tool_error(e)
+            raise
+        await run_manager.on_tool_end(calc)
+        return calc
 
     async def _run_ift(
         self,
@@ -150,6 +182,7 @@ class OrchestratorTools:
         available_outputs: dict[str, str],
         filename: str | None,
         user_id: str | None,
+        config: RunnableConfig | None = None,
     ) -> ToolCallResult:
         messages = [HumanMessage(content=reformulated_query)]
         response = await self.ift_agent.ainvoke(messages, available_inputs, available_outputs, user_id)
@@ -191,9 +224,7 @@ class OrchestratorTools:
         # LO-расчёт выполняется в отдельном процессе (spawn, свой GIL), поэтому не
         # блокирует event loop даже при интенсивном Python-коде. .result() блокирует
         # только текущую (async) корутину, а не loop.
-        calc = await asyncio.to_thread(
-            self._lo_pool.submit(_run_lo_calc, "analyze_model_inputs_for_target", kwargs).result
-        )
+        calc = await self._dispatch_lo_calc("analyze_model_inputs_for_target", kwargs, config)
         calc_result = ModelInputAnalysisToolResult(**calc)
         return self._to_tool_result("analyze_model_inputs_for_target", calc_result)
 
@@ -204,6 +235,7 @@ class OrchestratorTools:
         available_outputs: dict[str, str],
         filename: str | None,
         user_id: str | None,
+        config: RunnableConfig | None = None,
     ) -> ToolCallResult:
         messages = [HumanMessage(content=reformulated_query)]
         response = await self.ema_agent.ainvoke(messages, available_inputs, available_outputs, user_id)
@@ -247,7 +279,7 @@ class OrchestratorTools:
             "steps": steps,
             "user_id": user_id,
         }
-        calc = await asyncio.to_thread(self._lo_pool.submit(_run_lo_calc, "analyze_excel_model", kwargs).result)
+        calc = await self._dispatch_lo_calc("analyze_excel_model", kwargs, config)
         calc_result = ExcelAnalysisToolResult(**calc)
         return self._to_tool_result("analyze_excel_model", calc_result)
 

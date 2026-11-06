@@ -21,7 +21,7 @@ def common_headers(
         ),
         max_length=36,
         pattern=r"^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$",
-        example=uuid.uuid4(),
+        examples=uuid.uuid4(),
     ),
     header_x_client_id: str = Header(
         default="",
@@ -29,7 +29,7 @@ def common_headers(
         description="КЭ системы отправляющей запрос.",
         max_length=10,
         pattern=r"^[A-Z]{2}\d{8}$",
-        example="CI00163870",
+        examples="CI00163870",
     ),
     header_x_session_id: str = Header(
         default="",
@@ -37,7 +37,7 @@ def common_headers(
         description="ID пользовательской сессии. Можно использовать для сессий внутри AIGW (например, для БД).",
         max_length=36,
         pattern=r"^([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?$",
-        example=uuid.uuid4(),
+        examples=uuid.uuid4(),
     ),
     # Заголовки AIGW
     header_x_request_time: str = Header(
@@ -52,14 +52,14 @@ def common_headers(
             r"(?:\.\d+)?"  # Опциональные миллисекунды
             r"(?:([Zz])|([+-](?:[01][0-9]|2[0-3]):[0-5][0-9]))$"  # Таймзона: Z или ±HH:MM
         ),
-        example="2025-04-08T11:31:45.748539+03:00",
+        examples="2025-04-08T11:31:45.748539+03:00",
     ),
     header_x_user_id: str = Header(
         default="",
         alias="x-user-id",
         description="ID пользователя.",
         max_length=8,
-        example="12345678",
+        examples="12345678",
     ),
 ) -> dict:
     """Возвращает заголовки запроса, необходимые для работы сервиса на платформе AIGateWay"""

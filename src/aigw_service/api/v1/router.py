@@ -1,3 +1,5 @@
+import asyncio
+import shutil
 import tempfile
 import zipfile
 from functools import lru_cache
@@ -14,8 +16,10 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from langchain_core.messages import HumanMessage
 from langfuse.langchain import CallbackHandler
 
+from aigw_service.api.v1.excel_handler import correct_workbook_on_disk
 from aigw_service.api.v1.main_graph import AgentGraph
 from aigw_service.api.v1.schemas_file import CopilotAgentRequest, FailedDependencyResponse, FileLoaderResponse
+from aigw_service.api.v1.thread_runs import get_thread_run_registry
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.context import APP_CTX
 from aigw_service.exceptions import StopEventError
@@ -28,6 +32,11 @@ def _setup_request_headers(headers: dict) -> None:
     """Сквозной проброс заголовка x-trace-id в GigaChat."""
     x_trace_id = headers.get("x-trace-id")
     gc_ctx.trace_id_cvar.set(x_trace_id)
+
+
+def _copy_file(source, dest) -> None:
+    """Copy *source* to *dest*, preserving metadata (used off the event loop)."""
+    shutil.copy2(str(source), str(dest))
 
 
 # =====================================================================================================================
@@ -87,12 +96,34 @@ async def upload_file(
             content = await file.read()
             await out_file.write(content)
 
+        # Once, on upload: correct the workbook per flags (external links,
+        # long CHOOSE). Keep the original client file for debugging. The
+        # correction opens the book in LibreOffice, so run it off the event
+        # loop; it is OOXML-only and skips .xls unchanged.
+        original_location = save_dir / f"user_file_{user_id!s}_original.{file_extension}"
+        try:
+            await asyncio.to_thread(_copy_file, file_location, original_location)
+            correction = await asyncio.to_thread(correct_workbook_on_disk, str(file_location))
+            correction_message = correction["message"]
+            logger.info(
+                "Upload correction: status={}, status_msg={}",
+                correction["status"],
+                correction_message,
+            )
+        except Exception as e:
+            # pylint: disable=no-member
+            logger.opt(exception=True).error("Upload correction failed: {}", str(e))
+            correction_message = (
+                "Файл был успешно сохранен. Коррекция книги не выполнена из-за ошибки: "
+                f"{e}. Результаты по зависимым ячейкам могут быть некорректны."
+            )
+
         await store.aput(namespace, key, {"filename": filename})
         store_items = await store.aget(namespace, key)
 
         logger.info("File saved to {}, store: {}", file_location, store_items)
 
-        return FileLoaderResponse(content="Файл был успешно сохранен.", filename=str(filename), save_dir=str(save_dir))
+        return FileLoaderResponse(content=correction_message, filename=str(filename), save_dir=str(save_dir))
     except Exception as e:
         # pylint: disable=no-member
         logger.opt(exception=True).error("Upload failed: {}", str(e))
@@ -186,7 +217,7 @@ async def invoke_agent(
                 "user_id": user_id,
             },
             "metadata": {
-                "lang_fuse_user_id": user_id,
+                "langfuse_user_id": user_id,
                 "client_id": x_client_id,
                 "langfuse_session_id": thread_id,
                 "endpoint": "/invoke-agent",
@@ -197,17 +228,26 @@ async def invoke_agent(
         else:
             logger.warning("cb_handler is None - LAngfuse tracing is disabled or unavailable, skipping callbacks")
         logger.info("config before entering process message: {}", config)
-        result = await agent.graph.ainvoke(
-            {
-                "messages": [HumanMessage(content=request.message)],
-                "thread_id": thread_id,
-                "user_id": user_id,
-            },
-            config=config,
-        )
+
+        # run-latest-wins: concurrent requests to the same thread_id supersede each
+        # other, and each run forks from the last successfully completed checkpoint.
+        registry = get_thread_run_registry()
+
+        def _stream(stream_config):
+            return agent.graph.astream(
+                {
+                    "messages": [HumanMessage(content=request.message)],
+                    "thread_id": thread_id,
+                    "user_id": user_id,
+                },
+                config=stream_config,
+                stream_mode=["values", "checkpoints"],
+            )
+
+        state = await registry.run_latest_wins(thread_id, user_id, config, _stream)
 
         logger.info("Invoking agent with thread_id={}, user_id={}", thread_id, user_id)
-        msg = result["messages"][-1]
+        msg = state["messages"][-1]
         result_content = msg.content if hasattr(msg, "content") else str(msg)
         logger.info("Content text: {}", result_content)
 

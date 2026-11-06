@@ -6,16 +6,15 @@ import os
 
 # Читаем .env
 env = {}
-env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env')
 with open(env_path) as f:
     for line in f:
         line = line.strip()
-        if line and "=" in line and not line.startswith("#"):
-            k, v = line.split("=", 1)
+        if line and '=' in line and not line.startswith('#'):
+            k, v = line.split('=', 1)
             env[k.strip()] = v.strip()
 
 DSN = f"postgresql://{env['PG_USER']}:{env['PG_PASSWORD']}@{env['PG_HOST']}:{env['PG_PORT']}/{env['PG_DATABASE']}"
-
 
 async def main():
     print("=" * 60)
@@ -28,27 +27,26 @@ async def main():
 
     try:
         import asyncpg
-
         conn = await asyncpg.connect(DSN)
         print("✅ Подключение установлено")
 
         # Проверяем таблицу store
-        rows = await conn.fetch("SELECT schemaname, tablename FROM pg_tables WHERE tablename = 'store'")
+        rows = await conn.fetch(
+            "SELECT schemaname, tablename FROM pg_tables WHERE tablename = 'store'"
+        )
         print(f"Таблицы store: {rows}")
 
         # Попытка запроса к store
         try:
-            result = await conn.execute(
-                "SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY table_schema, table_name;"
-            )
-
+            result = await conn.execute("SELECT table_schema, table_name FROM information_schema.tables WHERE table_type = 'BASE TABLE' AND table_schema NOT IN ('pg_catalog', 'information_schema') ORDER BY table_schema, table_name;")
+            
             rows = await result.fetchall()
-
+    
             # Печатаем результат
             print("📋 Список таблиц в базе данных:")
             for schema, table in rows:
                 print(f"  - {schema}.{table}")
-
+            
             print("✅ Доступ к store есть")
         except Exception as e:
             print(f"❌ Ошибка доступа к store: {e.description()}")
@@ -72,7 +70,6 @@ async def main():
 
     except Exception as e:
         print(f"❌ Ошибка подключения: {e}")
-
 
 if __name__ == "__main__":
     asyncio.run(main())

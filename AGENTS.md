@@ -1,5 +1,6 @@
 # AGENTS.md
 
+
 ## Project
 AI Gateway REST service (`aigw-rest-service`) — FastAPI + LangGraph agent for Excel cashflow model analysis. Python 3.12+, Poetry.
 
@@ -51,7 +52,7 @@ poetry update            # after pyproject.toml changes
   - **Патчи функций не нужны**: LibreOffice Calc нативно реализует HYPERLINK/CELL/SHEET/TODAY/XNPV/XIRR (патчи formualizer были для другого benchmark-проекта). `formualizer_ext.py` удалён.
   - **Совместимость значений**: LO-вычисления совпадают с formualizer (проверено тестами: 450→1.97/1.156/7.598, EBITDA 2026→1312.86).
 - **Private dep stub**: `sber-aigw` replaced with local stubs in `src/aigw_modules/`. Only 3 imports used (all in `context.py`). No auth needed.
-- **Name resolution pipeline**: `tools.py:find_matching_cell` / `find_matching_outputs` используют `jaccard_similarity` + `normalize_text` (self-contained Snowball-стеммер из `api/v1/russian_stemmer.py` — NLTK выпилен, это его точный порт) для fuzzy-маппинга английских алиасов из запроса → канонические русские имена из листа Inputs/Outputs.
+- **Name resolution pipeline**: `tools.py:find_matching_cell` / `find_matching_outputs` используют `jaccard_similarity` + `normalize_text` (RussianStemmer) для fuzzy-маппинга английских алиасов из запроса → канонические русские имена из листа Inputs/Outputs.
   - **Кросс-язычная проблема**: Jaccard = 0 на разных алфавитах. Английский алиас "copper (LME)" не пересекается с русским "Медь (London Metals Exchange)". Единственный оверлап — через общие английские фрагменты в скобках (LME, USD), что ведёт к ложным матчам ("Платина (LME)" побеждает — самое короткое имя).
   - **Строки-заголовки секций**: строки Outputs с пустым `values` dict (нет формулы) могут быть выбраны Jaccard, что вызывает `Unreachable output-targets` в `get_compiled_func()`. Плановый фикс: фильтр `if not info.get("values"): continue`.
   - **Текущие метрики** (60-query sample): 55% per-param accuracy, ~1% query pass. Математически консистентно: 0.55^8 ≈ 0.8% при 8 параметрах на запрос.
@@ -85,8 +86,8 @@ poetry update            # after pyproject.toml changes
   - **`Unreachable output-targets`** — старый ERROR `get_compiled_func()` из formulas; на LO не возникает (Calc оценивает всю модель, а не per-cell)
 
 ## Docker workflow (primary deployment)
-
-
+ 
+ 
 ```sh
 docker compose up -d                 # starts app + ollama
 curl http://localhost:8888/health    # port from .env APP_PORT (default 8080)
@@ -96,4 +97,33 @@ docker compose logs app -f           # live logs
 docker compose down                  # stop (volumes persist)
 ```
 
+## Правила проекта
+
+Для генерации и изменения кода всегда учитывай специфичные правила оформления методов, расположенные в отдельном файле.
+
+### Правила оформления новых методов (Python)
+
+#### 1. Строгая типизация и регистр контейнеров
+- Все новые методы и функции ДОЛЖНЫ быть полностью типизированы (аргументы и возвращаемые значения).
+- **Важно:** Для типизации словарей используйте исключительно встроенный строчный тип `dict[str, str]`. 
+- **Запрещено:** Использовать устаревший синтаксис `Dict[str, str]` из модуля `typing` (с заглавной буквы).
+Примеры:
+❌ **НЕПРАВИЛЬНО:**
+```python
+from typing import Dict
+
+def get_user_data(user_id: int) -> Dict[str, str]:
+    ...
+```
+
+    **ПРАВИЛЬНО:**
+```python
+def get_user_data(user_id: int) -> dict[str, str]:
+    ...
+```
+
+#### 2. Зона ответственности (Single Responsibility Principle)
+- Каждый метод должен иметь ровно ОДНУ зону ответственности.
+- Запрещено смешивать разные логики в рамках одного метода (например: валидация данных, отправка запроса и запись в БД не должны находиться в одной функции). 
+- Если метод выполняет несколько действий, разбивайте его на приватные подметоды.
 

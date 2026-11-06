@@ -21,6 +21,7 @@ from collections.abc import Sequence
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph, add_messages
 
 from aigw_service.api.v1.prompts.ema_analizer import EMA_ANALIZER_PROMPT
@@ -99,6 +100,7 @@ class AgentGraph:
         workflow.add_node("extract_excel_data", self.get_available_inputs_outputs)
         workflow.add_node("orchestrator", self.orchestrator)
         workflow.add_node("tool_executor", self.tool_executor)
+        workflow.add_node("force_execute_remaining", self.force_execute_remaining)
         workflow.add_node("synthesizer", self.synthesizer)
 
         workflow.add_edge(START, "extract_excel_data")
@@ -106,9 +108,14 @@ class AgentGraph:
         workflow.add_conditional_edges(
             "orchestrator",
             self.route_after_orchestrator,
-            {"tool_executor": "tool_executor", "synthesizer": "synthesizer"},
+            {
+                "tool_executor": "tool_executor",
+                "synthesizer": "synthesizer",
+                "force_execute_remaining": "force_execute_remaining",
+            },
         )
         workflow.add_edge("tool_executor", "orchestrator")
+        workflow.add_edge("force_execute_remaining", "synthesizer")
         workflow.add_edge("synthesizer", END)
 
         return workflow.compile(checkpointer=APP_CTX.agent_memory.checkpointer)
@@ -174,17 +181,18 @@ class AgentGraph:
     def route_after_orchestrator(self, state: AgentState) -> str:
         last_message = state["messages"][-1]
         tool_calls = getattr(last_message, "tool_calls", None)
-        if not tool_calls:
-            return "synthesizer"
         if state.get("tool_call_count", 0) >= self.MAX_ORCHESTRATOR_ITERATIONS:
             logger.warning(
-                "Orchestrator iteration cap ({}) reached, forcing synthesizer",
+                "Orchestrator iteration cap ({}) reached, routing to force_execute_remaining",
                 self.MAX_ORCHESTRATOR_ITERATIONS,
             )
+            return "force_execute_remaining"
+        if not tool_calls:
+            # No tool calls — go directly to synthesizer
             return "synthesizer"
         return "tool_executor"
 
-    async def tool_executor(self, state: AgentState) -> AgentState:
+    async def tool_executor(self, state: AgentState, config: RunnableConfig) -> AgentState:
         """Выполняет все tool_calls последнего сообщения оркестратора и возвращает ToolMessage'и."""
         last_message = state["messages"][-1]
         tool_calls = last_message.tool_calls or []
@@ -192,7 +200,7 @@ class AgentGraph:
         fingerprints = set(state.get("executed_tool_fingerprints", []))
         tool_results = list(state.get("tool_results", []))
         tool_messages = [
-            await self._execute_single_call(call, state, fingerprints, tool_results) for call in tool_calls
+            await self._execute_single_call(call, state, fingerprints, tool_results, config) for call in tool_calls
         ]
 
         return {
@@ -208,6 +216,7 @@ class AgentGraph:
         state: AgentState,
         fingerprints: set[str],
         tool_results: list[ToolCallResult],
+        config: RunnableConfig,
     ) -> ToolMessage:
         """Выполняет один tool_call, либо пропускает его, если это точный дубликат в рамках хода."""
         fingerprint = self._fingerprint_call(call)
@@ -223,20 +232,60 @@ class AgentGraph:
         args = call.get("args", {})
         logger.info("TOOL ARGS: {} | {}", call["name"], args)
 
-        result = await self.orchestrator_tools.dispatch(
-            tool_name=call["name"],
-            reformulated_query=args.get("reformulated_query", ""),
-            available_inputs=state.get("available_inputs") or {},
-            available_outputs=state.get("available_outputs") or {},
-            filename=state.get("filename"),
-            user_id=state.get("user_id"),
-        )
-        tool_results.append(result)
-        return ToolMessage(content=result["result_text"], tool_call_id=call["id"], name=call["name"])
+        try:
+            result = await self.orchestrator_tools.dispatch(
+                tool_name=call["name"],
+                reformulated_query=args.get("reformulated_query", ""),
+                available_inputs=state.get("available_inputs") or {},
+                available_outputs=state.get("available_outputs") or {},
+                filename=state.get("filename"),
+                user_id=state.get("user_id"),
+                config=config,
+            )
+            tool_results.append(result)
+            return ToolMessage(content=result["result_text"], tool_call_id=call["id"], name=call["name"])
+        except asyncio.CancelledError:
+            # A superseded run cancels its stream; this must reach run_latest_wins so the
+            # cancelled request is aborted without an HTTP response. Swallowing it here
+            # turned the cancellation into an ordinary tool error, and the run kept going
+            # all the way to synthesizer, answering the client that was supposed to lose.
+            logger.info("Tool call {} cancelled: {}", call["name"], call["id"])
+            raise
+        except Exception as e:
+            reason = str(e)
+            logger.exception("Ошибка выполнения инструмента %s: %s", call["name"], reason)
+            error_content = f"Ошибка выполнения: {reason}"
+            tool_results.append(
+                {
+                    "task_description": reason,
+                    "status": "error",
+                    "result_text": error_content,
+                }
+            )
+            return ToolMessage(content=error_content, tool_call_id=call["id"], name=call["name"])
 
     @staticmethod
     def _fingerprint_call(call: dict) -> str:
         return f"{call['name']}:{json.dumps(call.get('args', {}), sort_keys=True, ensure_ascii=False)}"
+
+    async def force_execute_remaining(self, state: AgentState) -> AgentState:
+        """Закрывает все unexecuted tool_calls последнего AIMessage ToolMessage-заглушками.
+
+        Вызывается, когда достигнут лимит итераций оркестратора (MAX_ORCHESTRATOR_ITERATIONS).
+        Каждый unexecuted tool_call_id получает ToolMessage с описанием, что итерации закончились.
+        """
+        last_message = state["messages"][-1]
+        tool_calls = getattr(last_message, "tool_calls", None)
+        if not tool_calls:
+            return {"messages": []}
+
+        tool_messages: list[ToolMessage] = []
+        for call in tool_calls:
+            tool_name = call["name"]
+            content = f"Достигнут лимит итераций оркестратора. Инструмент '{tool_name}' не выполнен."
+            tool_messages.append(ToolMessage(content=content, tool_call_id=call["id"], name=tool_name))
+
+        return {"messages": tool_messages}
 
     async def synthesizer(self, state: AgentState) -> AgentState:
         """Формирует финальный ответ на основе истории диалога и результатов расчётов этого хода."""
