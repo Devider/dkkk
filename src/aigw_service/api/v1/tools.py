@@ -13,6 +13,7 @@ import numpy as np
 import openpyxl
 import pandas as pd
 from langchain.tools import tool
+from langchain_core.runnables import RunnableConfig
 from openpyxl.formula.tokenizer import Tokenizer
 from pandas import ExcelWriter
 from pydantic import BaseModel, Field  # type: ignore
@@ -83,8 +84,6 @@ class ExcelInputModificationToolArgs(BaseModel):
         ...,
         description="Список математических выражений для каждого input (например, ['x+100', 'x+0.1']). Количество должно совпадать с input_names.",
     )
-    thread_id: str = Field(default="", description="ID потока")
-    user_id: str = Field(default="", description="ID пользователя")
 
 
 # Args classes
@@ -105,8 +104,6 @@ class ExcelAnalysisToolArgs(BaseModel):
         default=[0.5],
         description="Список шагов для генерации значений входных переменных. Если шагов меньше чем input_names, последний шаг будет использован для оставшихся переменных.",
     )
-    user_id: Optional[str] = Field(default=None, description="ID пользователя")
-    thread_id: Optional[str] = Field(default=None, description="ID потока")
 
 
 class ModelInputAnalysisToolArgs(BaseModel):
@@ -123,8 +120,6 @@ class ModelInputAnalysisToolArgs(BaseModel):
     input_names: list[str] = Field(
         ..., description="Список описательных запросов для идентификации ячеек на листе 'inputs' (без года)."
     )
-    thread_id: str = Field(default="", description="ID потока")
-    user_id: str = Field(default="", description="ID пользователя")
 
 
 class BuildDependencyGraphArgs(BaseModel):
@@ -145,7 +140,7 @@ class DescribeOutputsSheetToolResult(BaseModel):
     content: dict[str, Any] = Field(
         description="Бизнес-информация о листе Outputs: временной горизонт, список outputs, группировка по типам"
     )
-    # thread_id: str = Field(description="ID потока")
+    # thread_id: str | None = Field(default=None, description="ID потока")
     # user_id: str = Field(description="ID пользователя")
 
 
@@ -153,8 +148,6 @@ class GetOutputInfoToolArgs(BaseModel):
     # file_name: str = Field(description="Название Excel файла для модификации")
     output_name: str = Field(description="Описательный запрос для идентификации ячейки на листе 'outputs'")
     year_range: list[int] = Field(description="Список лет, для которых ведется поиск значений входных переменных")
-    thread_id: str = Field(description="ID потока")
-    user_id: str = Field(description="ID пользователя")
 
 
 class GetOutputInfoToolResult(BaseModel):
@@ -165,8 +158,13 @@ class GetOutputInfoToolResult(BaseModel):
 
 class DescribeOutputsSheetToolArgs(BaseModel):
     # file_name: str = Field(description="Название Excel файла для анализа листа 'Outputs'")
-    thread_id: str = Field(description="Thread_id")
-    user_id: str = Field(description="User_id")
+    pass
+
+
+def _get_invocation_identity(config: RunnableConfig) -> tuple[str | None, str | None]:
+    """Read request identity from LangGraph's trusted invocation config."""
+    configurable = config.get("configurable", {})
+    return configurable.get("thread_id"), configurable.get("user_id")
 
 
 # @tool(args_schema=ModelInputAnalysisToolArgs)
@@ -176,10 +174,9 @@ def analyze_model_inputs_for_target(
     output_year: int,
     target_value: float,
     input_names: list[str],
+    config: RunnableConfig,
     tolerance: float = 0.1,
     max_scenarios: int = 1000,
-    thread_id: str = "",
-    user_id: str = "",
 ) -> ModelInputAnalysisToolResult:
     """
     Подбирает параметры модели, которые приводят к требуемому значению целевого параметра.
@@ -196,6 +193,7 @@ def analyze_model_inputs_for_target(
     Returns:
         ModelInputAnalysisToolResult: Результат анализа с найденными сценариями
     """
+    thread_id, user_id = _get_invocation_identity(config)
     try:
         # Validate inputs
         if not input_names:
@@ -748,9 +746,8 @@ def analyze_excel_model(
     output_names: list,
     output_years: list,
     ranges: list,
-    steps: Optional[list] = None,
-    user_id: Optional[str] = None,
-    thread_id: Optional[str] = None,
+    config: RunnableConfig,
+    steps: list | None = None,
 ) -> ExcelAnalysisToolResult:
     """
     ГЛАВНЫЙ инструмент для сценарного анализа «что-если».
@@ -768,6 +765,7 @@ def analyze_excel_model(
     """
     if steps is None:
         steps = [0.5]
+    thread_id, user_id = _get_invocation_identity(config)
     try:
         # Setup Excel — try user's uploaded file first, fall back to file_name from LLM
         file_path = None
@@ -1622,8 +1620,7 @@ def modify_excel_input_value(
     output_names: list,
     year_range: list,
     expression: list,
-    thread_id: str = "",
-    user_id: str = "",
+    config: RunnableConfig,
 ) -> ExcelInputModificationToolResult:
     """
     Используйте эту функцию, если нужно изменить значения входных переменных Excel-модели по определённому правилу или выражению и сразу получить новые значения выбранных выходных переменных.
@@ -1634,6 +1631,7 @@ def modify_excel_input_value(
     3. Пересчитывает значения всех указанных выходных переменных (output_names) и возвращает их пользователю.
     """
 
+    thread_id, user_id = _get_invocation_identity(config)
     import numpy as np
 
     try:
@@ -2266,14 +2264,14 @@ def get_output_info(
     # file_name: str,
     output_name: str,
     year_range: list[int],
-    thread_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    config: RunnableConfig,
 ) -> GetOutputInfoToolResult:
     """
     ТОЛЬКО для чтения значений на листе Outputs (без изменения данных).
     НЕ используй для поиска входных параметров — они находятся на листе Inputs.
     Пример: "Покажи значения debt/ebitda в 2025-2027 годах"
     """
+    thread_id, user_id = _get_invocation_identity(config)
     logger.info(f"=== Запуск get_output_info для user_id={user_id}, thread_id={thread_id} ===")
 
     try:
@@ -2412,15 +2410,13 @@ def get_output_info(
 
 class GreetingUserSchema(BaseModel):
     # name: str = Field(description = "Имя пользователя")
-    thread_id: Optional[str] = Field(description="ID потока")
-    user_id: Optional[str] = Field(description="ID пользователя")
+    pass
 
 
 @tool(args_schema=GreetingUserSchema)
 def greeting_user(
     # name: Optional[str] = None,
-    thread_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    config: RunnableConfig,
 ) -> GetOutputInfoToolResult:
     # def greeting_user(**kwargs) -> GetOutputInfoToolResult:
     """
@@ -2434,6 +2430,7 @@ def greeting_user(
     # if not name:
     #     name = "пользователь"
 
+    thread_id, user_id = _get_invocation_identity(config)
     result = "Добрый день! Как у вас дела,???"
 
     if thread_id:
@@ -2514,14 +2511,14 @@ def get_outputs_business_summary(df: pd.DataFrame) -> dict:
 @tool(args_schema=DescribeOutputsSheetToolArgs)
 def describe_outputs_sheet(
     # file_name: str
-    thread_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    config: RunnableConfig,
 ) -> DescribeOutputsSheetToolResult:
     """
     Используйте эту функцию, если нужно получить информацию о модели.
     Примеры запросов: "Покажи описание модели", "Расскажи об этой модели".
     """
 
+    thread_id, user_id = _get_invocation_identity(config)
     logger.info(f"=== Запуск describe_outputs_sheet для user_id={user_id}, thread_id={thread_id} ===")
 
     try:

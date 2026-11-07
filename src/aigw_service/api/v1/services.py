@@ -687,19 +687,18 @@ class Agent:
 
                         tool_args_with_thread = copy.deepcopy(tool_args) if tool_args else {}
 
-                        # tool_args_with_thread['thread_id'] = state.get("thread_id")
-                        # tool_args_with_thread['user_id'] = state.get("user_id")
-                        if state.get("thread_id"):
-                            tool_args_with_thread["thread_id"] = state.get("thread_id")
-                        if state.get("user_id"):
-                            tool_args_with_thread["user_id"] = state.get("user_id")
-
                         self.logger.info(f"TOOL ARGS: {tool_name} | {tool_args_with_thread}")
+
+                        tool_config = {
+                            "configurable": {
+                                "thread_id": state.get("thread_id"),
+                                "user_id": state.get("user_id"),
+                            }
+                        }
 
                         try:
                             # Execute the tool with the provided arguments
-                            # tool_result = tool.invoke(tool_args, thread_id = state.get("thread_id"))
-                            tool_result = tool.invoke(tool_args_with_thread)
+                            tool_result = tool.invoke(tool_args_with_thread, config=tool_config)
 
                             # Add tool result to log
                             self.logger.info(f"Результат выполнения {tool_name}, tool_output={tool_result.result}")
