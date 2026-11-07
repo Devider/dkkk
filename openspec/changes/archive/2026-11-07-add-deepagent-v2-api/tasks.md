@@ -12,7 +12,7 @@
 
 ## Remaining verification
 
-- [ ] Add or update automated tests for the V2 request/ZIP contract.
-- [ ] Add tests confirming identity injection is hidden from model-facing tool schemas and works in both V1 and V2 invocation paths.
-- [ ] Add a test confirming the resolved GigaChat profile excludes standard tools while retaining the Excel tools.
-- [ ] Run the project test and lint commands in an environment with the required tools and services available.
+- [x] Add or update automated tests for the V2 request/ZIP contract.
+- [x] Add tests confirming identity injection is hidden from model-facing tool schemas and works in both V1 and V2 invocation paths.
+- [x] Add a test confirming the resolved GigaChat profile excludes standard tools while retaining the Excel tools.
+- [x] Run the project test and lint commands in an environment with the required tools and services available.
