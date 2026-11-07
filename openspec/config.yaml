@@ -4,10 +4,10 @@ schema: spec-driven
 # This is shown to AI when creating artifacts.
 # Add your tech stack, conventions, style guides, domain knowledge, etc.
 # Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Tech stack: Python, LangGraph, LangChain, GigaChat, FastAPI, Excel, LibreOffice, UNO
+  Don't commit anything yourself
+  Domain: Financial modeling, credit inspection, cashflow analysis
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
@@ -23,10 +23,14 @@ schema: spec-driven
 # Add advisory guidance for how apply and archive work should be conducted.
 # This is separate from artifact rules above.
 # Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+    - Use typing annotations for all functions and methods
+    - Create methods with docstrings and type hints for all parameters and return values
+    - Methods should be small and focused, with a single responsibility
+    - Use ruff for linting and formatting
+    - Check linting and formatting only for changed files, the old issue can be ignored
+  archive:
+    guidance:
+      - Sync the master spec before archiving, create a new one if the suitable one doesn't exist
