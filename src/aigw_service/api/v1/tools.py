@@ -7,7 +7,7 @@ from collections import deque
 from collections.abc import Callable
 from datetime import datetime
 from itertools import product
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import openpyxl
