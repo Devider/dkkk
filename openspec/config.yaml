@@ -31,6 +31,7 @@ operations:
     - Methods should be small and focused, with a single responsibility
     - Use ruff for linting and formatting
     - Check linting and formatting only for changed files, the old issue can be ignored
+    - Tests location should follow the same structure as the source code, with a "tests" folder at the root level. Applicable only for newly created files, existing tests can be ignored
   archive:
     guidance:
       - Sync the master spec before archiving, create a new one if the suitable one doesn't exist
