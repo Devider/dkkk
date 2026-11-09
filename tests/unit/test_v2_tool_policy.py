@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+import pytest
 from deepagents._models import get_model_provider
 from deepagents.middleware._tool_exclusion import _ToolExclusionMiddleware
 from deepagents.profiles.harness.harness_profiles import _harness_profile_for_model
@@ -39,6 +40,8 @@ def test_resolved_gigachat_profile_excludes_defaults_and_keeps_excel_tools() -> 
 
     assert get_model_provider(model) == "giga"
     assert profile.excluded_tools == V2_EXCLUDED_BUILTIN_TOOLS
+    assert profile.general_purpose_subagent.enabled is False
+    assert "task" not in profile.excluded_tools
 
     application_tool_names = {
         definition.name if hasattr(definition, "name") else definition.__name__ for definition in TOOLS
@@ -54,7 +57,6 @@ def test_exclusion_middleware_hides_defaults_but_keeps_application_tools() -> No
     offered_tools = [
         {"name": "ls"},
         {"name": "glob"},
-        {"name": "task"},
         {"name": "analyze_excel_model"},
         {"name": "get_output_info"},
     ]
@@ -66,6 +68,44 @@ def test_exclusion_middleware_hides_defaults_but_keeps_application_tools() -> No
         "analyze_excel_model",
         "get_output_info",
     }
+
+
+def test_task_tool_remains_available_for_registered_resolver() -> None:
+    register_v2_harness_profile()
+    profile = _harness_profile_for_model(FakeGigaChatModel(), None)
+    middleware = _ToolExclusionMiddleware(excluded=profile.excluded_tools)
+    offered_tools = [{"name": "task"}, {"name": "analyze_excel_model"}]
+    request = FakeModelRequest(tools=offered_tools)
+
+    visible_tools = middleware.wrap_model_call(request, lambda filtered_request: filtered_request.tools)
+
+    assert {tool["name"] for tool in visible_tools} == {"task", "analyze_excel_model"}
+
+
+def test_v2_agent_registers_specialized_resolver_and_excel_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aigw_service.api.v2 import agent as v2_agent
+
+    captured: dict[str, object] = {}
+
+    class FakeGigaChat:
+        """Model placeholder used to inspect V2 agent wiring."""
+
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+    def capture_agent(**kwargs: object) -> dict[str, object]:
+        """Capture the agent factory inputs without invoking a model."""
+        captured.update(kwargs)
+        return kwargs
+
+    monkeypatch.setattr(v2_agent, "GigaChat", FakeGigaChat)
+    monkeypatch.setattr(v2_agent, "create_deep_agent", capture_agent)
+
+    v2_agent.create_v2_agent()
+
+    assert [subagent["name"] for subagent in captured["subagents"]] == ["workbook-name-resolver"]
+    assert captured["tools"] == TOOLS
+    assert captured["subagents"][0]["runnable"] is not None
 
 
 def test_excluded_tool_call_is_rejected() -> None:

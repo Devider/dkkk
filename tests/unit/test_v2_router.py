@@ -9,6 +9,7 @@ import openpyxl
 import pytest
 from httpx import ASGITransport
 from langchain_core.messages import AIMessage
+from langgraph.types import Command
 
 from aigw_service.api import app_main
 from aigw_service.api.v2 import router as v2_router
@@ -17,16 +18,32 @@ from aigw_service.api.v2 import router as v2_router
 class StubDeepAgent:
     """Capture invocation inputs and return a stable final response."""
 
-    def __init__(self, response: str = "V2 result", error: Exception | None = None) -> None:
+    def __init__(
+        self,
+        response: str = "V2 result",
+        error: Exception | None = None,
+        interruptions: list | None = None,
+    ) -> None:
         self.response = response
         self.error = error
+        self.interruptions = interruptions
         self.calls: list[tuple[dict, dict]] = []
 
     async def ainvoke(self, payload: dict, *, config: dict) -> dict:
         self.calls.append((payload, config))
         if self.error is not None:
             raise self.error
-        return {"messages": [AIMessage(content=self.response)]}
+        result = {"messages": [AIMessage(content=self.response)]}
+        if self.interruptions is not None:
+            result["__interrupt__"] = self.interruptions
+        return result
+
+
+class PendingStubDeepAgent(StubDeepAgent):
+    """Stand-in for a checkpoint with a pending name-resolution interrupt."""
+
+    async def aget_state(self, config: dict) -> object:
+        return type("Snapshot", (), {"tasks": [type("Task", (), {"interrupts": [object()]})()]})()
 
 
 def _valid_headers(session_id: str | None = None) -> dict[str, str]:
@@ -118,6 +135,58 @@ async def test_invoke_agent_generates_session_id_when_header_is_missing(
     assert response.status_code == 200
     assert f"agent_response_{generated_session_id}.zip" in response.headers["content-disposition"]
     assert agent.calls[0][1]["configurable"]["thread_id"] == f"user0001:{generated_session_id}"
+
+
+@pytest.mark.asyncio
+async def test_invoke_agent_resumes_pending_clarification_on_same_thread(monkeypatch: pytest.MonkeyPatch) -> None:
+    session_id = str(uuid4())
+    agent = PendingStubDeepAgent("Resolved response")
+    monkeypatch.setattr(v2_router, "get_deep_agent", lambda: agent)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app_main), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v2/invoke-agent",
+            json={"message": "2"},
+            headers=_valid_headers(session_id),
+        )
+
+    assert response.status_code == 200
+    payload, config = agent.calls[0]
+    assert isinstance(payload, Command)
+    assert payload.resume == "2"
+    assert config["configurable"]["thread_id"] == f"user0001:{session_id}"
+
+
+@pytest.mark.asyncio
+async def test_clarification_interrupt_is_delivered_in_existing_zip_entry(monkeypatch: pytest.MonkeyPatch) -> None:
+    agent = StubDeepAgent(
+        interruptions=[
+            type(
+                "Interrupt",
+                (),
+                {
+                    "value": {
+                        "question": "Не удалось однозначно сопоставить показатель. "
+                        "Возможно, вы имеете в виду:\n1) EBITDA\n2) Revenue\n3) Ни один из перечисленных вариантов"
+                    }
+                },
+            )()
+        ]
+    )
+    monkeypatch.setattr(v2_router, "get_deep_agent", lambda: agent)
+
+    async with httpx.AsyncClient(transport=ASGITransport(app=app_main), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v2/invoke-agent",
+            json={"message": "Analyze operating profit"},
+            headers=_valid_headers(),
+        )
+
+    with ZipFile(BytesIO(response.content)) as archive:
+        body = archive.read("txt_response.txt").decode()
+    assert response.status_code == 200
+    assert "Возможно, вы имеете в виду" in body
+    assert "3) Ни один из перечисленных вариантов" in body
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ from deepagents import create_deep_agent
 from langchain_gigachat import GigaChat
 
 from aigw_service.api.v1.tools import TOOLS
+from aigw_service.api.v2.name_resolution import build_name_resolver
 from aigw_service.api.v2.profiles import register_v2_harness_profile
 from aigw_service.api.v2.prompts import CORE_SYSTEM_PROMPT
 from aigw_service.config import APP_CONFIG
@@ -17,6 +18,7 @@ def create_v2_agent():
     return create_deep_agent(
         model=llm,
         tools=TOOLS,
+        subagents=[build_name_resolver(llm)],
         system_prompt=CORE_SYSTEM_PROMPT,
         checkpointer=APP_CTX.agent_memory.checkpointer,
         store=APP_CTX.agent_memory.store,

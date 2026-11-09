@@ -9,6 +9,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
+from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from aigw_service.api.v1.router import upload_file
@@ -65,16 +66,32 @@ async def invoke_agent_v2(
 
     try:
         agent = get_deep_agent()
-        result = await agent.ainvoke(
-            {
+        pending_interrupt = False
+        get_state = getattr(agent, "aget_state", None)
+        if get_state is not None:
+            snapshot = await get_state(config)
+            pending_interrupt = any(getattr(task, "interrupts", ()) for task in getattr(snapshot, "tasks", ()))
+        invocation = (
+            Command(resume=request.message)
+            if pending_interrupt
+            else {
                 "messages": [HumanMessage(content=request.message)],
-            },
-            config=config,
+            }
         )
-        last_message = result["messages"][-1]
-        content = last_message.content
-        if not isinstance(content, str):
-            content = str(content)
+        result = await agent.ainvoke(invocation, config=config)
+        interruptions = result.get("__interrupt__", ())
+        if interruptions:
+            content = "\n\n".join(
+                str(interruption.value.get("question", interruption.value))
+                if isinstance(interruption.value, dict)
+                else str(interruption.value)
+                for interruption in interruptions
+            )
+        else:
+            last_message = result["messages"][-1]
+            content = last_message.content
+            if not isinstance(content, str):
+                content = str(content)
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             zip_file.writestr("txt_response.txt", content)
