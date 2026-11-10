@@ -9,9 +9,12 @@ services:
       - .env
     environment:
       - APP_PORT=8080
+      - V2_INDEX_DIR=/app/data/faiss
     volumes:
       - app_tmp:/tmp
+      - app_faiss:/app/data/faiss
       - ./certs:/app/certs:ro
 
 volumes:
   app_tmp:
+  app_faiss:

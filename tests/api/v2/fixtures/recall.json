@@ -1,0 +1,42 @@
+{
+  "catalogs": {
+    "inputs": [
+      {"id":"IN:2","name":"Цена меди (USD/т)"},
+      {"id":"IN:3","name":"Цена алюминия (USD/т)"},
+      {"id":"IN:4","name":"Цена никеля (USD/т)"},
+      {"id":"IN:5","name":"Цена платины (USD/унция)"},
+      {"id":"IN:6","name":"Курс USD/RUB"},
+      {"id":"IN:7","name":"Курс EUR/RUB"},
+      {"id":"IN:8","name":"Объём производства металла"},
+      {"id":"IN:9","name":"Цена угля FOB Восточный"},
+      {"id":"IN:10","name":"Цена нефти Brent"},
+      {"id":"IN:11","name":"Ставка налога на прибыль"},
+      {"id":"IN:12","name":"Инфляция затрат"},
+      {"id":"IN:13","name":"Цена золота (USD/унция)"}
+    ],
+    "outputs": [
+      {"id":"OUT:2","name":"Выручка"},
+      {"id":"OUT:3","name":"Себестоимость"},
+      {"id":"OUT:4","name":"Чистая прибыль"},
+      {"id":"OUT:5","name":"Валовая прибыль"},
+      {"id":"OUT:6","name":"Свободный денежный поток"},
+      {"id":"OUT:7","name":"Чистый долг"},
+      {"id":"OUT:8","name":"Капитальные затраты"},
+      {"id":"OUT:9","name":"Налоговые выплаты"},
+      {"id":"OUT:10","name":"Оборотный капитал"},
+      {"id":"OUT:11","name":"Дивиденды"},
+      {"id":"OUT:12","name":"Маржа EBITDA"},
+      {"id":"OUT:13","name":"EBITDA"}
+    ]
+  },
+  "cases": [
+    {"kind":"inputs","mention":"copper price","expected_id":"IN:2"},
+    {"kind":"inputs","mention":"цена меди","expected_id":"IN:2"},
+    {"kind":"inputs","mention":"gold price","expected_id":"IN:13"},
+    {"kind":"inputs","mention":"цена золота","expected_id":"IN:13"},
+    {"kind":"outputs","mention":"revenue","expected_id":"OUT:2"},
+    {"kind":"outputs","mention":"выручка","expected_id":"OUT:2"},
+    {"kind":"outputs","mention":"earnings before interest taxes depreciation and amortization","expected_id":"OUT:13"},
+    {"kind":"outputs","mention":"EBITDA","expected_id":"OUT:13"}
+  ]
+}

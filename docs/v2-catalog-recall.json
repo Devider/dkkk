@@ -1,0 +1,158 @@
+{
+  "k": 10,
+  "hits": 8,
+  "total": 8,
+  "recall": 1.0,
+  "cases": [
+    {
+      "kind": "inputs",
+      "mention": "copper price",
+      "expected_id": "IN:2",
+      "candidates": [
+        "IN:2",
+        "IN:10",
+        "IN:4",
+        "IN:3",
+        "IN:13",
+        "IN:5",
+        "IN:6",
+        "IN:12",
+        "IN:9",
+        "IN:8"
+      ],
+      "hit": true
+    },
+    {
+      "kind": "inputs",
+      "mention": "цена меди",
+      "expected_id": "IN:2",
+      "candidates": [
+        "IN:2",
+        "IN:4",
+        "IN:10",
+        "IN:3",
+        "IN:13",
+        "IN:5",
+        "IN:6",
+        "IN:11",
+        "IN:12",
+        "IN:8"
+      ],
+      "hit": true
+    },
+    {
+      "kind": "inputs",
+      "mention": "gold price",
+      "expected_id": "IN:13",
+      "candidates": [
+        "IN:13",
+        "IN:10",
+        "IN:6",
+        "IN:5",
+        "IN:4",
+        "IN:2",
+        "IN:7",
+        "IN:3",
+        "IN:12",
+        "IN:8"
+      ],
+      "hit": true
+    },
+    {
+      "kind": "inputs",
+      "mention": "цена золота",
+      "expected_id": "IN:13",
+      "candidates": [
+        "IN:13",
+        "IN:10",
+        "IN:5",
+        "IN:4",
+        "IN:2",
+        "IN:6",
+        "IN:3",
+        "IN:7",
+        "IN:12",
+        "IN:11"
+      ],
+      "hit": true
+    },
+    {
+      "kind": "outputs",
+      "mention": "revenue",
+      "expected_id": "OUT:2",
+      "candidates": [
+        "OUT:2",
+        "OUT:13",
+        "OUT:5",
+        "OUT:4",
+        "OUT:6",
+        "OUT:11",
+        "OUT:10",
+        "OUT:3",
+        "OUT:9",
+        "OUT:12"
+      ],
+      "hit": true
+    },
+    {
+      "kind": "outputs",
+      "mention": "выручка",
+      "expected_id": "OUT:2",
+      "candidates": [
+        "OUT:2",
+        "OUT:5",
+        "OUT:13",
+        "OUT:4",
+        "OUT:6",
+        "OUT:11",
+        "OUT:12",
+        "OUT:10",
+        "OUT:3",
+        "OUT:9"
+      ],
+      "hit": true
+    },
+    {
+      "kind": "outputs",
+      "mention": "earnings before interest taxes depreciation and amortization",
+      "expected_id": "OUT:13",
+      "candidates": [
+        "OUT:13",
+        "OUT:12",
+        "OUT:6",
+        "OUT:5",
+        "OUT:4",
+        "OUT:2",
+        "OUT:11",
+        "OUT:10",
+        "OUT:7",
+        "OUT:9"
+      ],
+      "hit": true
+    },
+    {
+      "kind": "outputs",
+      "mention": "EBITDA",
+      "expected_id": "OUT:13",
+      "candidates": [
+        "OUT:13",
+        "OUT:12",
+        "OUT:6",
+        "OUT:4",
+        "OUT:2",
+        "OUT:5",
+        "OUT:7",
+        "OUT:10",
+        "OUT:11",
+        "OUT:3"
+      ],
+      "hit": true
+    }
+  ],
+  "embedding_fingerprint": "f6c8f8fc0b4ba635ea4f035e019d558014c6420b89c0d34a8ff6aa9cd0045538",
+  "evaluated_on": "2026-11-10",
+  "model": "ai-sage/Giga-Embeddings-instruct-3B",
+  "url": "https://foundation-models.api.cloud.ru/v1",
+  "revision": "1",
+  "dimension": 2048
+}

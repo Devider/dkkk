@@ -5,6 +5,7 @@ from functools import lru_cache
 from io import BytesIO
 from uuid import uuid4
 
+import anyio
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -12,9 +13,10 @@ from langchain_core.messages import HumanMessage
 from langgraph.types import Command
 from pydantic import BaseModel, Field
 
-from aigw_service.api.v1.router import upload_file
 from aigw_service.api.v1.utils import common_headers
 from aigw_service.api.v2.agent import create_v2_agent
+from aigw_service.api.v2.catalog_generations import get_repository
+from aigw_service.api.v2.upload import restore_workbook, upload_file_v2, user_lock
 from aigw_service.context import APP_CTX
 
 router = APIRouter()
@@ -33,7 +35,7 @@ def get_deep_agent():
     return create_v2_agent()
 
 
-router.add_api_route("/upload", upload_file, methods=["POST"], include_in_schema=False)
+router.add_api_route("/upload", upload_file_v2, methods=["POST"], include_in_schema=False, response_model=None)
 
 
 @router.post(
@@ -65,20 +67,25 @@ async def invoke_agent_v2(
         logger.warning("Langfuse callback handler is unavailable; v2 traces will not be reported")
 
     try:
-        agent = get_deep_agent()
-        pending_interrupt = False
-        get_state = getattr(agent, "aget_state", None)
-        if get_state is not None:
-            snapshot = await get_state(config)
-            pending_interrupt = any(getattr(task, "interrupts", ()) for task in getattr(snapshot, "tasks", ()))
-        invocation = (
-            Command(resume=request.message)
-            if pending_interrupt
-            else {
-                "messages": [HumanMessage(content=request.message)],
-            }
-        )
-        result = await agent.ainvoke(invocation, config=config)
+        repo = get_repository()
+        async with user_lock(repo, user_id):
+            generation = await anyio.to_thread.run_sync(repo.load, user_id)
+            await restore_workbook(user_id, generation)
+            config["configurable"]["catalog_generation"] = generation.identity
+            agent = get_deep_agent()
+            pending_interrupt = False
+            get_state = getattr(agent, "aget_state", None)
+            if get_state is not None:
+                snapshot = await get_state(config)
+                pending_interrupt = any(getattr(task, "interrupts", ()) for task in getattr(snapshot, "tasks", ()))
+            invocation = (
+                Command(resume=request.message)
+                if pending_interrupt
+                else {
+                    "messages": [HumanMessage(content=request.message)],
+                }
+            )
+            result = await agent.ainvoke(invocation, config=config)
         interruptions = result.get("__interrupt__", ())
         if interruptions:
             content = "\n\n".join(

@@ -13,17 +13,16 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
-from langgraph.types import interrupt
+from langgraph.types import Command, interrupt
 from pydantic import BaseModel, Field
 
 from aigw_service.api.v1.tools import get_store_file, normalize_text
+from aigw_service.api.v2.catalog_generations import get_repository
 from aigw_service.api.v2.prompts.name_resolution import (
     EXTRACT_NAMES_PROMPT,
     INPUT_RESOLUTION_PROMPT,
     OUTPUT_RESOLUTION_PROMPT,
 )
-
-INPUT_CATALOG_EXPERIMENT_FILTER = "золото"
 
 
 class CatalogEntry(TypedDict):
@@ -105,6 +104,7 @@ class OutputItem(BaseModel):
 
     mentioned_output_name: str = Field(description="Выходной показатель, упомянутый пользователем")
     explanation: str = Field(description="Краткое объяснение, как ты выбираешь эквивалент")
+    equivalent_output_id: str = Field(default="", description="ID строки OUT из кандидатов этого упоминания")
     equivalent_output_name: str = Field(
         description=(
             "Эквивалент выходного показателя из СТАНДАРТНОГО СПИСКА ВЫХОДНЫХ ПОКАЗАТЕЛЕЙ (OUTPUTS). "
@@ -138,6 +138,10 @@ class _ResolverState(TypedDict, total=False):
     output_matches: list[dict]
     pending: list[dict]
     result: NameResolutionResult
+    generation: str
+    original_request: str
+    restart_request: str | None
+    candidates: dict[str, list[list[CatalogEntry]]]
 
 
 def build_workbook_catalog(path: str) -> Catalogs:
@@ -183,7 +187,7 @@ def get_user_workbook_catalog(user_id: str | None) -> Catalogs:
 
 def _extractor_node(state: _ResolverState, *, llm: BaseChatModel) -> dict[str, object]:
     """Extract requested parameter and metric names from the delegated task."""
-    request_text = "\n".join(
+    request_text = state.get("restart_request") or "\n".join(
         str(message.content) for message in state.get("messages", []) if hasattr(message, "content")
     )
     extractor = llm.with_structured_output(ExtractedNames)
@@ -193,7 +197,7 @@ def _extractor_node(state: _ResolverState, *, llm: BaseChatModel) -> dict[str, o
             HumanMessage(content=request_text),
         ]
     )
-    return {"mentions": mentions}
+    return {"mentions": mentions, "original_request": request_text, "restart_request": None}
 
 
 def _resolve_catalog(
@@ -204,10 +208,17 @@ def _resolve_catalog(
     prompt_template: str,
     *,
     llm: BaseChatModel,
+    candidate_lists: list[list[CatalogEntry]] | None = None,
 ) -> list[dict[str, object]]:
     """Adapt InputItem/OutputItem responses to validated catalog entry IDs."""
+    if not mentions:
+        return []
+    candidate_lists = candidate_lists if candidate_lists is not None else [catalog for _ in mentions]
     matcher = llm.with_structured_output(response_schema)
-    catalog_text = "\n".join(f"{entry['id']} | {entry['name']}" for entry in catalog)
+    catalog_text = "\n\n".join(
+        f"Упоминание {index}: {mention}\n" + "\n".join(f"{entry['id']} | {entry['name']}" for entry in rows)
+        for index, (mention, rows) in enumerate(zip(mentions, candidate_lists, strict=True))
+    )
     prompt = prompt_template.format(catalog=catalog_text or "(каталог пуст)")
     mentioned_text = "\n".join(f"{index}. {mention}" for index, mention in enumerate(mentions))
     selection = matcher.invoke(
@@ -226,7 +237,7 @@ def _resolve_catalog(
         ]
         if not matched_items and len(response_items) == len(mentions):
             matched_items = [response_items[index]]
-        candidate_ids = _candidate_ids_from_items(matched_items, catalog, response_field, name_field)
+        candidate_ids = _candidate_ids_from_items(matched_items, candidate_lists[index], response_field, name_field)
         is_unambiguous = bool(
             len(candidate_ids) == 1 and matched_items and all(item.is_unambiguous for item in matched_items)
         )
@@ -251,52 +262,50 @@ def _candidate_ids_from_items(
 ) -> list[str]:
     """Resolve model-proposed canonical names and IDs against the real catalog."""
     candidates: list[str] = []
-    catalog_by_id = {entry["id"]: entry for entry in catalog}
-    normalized_ids = {re.sub(r"[^a-zA-Z0-9]", "", entry_id).casefold(): entry_id for entry_id in catalog_by_id}
+    by_id = {entry["id"]: entry for entry in catalog}
+    normalized_ids = {re.sub(r"[^a-zA-Z0-9]", "", entry_id).casefold(): entry_id for entry_id in by_id}
+    id_field = "equivalent_input_id" if response_field == "mentioned_inputs" else "equivalent_output_id"
     for item in items:
-        candidate_names = list(getattr(item, "candidate_names", []))
-        equivalent_name = getattr(item, name_field, "")
-        if equivalent_name:
-            candidate_names.append(equivalent_name)
-        for candidate_name in candidate_names:
-            normalized_name = normalize_text(candidate_name)
-            candidates.extend(entry["id"] for entry in catalog if normalize_text(entry["name"]) == normalized_name)
-        if response_field == "mentioned_inputs":
-            proposed_id = getattr(item, "equivalent_input_id", "")
-            compact_id = re.sub(r"[^a-zA-Z0-9]", "", proposed_id).casefold()
-            catalog_id = normalized_ids.get(compact_id)
-            if catalog_id:
-                candidates.append(catalog_id)
+        proposed_id = getattr(item, id_field, "")
+        selected_id = normalized_ids.get(re.sub(r"[^a-zA-Z0-9]", "", proposed_id).casefold())
+        if proposed_id and not selected_id:
+            continue
+        if selected_id and item.is_unambiguous:
+            candidates.append(selected_id)
+            continue
+        if selected_id:
+            candidates.append(selected_id)
+        names = [*item.candidate_names, getattr(item, name_field, "")]
+        candidates.extend(entry["id"] for entry in catalog if entry["name"] in names)
     return list(dict.fromkeys(candidates))
 
 
 def _resolve_inputs_node(state: _ResolverState, *, llm: BaseChatModel) -> dict[str, object]:
-    """Resolve input mentions against the experiment-filtered Inputs catalog."""
-    filtered_catalog = [
-        entry for entry in state["catalogs"]["inputs"] if INPUT_CATALOG_EXPERIMENT_FILTER in entry["name"].casefold()
-    ]
+    """Resolve each input mention only against its retrieved candidate list."""
     return {
         "input_matches": _resolve_catalog(
             state["mentions"].inputs,
-            filtered_catalog,
+            [],
             InputResolutionAnalysis,
             "mentioned_inputs",
             INPUT_RESOLUTION_PROMPT,
             llm=llm,
+            candidate_lists=state["candidates"]["inputs"],
         )
     }
 
 
 def _resolve_outputs_node(state: _ResolverState, *, llm: BaseChatModel) -> dict[str, object]:
-    """Resolve output mentions against only the Outputs catalog."""
+    """Resolve each output mention only against its retrieved candidate list."""
     return {
         "output_matches": _resolve_catalog(
             state["mentions"].outputs,
-            state["catalogs"]["outputs"],
+            [],
             OutputResolutionAnalysis,
             "mentioned_outputs",
             OUTPUT_RESOLUTION_PROMPT,
             llm=llm,
+            candidate_lists=state["candidates"]["outputs"],
         )
     }
 
@@ -318,8 +327,7 @@ def _choices(state: _ResolverState) -> list[dict[str, object]]:
                 "candidates": [entries[candidate_id] for candidate_id in match["candidate_ids"]],
             }
             for match_index, match in enumerate(matches)
-            if match["candidate_ids"]
-            and (not match["is_unambiguous"] or len(match["candidate_ids"]) != 1)
+            if match["candidate_ids"] and (not match["is_unambiguous"] or len(match["candidate_ids"]) != 1)
         )
     return pending
 
@@ -425,21 +433,62 @@ def build_name_resolver(llm: BaseChatModel) -> CompiledSubAgent:
     workflow.add_node("extract", extract)
     workflow.add_node("resolve_inputs", resolve_inputs)
     workflow.add_node("resolve_outputs", resolve_outputs)
-    workflow.add_node("clarify", _clarify_node)
+
+    def clarify(state: _ResolverState, config: RunnableConfig) -> Command:
+        """Discard superseded choices before consuming a numeric resume answer."""
+        repo = get_repository()
+        user_id = config.get("configurable", {}).get("user_id")
+        with repo.lock(user_id):
+            generation = repo.load(user_id)
+        if generation.identity != state["generation"]:
+            # Consume this interrupt's obsolete resume value without applying it.
+            interrupt({"question": "Модель обновлена. Повторно сопоставляем исходный запрос."})
+            return Command(
+                goto="load_catalogs",
+                update={
+                    "restart_request": state["original_request"],
+                    "pending": [],
+                    "input_matches": [],
+                    "output_matches": [],
+                },
+            )
+        return Command(goto="finalize", update=_clarify_node(state))
+
+    workflow.add_node("clarify", clarify)
     workflow.add_node("finalize", _finalize_node)
 
     def load_catalogs(state: _ResolverState, config: RunnableConfig) -> dict[str, object]:
         """Load catalogs for the authenticated user in the inherited runtime config."""
         user_id = config.get("configurable", {}).get("user_id")
-        return {"catalogs": get_user_workbook_catalog(user_id)}
+        repo = get_repository()
+        with repo.lock(user_id):
+            generation = repo.load(user_id)
+        return {"catalogs": generation.index.catalogs, "generation": generation.identity}
+
+    def retrieve(state: _ResolverState, config: RunnableConfig) -> dict[str, object]:
+        """Embed mentions in category batches and checkpoint JSON candidate snapshots."""
+        repo = get_repository()
+        user_id = config.get("configurable", {}).get("user_id")
+        with repo.lock(user_id):
+            generation = repo.load(user_id)
+            if generation.identity != state["generation"]:
+                raise ValueError("Workbook changed during resolution; retry the original request")
+            candidates = {
+                kind: generation.index.candidates(
+                    kind, getattr(state["mentions"], kind), repo.embeddings, repo.settings.retrieval_k
+                )
+                for kind in ("inputs", "outputs")
+            }
+        return {"candidates": candidates}
 
     workflow.add_node("load_catalogs", load_catalogs)
     workflow.add_edge(START, "load_catalogs")
     workflow.add_edge("load_catalogs", "extract")
-    workflow.add_edge("extract", "resolve_inputs")
-    workflow.add_edge("extract", "resolve_outputs")
+    workflow.add_node("retrieve", retrieve)
+    workflow.add_edge("extract", "retrieve")
+    workflow.add_edge("retrieve", "resolve_inputs")
+    workflow.add_edge("retrieve", "resolve_outputs")
     workflow.add_edge(["resolve_inputs", "resolve_outputs"], "clarify")
-    workflow.add_edge("clarify", "finalize")
     workflow.add_edge("finalize", END)
     graph = workflow.compile(checkpointer=None)
     return CompiledSubAgent(

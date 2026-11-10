@@ -1,7 +1,9 @@
 """Focused tests for V2 workbook catalogs and deterministic choices."""
 
+from contextlib import nullcontext
 from pathlib import Path
 from threading import Barrier
+from types import SimpleNamespace
 
 import openpyxl
 import pytest
@@ -11,7 +13,6 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from aigw_service.api.v2.name_resolution import (
-    INPUT_CATALOG_EXPERIMENT_FILTER,
     ExtractedNames,
     InputItem,
     InputResolutionAnalysis,
@@ -27,6 +28,32 @@ from aigw_service.api.v2.name_resolution import (
     build_workbook_catalog,
     get_user_workbook_catalog,
 )
+
+
+@pytest.fixture(autouse=True)
+def legacy_graph_repository(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep existing graph/clarification tests focused on their catalog stubs."""
+    from aigw_service.api.v2 import name_resolution as resolver
+
+    class Repository:
+        """Adapt legacy catalog fixtures to the persistent repository interface."""
+
+        embeddings = None
+        settings = SimpleNamespace(retrieval_k=10)
+
+        def lock(self, user_id: str) -> object:
+            """Provide a no-op lock for immutable test fixtures."""
+            return nullcontext()
+
+        def load(self, user_id: str) -> object:
+            """Expose the existing test's catalog without a cloud client."""
+            catalogs = resolver.get_user_workbook_catalog(user_id)
+            index = SimpleNamespace(
+                catalogs=catalogs, candidates=lambda kind, mentions, embeddings, k: [catalogs[kind] for _ in mentions]
+            )
+            return SimpleNamespace(identity="fixture", index=index)
+
+    monkeypatch.setattr(resolver, "get_repository", Repository)
 
 
 def _make_workbook(path: Path) -> None:
@@ -89,7 +116,7 @@ def test_catalog_reports_missing_user_workbook(monkeypatch: pytest.MonkeyPatch) 
         get_user_workbook_catalog("user0001")
 
 
-def test_input_resolver_prompt_contains_only_methanol_rows() -> None:
+def test_input_resolver_prompt_contains_only_retrieved_rows() -> None:
     class FakeStructuredModel:
         """Capture the system prompt and return no LLM matches."""
 
@@ -118,15 +145,15 @@ def test_input_resolver_prompt_contains_only_methanol_rows() -> None:
     state = {
         "mentions": ExtractedNames(inputs=["цена метанола"], outputs=[]),
         "catalogs": {"inputs": catalog, "outputs": []},
+        "candidates": {"inputs": [[catalog[0], catalog[2]]], "outputs": []},
     }
 
     result = _resolve_inputs_node(state, llm=llm)
 
-    assert INPUT_CATALOG_EXPERIMENT_FILTER == "метанол"
     assert "IN:12 | Метанол" in llm.structured_model.system_prompt
     assert "IN:14 | Объём МЕТАНОЛА" in llm.structured_model.system_prompt
     assert "Цена бензина" not in llm.structured_model.system_prompt
-    assert set(result["input_matches"][0]["candidate_ids"]) == {"IN:12", "IN:14"}
+    assert result["input_matches"][0]["candidate_ids"] == []
 
 
 @pytest.mark.parametrize(
@@ -310,7 +337,6 @@ def test_resolver_graph_has_parallel_input_and_output_branches() -> None:
 
 @pytest.mark.asyncio
 async def test_resolver_runs_both_branches_and_returns_canonical_names(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("aigw_service.api.v2.name_resolution.INPUT_CATALOG_EXPERIMENT_FILTER", "")
     catalogs = {
         "inputs": [{"id": "IN:8", "name": "Цена меди (USD/т)"}],
         "outputs": [{"id": "OUT:13", "name": "EBITDA"}],
@@ -382,7 +408,6 @@ async def test_resolver_runs_both_branches_and_returns_canonical_names(monkeypat
 
 @pytest.mark.asyncio
 async def test_multiple_ambiguous_choices_resume_deterministically(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("aigw_service.api.v2.name_resolution.INPUT_CATALOG_EXPERIMENT_FILTER", "")
     catalogs = {
         "inputs": [
             {"id": "IN:8", "name": "Цена меди (USD/т)"},
@@ -460,8 +485,11 @@ async def test_multiple_ambiguous_choices_resume_deterministically(monkeypatch: 
     final_text = resumed["messages"][-1].content
     assert '"resolved_name": "Цена алюминия (USD/т)"' in final_text
     assert '"resolved_name": "EBITDA"' in final_text
-    assert '"reason": "Пользователь выбрал вариант «Цена алюминия (USD/т)»."' in final_text
-    assert '"reason": "Пользователь выбрал вариант «EBITDA»."' in final_text
+    assert (
+        '"reason": "Пользователь выбрал вариант «Цена алюминия (USD/т)». Используем его для дальнейших расчётов."'
+        in final_text
+    )
+    assert '"reason": "Пользователь выбрал вариант «EBITDA». Используем его для дальнейших расчётов."' in final_text
     assert '"status": "resolved"' in final_text
     assert "IN:9" not in final_text
     assert "OUT:13" not in final_text

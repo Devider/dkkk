@@ -39,6 +39,14 @@ def _copy_file(source, dest) -> None:
     shutil.copy2(str(source), str(dest))
 
 
+def validate_workbook_extension(filename: str) -> str:
+    """Validate the workbook extensions accepted by both upload versions."""
+    extension = filename.split(".")[-1] if "." in filename else ""
+    if extension not in {"xlsx", "xls"}:
+        raise HTTPException(status_code=400, detail="Файл должен быть с расширением Excel")
+    return extension
+
+
 # =====================================================================================================================
 # ЗАГРУЗКА ФАЙЛА
 # =====================================================================================================================
@@ -74,14 +82,9 @@ async def upload_file(
     logger.info("HEADERS: {}", headers)
     logger.info("Graph agent endpoint called")
 
-    excel_extentions = {"xlsx", "xls"}
-
     try:
         save_dir = Path(tempfile.gettempdir())
-        file_extension = file.filename.split(".")[-1] if "." in file.filename else ""
-
-        if file_extension not in excel_extentions:
-            raise HTTPException(status_code=400, detail="Файл должен быть с расширением Excel")
+        file_extension = validate_workbook_extension(file.filename)
 
         filename = f"user_file_{headers['x-user-id']!s}.{file_extension}"
         file_location = save_dir / filename

@@ -1,6 +1,10 @@
 """HTTP contract tests for the Deep Agent API v2."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from io import BytesIO
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 from uuid import UUID, uuid4
 from zipfile import ZipFile
 
@@ -62,6 +66,16 @@ def _valid_headers(session_id: str | None = None) -> dict[str, str]:
 def disable_uninitialized_tracing(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep request tests independent from Langfuse application startup."""
     monkeypatch.setattr(v2_router.APP_CTX, "tracing", None)
+    generation = SimpleNamespace(identity="fixture")
+    monkeypatch.setattr(v2_router, "get_repository", lambda: SimpleNamespace(load=lambda user_id: generation))
+    monkeypatch.setattr(v2_router, "restore_workbook", AsyncMock())
+
+    @asynccontextmanager
+    async def lock(repo: object, user_id: str) -> AsyncIterator[None]:
+        """Skip persistence infrastructure in existing HTTP response contract tests."""
+        yield
+
+    monkeypatch.setattr(v2_router, "user_lock", lock)
 
 
 @pytest.mark.asyncio
@@ -92,6 +106,7 @@ async def test_invoke_agent_returns_zip_and_passes_request_identity(monkeypatch:
     assert config["configurable"] == {
         "thread_id": f"user0001:{session_id}",
         "user_id": "user0001",
+        "catalog_generation": "fixture",
     }
     assert config["metadata"]["client_id"] == "CI12345678"
     assert config["metadata"]["langfuse_session_id"] == f"user0001:{session_id}"
