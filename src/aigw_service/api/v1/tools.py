@@ -2325,7 +2325,6 @@ def get_input_info(
     config: RunnableConfig,
 ) -> GetInputInfoToolResult:
     """Read an input parameter's stored workbook value for a year or inclusive year range.
-
     Use this tool to retrieve values already present in the uploaded model's ``Inputs`` sheet.
     Pass the exact canonical parameter name from the workbook. For one year, pass
     ``year_range=[2025]``. For a continuous range, pass both inclusive boundaries, for example
@@ -2334,7 +2333,7 @@ def get_input_info(
     workbook, so it does not modify the file or recalculate formulas.
 
     Args:
-        input_name: Exact canonical name from the workbook's ``Наименование`` column on ``Inputs``.
+        input_name: Exact canonical name from the workbook's returned by resolution agent.
         year_range: A single year ``[year]`` or inclusive start and end ``[start_year, end_year]``.
         config: LangGraph runtime configuration; the uploaded file is selected using its trusted user ID.
 
@@ -2412,7 +2411,9 @@ def _read_input_info_content(file_path: str, input_name: str, years: list[int]) 
         }
         matches = _find_input_info_rows(sheet, name_column, input_name)
         if not matches:
-            raise ValueError(f"Параметр «{input_name}» не найден на листе Inputs по каноническому имени.")
+            raise ValueError(
+                f"Параметр «{input_name}» не найден на листе Inputs по каноническому имени. Параметр input_name принимает точное каноническое имя полученное при резолвинге."
+            )
         canonical_name, row = _select_input_info_row(matches, year_columns, years, input_name)
         values, missing_years = _collect_input_year_values(row, year_columns, years)
         return GetInputInfoToolContent(
@@ -2858,8 +2859,8 @@ def greet_user(name: str) -> str:
 TOOLS = [
     analyze_excel_model,
     analyze_model_inputs_for_target,
-    modify_excel_input_value,
-    build_dependency_graph,
+    # modify_excel_input_value,
+    # build_dependency_graph,
     greeting_user,
     get_output_info,
     get_input_info,
