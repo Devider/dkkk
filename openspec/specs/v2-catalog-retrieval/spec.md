@@ -45,12 +45,28 @@ The system SHALL publish a new workbook and its matching indexes together only a
 - **THEN** upload reports failure and the previous active workbook and catalogs remain usable
 
 ### Requirement: Retrieve bounded candidates for each mention
-The V2 resolver SHALL retrieve up to a configurable positive top-k candidates for each extracted name from the corresponding current workbook catalog. The matching LLM SHALL receive these candidates associated with their mention and SHALL resolve only validated candidate IDs. Duplicate names SHALL remain distinct by ID.
+The V2 resolver SHALL retrieve up to a configurable positive top-k candidates for each extracted name from the corresponding current workbook catalog. The matching LLM SHALL receive these candidates associated with their mention. Proposed names and IDs SHALL be validated against that mention's candidate list before a catalog entry is accepted. Duplicate names SHALL remain distinct by ID.
 
 #### Scenario: Multiple mentions
 - **WHEN** a request contains several input and output mentions
 - **THEN** each mention has its own ranked candidate list from the correct catalog
 - **AND** the matching prompt does not contain unrelated full catalogs
+
+#### Scenario: Proposal belongs to another mention
+- **WHEN** the matching LLM proposes a name and ID absent from the current mention's candidate list
+- **THEN** that proposal does not become an accepted match for the current mention
+- **AND** membership in another mention's list does not authorize its use
+
+#### Scenario: Canonical name with an absent or invalid ID
+- **WHEN** a proposed canonical name belongs to the current mention's candidate list but its proposed ID is absent or invalid
+- **THEN** the resolver retains the name and obtains its candidate IDs from that list
+- **AND** it does not discard a valid name solely because the proposed ID cannot be used
+- **AND** multiple rows with that name remain separate candidates requiring clarification
+
+#### Scenario: Duplicate names distinguished by a valid ID
+- **WHEN** multiple retrieved rows have the same canonical name
+- **AND** the LLM returns an unambiguous match with a valid ID and its matching canonical name
+- **THEN** the resolver accepts that specific candidate row instead of expanding the match to all equal names
 
 #### Scenario: Empty catalog or mentions
 - **WHEN** a catalog or mention list is empty

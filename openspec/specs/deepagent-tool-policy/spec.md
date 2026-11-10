@@ -6,15 +6,21 @@ Limit the V2 Deep Agent's model-visible tool set to application tools required f
 
 ## Requirements
 
-### Requirement: V2 excludes standard Deep Agents tools
+### Requirement: V2 excludes standard Deep Agents tools except scoped delegation
 
-The V2 agent SHALL register a GigaChat harness profile under provider key `giga`. The profile SHALL exclude standard Deep Agents tools from the model-visible tool set, including `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, `execute`, `task`, and `write_todos`. The existing Excel analysis tools SHALL remain available.
+The V2 agent SHALL register a GigaChat harness profile under provider key `giga`. The profile SHALL exclude `ls`, `read_file`, `write_file`, `edit_file`, `delete`, `glob`, `grep`, `execute`, and `write_todos` from the model-visible tool set. The `task` tool SHALL remain available for delegation to `workbook-name-resolver`. The automatically provided general-purpose subagent SHALL be disabled. The existing Excel analysis tools SHALL remain available.
 
 #### Scenario: Profile matches the configured GigaChat model
 
 - **WHEN** `create_v2_agent` constructs the configured `langchain_gigachat.GigaChat` model
 - **THEN** Deep Agents resolves the profile by the provider identifier reported by the integration (`giga`)
 - **AND** the standard tools listed above are excluded from the model's tool set
+
+#### Scenario: Workbook name resolution is available
+
+- **WHEN** the V2 model receives its available delegation tools and subagents
+- **THEN** it can call `workbook-name-resolver` through `task`
+- **AND** the automatically provided general-purpose subagent is not available
 
 #### Scenario: Excel tools remain available
 
