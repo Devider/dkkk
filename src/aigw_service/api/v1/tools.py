@@ -156,6 +156,51 @@ class GetOutputInfoToolResult(BaseModel):
     content: str = Field(description="Описание найденных ячеек")
 
 
+class InputYearValue(BaseModel):
+    """A stored value for one model year."""
+
+    year: int = Field(description="Год, за который прочитано значение")
+    value: int | float | str | None = Field(description="Значение из загруженной модели; null, если оно отсутствует")
+
+
+class GetInputInfoToolArgs(BaseModel):
+    """Arguments for reading an input parameter's current workbook values."""
+
+    input_name: str = Field(
+        min_length=1,
+        description=(
+            "Каноническое название входного параметра на листе Inputs. Используй имя, возвращённое "
+            "workbook-name-resolver, а не описательный псевдоним."
+        ),
+    )
+    year_range: list[int] = Field(
+        min_length=1,
+        max_length=2,
+        description=(
+            "Год для чтения: [2025]. Для диапазона укажи границы [2025, 2028]; обе границы включаются. "
+            "Инструмент только читает уже сохранённые в файле значения и не пересчитывает модель."
+        ),
+    )
+
+
+class GetInputInfoToolContent(BaseModel):
+    """Canonical input name and its values for requested years."""
+
+    input_name: str = Field(description="Каноническое название найденного входного параметра")
+    values: list[InputYearValue] = Field(description="Сохранённые значения входного параметра по годам")
+    missing_years: list[int] = Field(description="Запрошенные годы, которых нет в листе Inputs или в значениях строки")
+
+
+class GetInputInfoToolResult(BaseModel):
+    """Result of reading existing input values from the uploaded workbook."""
+
+    status: str = Field(description="Статус чтения: OK, PARTIAL или ERROR")
+    result: str = Field(description="Краткое описание результата")
+    content: GetInputInfoToolContent | None = Field(
+        description="Найденное имя и значения по годам, если чтение успешно"
+    )
+
+
 class DescribeOutputsSheetToolArgs(BaseModel):
     # file_name: str = Field(description="Название Excel файла для анализа листа 'Outputs'")
     pass
@@ -2259,6 +2304,183 @@ def get_store_file(user_id: str) -> str:
     return file_path
 
 
+@tool(args_schema=GetInputInfoToolArgs)
+def get_input_info(
+    input_name: str,
+    year_range: list[int],
+    config: RunnableConfig,
+) -> GetInputInfoToolResult:
+    """Read an input parameter's stored workbook value for a year or inclusive year range.
+
+    Use this tool to retrieve values already present in the uploaded model's ``Inputs`` sheet.
+    Pass the exact canonical parameter name from the workbook. For one year, pass
+    ``year_range=[2025]``. For a continuous range, pass both inclusive boundaries, for example
+    ``year_range=[2025, 2028]``. The result contains one value entry per requested year and lists
+    years whose column or cell value is missing. It reads cached cell values from the uploaded
+    workbook, so it does not modify the file or recalculate formulas.
+
+    Args:
+        input_name: Exact canonical name from the workbook's ``Наименование`` column on ``Inputs``.
+        year_range: A single year ``[year]`` or inclusive start and end ``[start_year, end_year]``.
+        config: LangGraph runtime configuration; the uploaded file is selected using its trusted user ID.
+
+    Returns:
+        A typed result containing the canonical name, year-value pairs, and any missing years.
+        ``status`` is ``OK`` when all requested values are present, ``PARTIAL`` when some are
+        absent, and ``ERROR`` when the workbook, sheet, parameter, or request cannot be read.
+    """
+    _, user_id = _get_invocation_identity(config)
+    try:
+        years = _get_input_info_years(year_range)
+        file_path = _get_uploaded_input_file_path(user_id)
+        content = _read_input_info_content(file_path, input_name, years)
+        status = "PARTIAL" if content.missing_years else "OK"
+        missing_note = (
+            f" Отсутствуют значения за годы: {', '.join(map(str, content.missing_years))}."
+            if content.missing_years
+            else ""
+        )
+        return GetInputInfoToolResult(
+            status=status,
+            result=f"Прочитаны сохранённые значения параметра «{content.input_name}».{missing_note}",
+            content=content,
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        return GetInputInfoToolResult(status="ERROR", result=str(exc), content=None)
+    except Exception as exc:
+        logger.opt(exception=True).error("get_input_info failed: {}", str(exc))
+        return GetInputInfoToolResult(
+            status="ERROR",
+            result=f"Не удалось прочитать значение параметра из Excel-файла: {_humanize_error(exc)}",
+            content=None,
+        )
+
+
+def _get_input_info_years(year_range: list[int]) -> list[int]:
+    """Validate one requested year or inclusive year-range boundaries."""
+    if len(year_range) not in (1, 2):
+        raise ValueError("Укажите один год или две границы диапазона.")
+    start_year, end_year = year_range[0], year_range[-1]
+    if start_year < 2000 or end_year > 2100 or start_year > end_year:
+        raise ValueError("Укажите корректный год или диапазон лет от 2000 до 2100.")
+    return list(range(start_year, end_year + 1))
+
+
+def _get_uploaded_input_file_path(user_id: str | None) -> str:
+    """Return the authenticated user's uploaded workbook path."""
+    if not user_id:
+        raise ValueError("Не удалось определить пользователя для поиска загруженной модели.")
+    stored_name = get_store_file(user_id)
+    if not stored_name:
+        raise FileNotFoundError("Загруженная Excel-модель не найдена. Сначала загрузите файл.")
+    file_path = os.path.abspath(os.path.join(TEMP_DIR, os.path.basename(stored_name)))
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError("Загруженная Excel-модель не найдена на диске. Загрузите её повторно.")
+    return file_path
+
+
+def _read_input_info_content(file_path: str, input_name: str, years: list[int]) -> GetInputInfoToolContent:
+    """Read a canonical Inputs row and the requested cached cell values."""
+    workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
+    try:
+        if "Inputs" not in workbook.sheetnames:
+            raise ValueError("В загруженной модели отсутствует лист Inputs.")
+        sheet = workbook["Inputs"]
+        headers = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True), ())
+        try:
+            name_column = headers.index("Наименование")
+        except ValueError as exc:
+            raise ValueError("На листе Inputs не найден столбец Наименование.") from exc
+        year_columns = {
+            year: column_index
+            for column_index, header in enumerate(headers)
+            if (year := _parse_input_year(header)) is not None
+        }
+        matches = _find_input_info_rows(sheet, name_column, input_name)
+        if not matches:
+            raise ValueError(f"Параметр «{input_name}» не найден на листе Inputs по каноническому имени.")
+        canonical_name, row = _select_input_info_row(matches, year_columns, years, input_name)
+        values, missing_years = _collect_input_year_values(row, year_columns, years)
+        return GetInputInfoToolContent(
+            input_name=canonical_name,
+            values=values,
+            missing_years=missing_years,
+        )
+    finally:
+        workbook.close()
+
+
+def _find_input_info_rows(
+    sheet: Any,
+    name_column: int,
+    input_name: str,
+) -> list[tuple[str, tuple[object, ...]]]:
+    """Find rows whose canonical name matches the requested input."""
+    normalized_name = normalize_text(input_name)
+    matches: list[tuple[str, tuple[object, ...]]] = []
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        if name_column >= len(row) or row[name_column] is None:
+            continue
+        canonical_name = str(row[name_column]).strip()
+        if canonical_name and normalize_text(canonical_name) == normalized_name:
+            matches.append((canonical_name, row))
+    return matches
+
+
+def _select_input_info_row(
+    matches: list[tuple[str, tuple[object, ...]]],
+    year_columns: dict[int, int],
+    years: list[int],
+    input_name: str,
+) -> tuple[str, tuple[object, ...]]:
+    """Choose the matching row with the most requested values or reject a tie."""
+    if len(matches) == 1:
+        return matches[0]
+    populated_counts = [
+        sum(
+            1
+            for year in years
+            if year in year_columns and year_columns[year] < len(row) and row[year_columns[year]] is not None
+        )
+        for _, row in matches
+    ]
+    best_count = max(populated_counts)
+    best_matches = [match for match, count in zip(matches, populated_counts, strict=True) if count == best_count]
+    if len(best_matches) != 1:
+        raise ValueError(
+            f"Найдено несколько строк Inputs с названием «{input_name}»; определить строку однозначно не удалось."
+        )
+    return best_matches[0]
+
+
+def _collect_input_year_values(
+    row: tuple[object, ...], year_columns: dict[int, int], years: list[int]
+) -> tuple[list[InputYearValue], list[int]]:
+    """Build typed values and missing-year lists from one worksheet row."""
+    values: list[InputYearValue] = []
+    missing_years: list[int] = []
+    for year in years:
+        column_index = year_columns.get(year)
+        value = row[column_index] if column_index is not None and column_index < len(row) else None
+        if value is None:
+            missing_years.append(year)
+        elif not isinstance(value, (int, float, str)):
+            value = str(value)
+        values.append(InputYearValue(year=year, value=value))
+    return values, missing_years
+
+
+def _parse_input_year(header: object) -> int | None:
+    """Return an integer model year from a spreadsheet column header."""
+    try:
+        numeric_year = float(header)
+    except (TypeError, ValueError):
+        return None
+    if numeric_year.is_integer() and 2000 <= numeric_year <= 2100:
+        return int(numeric_year)
+    return None
+
+
 @tool(args_schema=GetOutputInfoToolArgs)
 def get_output_info(
     # file_name: str,
@@ -2626,5 +2848,6 @@ TOOLS = [
     build_dependency_graph,
     greeting_user,
     get_output_info,
+    get_input_info,
     describe_outputs_sheet,
 ]

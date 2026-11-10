@@ -4,7 +4,6 @@ import json
 import os
 import re
 import tempfile
-from difflib import SequenceMatcher
 from typing import Annotated, Literal, TypedDict
 
 import openpyxl
@@ -23,6 +22,8 @@ from aigw_service.api.v2.prompts.name_resolution import (
     INPUT_RESOLUTION_PROMPT,
     OUTPUT_RESOLUTION_PROMPT,
 )
+
+INPUT_CATALOG_EXPERIMENT_FILTER = "золото"
 
 
 class CatalogEntry(TypedDict):
@@ -229,8 +230,6 @@ def _resolve_catalog(
         is_unambiguous = bool(
             len(candidate_ids) == 1 and matched_items and all(item.is_unambiguous for item in matched_items)
         )
-        if not candidate_ids and catalog:
-            candidate_ids = _fallback_candidate_ids(mention, catalog)
         results.append(
             {
                 "mentioned_name": mention,
@@ -238,7 +237,7 @@ def _resolve_catalog(
                 "is_unambiguous": is_unambiguous and len(candidate_ids) == 1,
                 "reason": "; ".join(dict.fromkeys(item.explanation for item in matched_items))
                 if matched_items
-                else "LLM не вернула варианты; показаны ближайшие названия каталога.",
+                else "Подходящий аналог в каталоге не найден.",
             }
         )
     return results
@@ -271,25 +270,15 @@ def _candidate_ids_from_items(
     return list(dict.fromkeys(candidates))
 
 
-def _fallback_candidate_ids(mention: str, catalog: list[CatalogEntry], limit: int = 5) -> list[str]:
-    """Return a bounded fuzzy shortlist when the structured LLM output has no valid IDs."""
-    normalized_mention = normalize_text(mention)
-    ranked = sorted(
-        catalog,
-        key=lambda entry: (
-            -SequenceMatcher(None, normalized_mention, normalize_text(entry["name"])).ratio(),
-            entry["id"],
-        ),
-    )
-    return [entry["id"] for entry in ranked[:limit]]
-
-
 def _resolve_inputs_node(state: _ResolverState, *, llm: BaseChatModel) -> dict[str, object]:
-    """Resolve input mentions against only the Inputs catalog."""
+    """Resolve input mentions against the experiment-filtered Inputs catalog."""
+    filtered_catalog = [
+        entry for entry in state["catalogs"]["inputs"] if INPUT_CATALOG_EXPERIMENT_FILTER in entry["name"].casefold()
+    ]
     return {
         "input_matches": _resolve_catalog(
             state["mentions"].inputs,
-            state["catalogs"]["inputs"],
+            filtered_catalog,
             InputResolutionAnalysis,
             "mentioned_inputs",
             INPUT_RESOLUTION_PROMPT,
@@ -329,7 +318,8 @@ def _choices(state: _ResolverState) -> list[dict[str, object]]:
                 "candidates": [entries[candidate_id] for candidate_id in match["candidate_ids"]],
             }
             for match_index, match in enumerate(matches)
-            if not match["is_unambiguous"] or len(match["candidate_ids"]) != 1
+            if match["candidate_ids"]
+            and (not match["is_unambiguous"] or len(match["candidate_ids"]) != 1)
         )
     return pending
 
@@ -390,20 +380,27 @@ def _finalize_node(state: _ResolverState) -> dict[str, object]:
         entries = {entry["id"]: entry["name"] for entry in catalog}
         for match_index, match in enumerate(matches):
             candidate_ids = match["candidate_ids"]
-            candidate_id = (
-                candidate_ids[0]
-                if match["is_unambiguous"] and len(candidate_ids) == 1
-                else selected.get((kind, match_index))
-            )
+            selected_id = selected.get((kind, match_index))
+            was_selected_by_user = selected_id is not None
+            candidate_id = candidate_ids[0] if match["is_unambiguous"] and len(candidate_ids) == 1 else selected_id
             canonical_name = entries.get(candidate_id) if candidate_id in entries else None
+            reason = (
+                f"Пользователь выбрал вариант «{canonical_name}». Используем его для дальнейших расчётов."
+                if canonical_name and was_selected_by_user
+                else match["reason"]
+                if canonical_name
+                else (
+                    f"Для «{match['mentioned_name']}» подходящий аналог в каталоге не найден."
+                    if not candidate_ids
+                    else "Пользователь отклонил предложенные варианты."
+                )
+            )
             result[kind].append(
                 {
                     "mentioned_name": match["mentioned_name"],
                     "resolved_name": canonical_name,
                     "status": "resolved" if canonical_name else "unresolved",
-                    "reason": match["reason"]
-                    if canonical_name
-                    else "Пользователь отклонил кандидатов или совпадение не найдено.",
+                    "reason": reason,
                 }
             )
     return {"result": result, "messages": [AIMessage(content=json.dumps(result, ensure_ascii=False))]}

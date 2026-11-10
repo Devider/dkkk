@@ -11,14 +11,17 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from aigw_service.api.v2.name_resolution import (
+    INPUT_CATALOG_EXPERIMENT_FILTER,
     ExtractedNames,
     InputItem,
     InputResolutionAnalysis,
     OutputItem,
     OutputResolutionAnalysis,
+    _choices,
     _finalize_node,
     _parse_selection,
     _resolve_catalog,
+    _resolve_inputs_node,
     _ResolverState,
     build_name_resolver,
     build_workbook_catalog,
@@ -84,6 +87,46 @@ def test_catalog_reports_missing_user_workbook(monkeypatch: pytest.MonkeyPatch) 
 
     with pytest.raises(FileNotFoundError, match="загрузите Excel-модель"):
         get_user_workbook_catalog("user0001")
+
+
+def test_input_resolver_prompt_contains_only_methanol_rows() -> None:
+    class FakeStructuredModel:
+        """Capture the system prompt and return no LLM matches."""
+
+        def __init__(self) -> None:
+            self.system_prompt = ""
+
+        def invoke(self, messages: list) -> InputResolutionAnalysis:
+            self.system_prompt = str(messages[0].content)
+            return InputResolutionAnalysis(mentioned_inputs=[])
+
+    class FakeLLM:
+        """Return a structured model stub for the input schema."""
+
+        def __init__(self) -> None:
+            self.structured_model = FakeStructuredModel()
+
+        def with_structured_output(self, schema: type) -> FakeStructuredModel:
+            return self.structured_model
+
+    llm = FakeLLM()
+    catalog = [
+        {"id": "IN:12", "name": "Метанол"},
+        {"id": "IN:13", "name": "Цена бензина"},
+        {"id": "IN:14", "name": "Объём МЕТАНОЛА"},
+    ]
+    state = {
+        "mentions": ExtractedNames(inputs=["цена метанола"], outputs=[]),
+        "catalogs": {"inputs": catalog, "outputs": []},
+    }
+
+    result = _resolve_inputs_node(state, llm=llm)
+
+    assert INPUT_CATALOG_EXPERIMENT_FILTER == "метанол"
+    assert "IN:12 | Метанол" in llm.structured_model.system_prompt
+    assert "IN:14 | Объём МЕТАНОЛА" in llm.structured_model.system_prompt
+    assert "Цена бензина" not in llm.structured_model.system_prompt
+    assert set(result["input_matches"][0]["candidate_ids"]) == {"IN:12", "IN:14"}
 
 
 @pytest.mark.parametrize(
@@ -174,7 +217,7 @@ def test_missing_match_in_empty_catalog_stays_unresolved() -> None:
     assert matches[0]["candidate_ids"] == []
 
 
-def test_empty_llm_candidate_list_falls_back_to_catalog_suggestions() -> None:
+def test_empty_llm_candidate_list_is_unresolved_without_catalog_suggestions() -> None:
     class FakeStructuredModel:
         """Return a valid structured response without proposing candidates."""
 
@@ -207,8 +250,17 @@ def test_empty_llm_candidate_list_falls_back_to_catalog_suggestions() -> None:
         ["цена метанола"], catalog, InputResolutionAnalysis, "mentioned_inputs", "{catalog}", llm=FakeLLM()
     )
 
-    assert matches[0]["candidate_ids"] == ["IN:22", "IN:23"]
+    assert matches[0]["candidate_ids"] == []
     assert matches[0]["is_unambiguous"] is False
+    state = {
+        "catalogs": {"inputs": catalog, "outputs": []},
+        "input_matches": matches,
+        "output_matches": [],
+    }
+    assert _choices(state) == []
+    result = _finalize_node(state)["result"]
+    assert result["inputs"][0]["status"] == "unresolved"
+    assert result["inputs"][0]["reason"] == "Для «цена метанола» подходящий аналог в каталоге не найден."
 
 
 def test_repeated_mentions_keep_separate_candidate_selections() -> None:
@@ -258,6 +310,7 @@ def test_resolver_graph_has_parallel_input_and_output_branches() -> None:
 
 @pytest.mark.asyncio
 async def test_resolver_runs_both_branches_and_returns_canonical_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("aigw_service.api.v2.name_resolution.INPUT_CATALOG_EXPERIMENT_FILTER", "")
     catalogs = {
         "inputs": [{"id": "IN:8", "name": "Цена меди (USD/т)"}],
         "outputs": [{"id": "OUT:13", "name": "EBITDA"}],
@@ -329,6 +382,7 @@ async def test_resolver_runs_both_branches_and_returns_canonical_names(monkeypat
 
 @pytest.mark.asyncio
 async def test_multiple_ambiguous_choices_resume_deterministically(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("aigw_service.api.v2.name_resolution.INPUT_CATALOG_EXPERIMENT_FILTER", "")
     catalogs = {
         "inputs": [
             {"id": "IN:8", "name": "Цена меди (USD/т)"},
@@ -406,6 +460,8 @@ async def test_multiple_ambiguous_choices_resume_deterministically(monkeypatch: 
     final_text = resumed["messages"][-1].content
     assert '"resolved_name": "Цена алюминия (USD/т)"' in final_text
     assert '"resolved_name": "EBITDA"' in final_text
+    assert '"reason": "Пользователь выбрал вариант «Цена алюминия (USD/т)»."' in final_text
+    assert '"reason": "Пользователь выбрал вариант «EBITDA»."' in final_text
     assert '"status": "resolved"' in final_text
     assert "IN:9" not in final_text
     assert "OUT:13" not in final_text
