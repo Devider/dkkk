@@ -1,6 +1,8 @@
 """Candidate membership and durable generation guards in a checkpointed resolver."""
 
 import re
+from types import SimpleNamespace
+from typing import Literal
 
 import pytest
 from langchain_core.messages import HumanMessage
@@ -186,3 +188,100 @@ def test_duplicate_names_can_be_resolved_by_row_id() -> None:
     assert resolver._candidate_ids_from_items([output], outputs, "mentioned_outputs", "equivalent_output_name") == [
         "OUT:3"
     ]
+
+
+def resolve_items(
+    kind: Literal["inputs", "outputs"],
+    items: list[resolver.InputItem | resolver.OutputItem],
+    mentions: list[str],
+    catalog: list[resolver.CatalogEntry],
+) -> list[resolver.ResolutionMatch]:
+    """Run the production adapter on deterministic structured LLM responses."""
+    schema = resolver.InputResolutionAnalysis if kind == "inputs" else resolver.OutputResolutionAnalysis
+    field = "mentioned_inputs" if kind == "inputs" else "mentioned_outputs"
+    selection = schema(**{field: items})
+    llm = SimpleNamespace(with_structured_output=lambda schema: SimpleNamespace(invoke=lambda messages: selection))
+    return resolver._resolve_catalog(mentions, catalog, schema, field, "{catalog}", llm=llm)
+
+
+@pytest.mark.parametrize("kind", ["inputs", "outputs"])
+@pytest.mark.parametrize("valid_id", [True, False])
+@pytest.mark.parametrize("candidate_names", [["Алюминий", "Медь"], ["Медь"]])
+def test_ambiguous_matches_preserve_llm_candidate_order(
+    kind: Literal["inputs", "outputs"], valid_id: bool, candidate_names: list[str]
+) -> None:
+    """Clarification uses LLM candidates and their order, not the preferred ID or retrieval order."""
+    category = "input" if kind == "inputs" else "output"
+    prefix = "IN" if kind == "inputs" else "OUT"
+    schema = resolver.InputItem if kind == "inputs" else resolver.OutputItem
+    catalog = [
+        {"id": f"{prefix}:2", "name": "Медь"},
+        {"id": f"{prefix}:3", "name": "Алюминий"},
+        {"id": f"{prefix}:4", "name": "Золото"},
+    ]
+    item = schema(
+        **{
+            f"mentioned_{category}_name": "metal",
+            f"equivalent_{category}_id": f"{prefix}:4" if valid_id else f"{prefix}:404",
+            f"equivalent_{category}_name": "Золото",
+        },
+        candidate_names=candidate_names,
+        is_unambiguous=False,
+        explanation="Нужно выбрать металл.",
+    )
+    matches = resolve_items(kind, [item], ["metal"], catalog)
+    match = matches[0]
+    assert match["matched_names"] == ["Золото"]
+    expected_candidates = [entry for name in candidate_names for entry in catalog if entry["name"] == name]
+    assert match["candidate_names"] == candidate_names
+    assert match["candidate_ids"] == [entry["id"] for entry in expected_candidates]
+    assert match["is_unambiguous"] is False
+    assert match["llm_matches"] == [item.model_dump(mode="json")]
+    state = {
+        "catalogs": {kind: catalog, "outputs" if kind == "inputs" else "inputs": []},
+        f"{category}_matches": matches,
+    }
+    pending = resolver._choices(state)
+    assert pending[0]["candidates"] == expected_candidates
+    pending[0]["selected_id"] = f"{prefix}:2"
+    state["pending"] = pending
+    result = resolver._finalize_node(state)["result"][kind][0]
+    assert result["resolved_name"] == "Медь"
+    assert result["resolution_source"] == "user"
+    assert result["matched_names"] == ["Золото"]
+    assert result["candidate_names"] == candidate_names
+    assert result["explanation"] == "Нужно выбрать металл."
+
+
+@pytest.mark.parametrize("kind", ["inputs", "outputs"])
+@pytest.mark.parametrize("valid_id", [True, False])
+def test_repeated_llm_mentions_remain_separate(kind: Literal["inputs", "outputs"], valid_id: bool) -> None:
+    """Each repeated mention consumes one structured result without merging distinct matches."""
+    category = "input" if kind == "inputs" else "output"
+    prefix = "IN" if kind == "inputs" else "OUT"
+    schema = resolver.InputItem if kind == "inputs" else resolver.OutputItem
+    catalog = [{"id": f"{prefix}:2", "name": "Медь"}, {"id": f"{prefix}:3", "name": "Алюминий"}]
+    items = [
+        schema(
+            **{
+                f"mentioned_{category}_name": "metal",
+                f"equivalent_{category}_id": entry["id"] if valid_id else f"{prefix}:404",
+                f"equivalent_{category}_name": entry["name"],
+            },
+            candidate_names=[entry["name"]],
+            is_unambiguous=True,
+            explanation=entry["name"],
+        )
+        for entry in catalog
+    ]
+    matches = resolve_items(kind, items, ["metal", "metal"], catalog)
+    assert [match["candidate_names"] for match in matches] == [["Медь"], ["Алюминий"]]
+    assert all(match["is_unambiguous"] for match in matches)
+    state = {
+        "catalogs": {kind: catalog, "outputs" if kind == "inputs" else "inputs": []},
+        f"{category}_matches": matches,
+    }
+    assert resolver._choices(state) == []
+    results = resolver._finalize_node(state)["result"][kind]
+    assert [item["resolved_name"] for item in results] == ["Медь", "Алюминий"]
+    assert all(item["resolution_source"] == "llm" for item in results)

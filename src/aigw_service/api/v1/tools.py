@@ -72,7 +72,9 @@ class ExcelInputModificationToolResult(BaseModel):
 
 
 class ExcelInputModificationToolArgs(BaseModel):
-    file_name: str = Field(..., description="Название Excel файла для модификации")
+    file_name: str = Field(
+        ..., description="Название Excel файла для модификации, если только пользователь указал в сообщении"
+    )
     input_names: list[str] = Field(
         ..., description="Список описательных запросов для идентификации ячеек на листе 'inputs' "
     )
@@ -88,14 +90,20 @@ class ExcelInputModificationToolArgs(BaseModel):
 
 # Args classes
 class ExcelAnalysisToolArgs(BaseModel):
-    file_name: str = Field(..., description="Название Excel файла для анализа")
+    file_name: str = Field(
+        ..., description="Название Excel файла для анализа, если только пользователь указал в сообщении"
+    )
     input_names: list[str] = Field(
-        ..., description="Список описательных запросов для идентификации ячеек на листе 'inputs'."
+        ...,
+        description="Список описательных запросов для идентификации ячеек на листе 'inputs', как было указано при резолвинге имен",
     )
     output_names: list[str] = Field(
-        ..., description="Список описательных запросов для идентификации ячеек на листе 'outputs'."
+        ...,
+        description="Список описательных запросов для идентификации ячеек на листе 'outputs', как было указано при резолвинге имен",
     )
-    output_years: list[int] = Field(..., description="Список лет для каждого выходного параметра")
+    output_years: list[int] = Field(
+        ..., description="Список лет для каждого выходного параметра, указанный пользователем"
+    )
     ranges: list[list[float]] = Field(
         ...,
         description="Диапазоны [начало, конец] для каждой ячейки, соответствующей запросу в input_names. Порядок и количество должны совпадать с input_names.",
@@ -107,18 +115,24 @@ class ExcelAnalysisToolArgs(BaseModel):
 
 
 class ModelInputAnalysisToolArgs(BaseModel):
-    file_name: str = Field(..., description="Название Excel файла для анализа")
-    output_name: str = Field(
-        ..., description="Описательный запрос для идентификации целевой ячейки на листе 'outputs' (без года)"
+    file_name: str = Field(
+        ..., description="Название Excel файла для анализа, только если пользователь указал в сообщении"
     )
-    output_year: int = Field(..., description="Год целевого показателя (например: 2028)")
+    output_name: str = Field(
+        ...,
+        description="Описательный запрос для идентификации целевой ячейки на листе 'outputs' (без года), то, как было указано при резолвинге имен",
+    )
+    output_year: int = Field(..., description="Год целевого показателя, который указал пользователь(например: 2028)")
     target_value: float = Field(
         ..., description="Целевое число без единиц измерения и суффиксов. Например: 1.85, 3650, -270"
     )
-    tolerance: float = Field(default=0.1, description="Допустимое отклонение от целевого значения")
+    tolerance: float = Field(
+        default=0.1, description="Допустимое отклонение от целевого значения, если указал пользовтель"
+    )
     max_scenarios: int = Field(default=1000, description="Максимальное количество сценариев для анализа")
     input_names: list[str] = Field(
-        ..., description="Список описательных запросов для идентификации ячеек на листе 'inputs' (без года)."
+        ...,
+        description="Список описательных запросов для идентификации ячеек на листе 'inputs' (без года), то, как было указано при резолвинге имен",
     )
 
 
@@ -212,7 +226,7 @@ def _get_invocation_identity(config: RunnableConfig) -> tuple[str | None, str | 
     return configurable.get("thread_id"), configurable.get("user_id")
 
 
-# @tool(args_schema=ModelInputAnalysisToolArgs)
+@tool(args_schema=ModelInputAnalysisToolArgs)
 def analyze_model_inputs_for_target(
     file_name: str,
     output_name: str,
@@ -784,7 +798,7 @@ def generate_result_message(
         )
 
 
-# @tool(args_schema=ExcelAnalysisToolArgs)
+@tool(args_schema=ExcelAnalysisToolArgs)
 def analyze_excel_model(
     file_name: str,
     input_names: list,

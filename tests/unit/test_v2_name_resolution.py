@@ -1,5 +1,6 @@
 """Focused tests for V2 workbook catalogs and deterministic choices."""
 
+import json
 from contextlib import nullcontext
 from pathlib import Path
 from threading import Barrier
@@ -208,6 +209,10 @@ def test_bilingual_match_is_validated_and_only_canonical_name_is_returned() -> N
             "resolved_name": "Цена меди (USD/т)",
             "status": "resolved",
             "reason": "Copper price alias.",
+            "matched_names": ["Цена меди (USD/т)"],
+            "candidate_names": ["Цена меди (USD/т)"],
+            "explanation": "Copper price alias.",
+            "resolution_source": "llm",
         }
     ]
     assert "IN:8" not in str(result)
@@ -287,7 +292,8 @@ def test_empty_llm_candidate_list_is_unresolved_without_catalog_suggestions() ->
     assert _choices(state) == []
     result = _finalize_node(state)["result"]
     assert result["inputs"][0]["status"] == "unresolved"
-    assert result["inputs"][0]["reason"] == "Для «цена метанола» подходящий аналог в каталоге не найден."
+    assert result["inputs"][0]["reason"] == "Прямое соответствие не определено."
+    assert result["inputs"][0]["resolution_source"] is None
 
 
 def test_repeated_mentions_keep_separate_candidate_selections() -> None:
@@ -485,11 +491,18 @@ async def test_multiple_ambiguous_choices_resume_deterministically(monkeypatch: 
     final_text = resumed["messages"][-1].content
     assert '"resolved_name": "Цена алюминия (USD/т)"' in final_text
     assert '"resolved_name": "EBITDA"' in final_text
-    assert (
-        '"reason": "Пользователь выбрал вариант «Цена алюминия (USD/т)». Используем его для дальнейших расчётов."'
-        in final_text
-    )
-    assert '"reason": "Пользователь выбрал вариант «EBITDA». Используем его для дальнейших расчётов."' in final_text
+    result = json.loads(final_text)
+    assert result == resumed["result"]
+    for kind, mention, selected_name, explanation in (
+        ("inputs", "metal price", "Цена алюминия (USD/т)", "Two possible inputs."),
+        ("outputs", "profit", "EBITDA", "Two possible outputs."),
+    ):
+        item = result[kind][0]
+        assert item["resolution_source"] == "user"
+        assert item["reason"] == f"Пользователь выбрал и подтвердил аналог «{selected_name}» для «{mention}»."
+        assert item["explanation"] == explanation
+        assert len(item["candidate_names"]) == 2
+        assert len(item["matched_names"]) == 1
     assert '"status": "resolved"' in final_text
     assert "IN:9" not in final_text
     assert "OUT:13" not in final_text
@@ -503,3 +516,7 @@ async def test_multiple_ambiguous_choices_resume_deterministically(monkeypatch: 
     none_text = none_result["messages"][-1].content
     assert '"resolved_name": null' in none_text
     assert '"status": "unresolved"' in none_text
+    rejected = none_result["result"]["inputs"][0]
+    assert rejected["resolution_source"] is None
+    assert rejected["explanation"] == "Two possible inputs."
+    assert rejected["candidate_names"] == ["Цена меди (USD/т)", "Цена алюминия (USD/т)"]

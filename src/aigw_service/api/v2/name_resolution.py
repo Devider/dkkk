@@ -46,6 +46,22 @@ class NameResolutionItem(TypedDict):
     resolved_name: str | None
     status: Literal["resolved", "unresolved"]
     reason: str
+    matched_names: list[str]
+    candidate_names: list[str]
+    explanation: str
+    resolution_source: Literal["llm", "user"] | None
+
+
+class ResolutionMatch(TypedDict):
+    """Validated candidates and the original structured response for one mention."""
+
+    mentioned_name: str
+    matched_names: list[str]
+    candidate_names: list[str]
+    candidate_ids: list[str]
+    is_unambiguous: bool
+    reason: str
+    llm_matches: list[dict[str, object]]
 
 
 class NameResolutionResult(TypedDict):
@@ -134,8 +150,8 @@ class _ResolverState(TypedDict, total=False):
     messages: Annotated[list, add_messages]
     catalogs: Catalogs
     mentions: ExtractedNames
-    input_matches: list[dict]
-    output_matches: list[dict]
+    input_matches: list[ResolutionMatch]
+    output_matches: list[ResolutionMatch]
     pending: list[dict]
     result: NameResolutionResult
     generation: str
@@ -209,7 +225,7 @@ def _resolve_catalog(
     *,
     llm: BaseChatModel,
     candidate_lists: list[list[CatalogEntry]] | None = None,
-) -> list[dict[str, object]]:
+) -> list[ResolutionMatch]:
     """Adapt InputItem/OutputItem responses to validated catalog entry IDs."""
     if not mentions:
         return []
@@ -230,32 +246,55 @@ def _resolve_catalog(
     response_items = getattr(selection, response_field)
     mention_field = "mentioned_input_name" if response_field == "mentioned_inputs" else "mentioned_output_name"
     name_field = "equivalent_input_name" if response_field == "mentioned_inputs" else "equivalent_output_name"
-    results: list[dict[str, object]] = []
+    results: list[ResolutionMatch] = []
+    consumed: set[int] = set()
     for index, mention in enumerate(mentions):
-        matched_items = [
-            item for item in response_items if normalize_text(getattr(item, mention_field)) == normalize_text(mention)
-        ]
-        if not matched_items and len(response_items) == len(mentions):
-            matched_items = [response_items[index]]
-        candidate_ids = _candidate_ids_from_items(matched_items, candidate_lists[index], response_field, name_field)
-        is_unambiguous = bool(
-            len(candidate_ids) == 1 and matched_items and all(item.is_unambiguous for item in matched_items)
+        response_index = next(
+            (
+                item_index
+                for item_index, item in enumerate(response_items)
+                if item_index not in consumed
+                and normalize_text(getattr(item, mention_field)) == normalize_text(mention)
+            ),
+            None,
         )
-        results.append(
-            {
-                "mentioned_name": mention,
-                "candidate_ids": candidate_ids,
-                "is_unambiguous": is_unambiguous and len(candidate_ids) == 1,
-                "reason": "; ".join(dict.fromkeys(item.explanation for item in matched_items))
-                if matched_items
-                else "Подходящий аналог в каталоге не найден.",
-            }
-        )
+        if response_index is None and len(response_items) == len(mentions) and index not in consumed:
+            response_index = index
+        matched_items = [] if response_index is None else [response_items[response_index]]
+        if response_index is not None:
+            consumed.add(response_index)
+        results.append(_adapt_match(mention, matched_items, candidate_lists[index], response_field, name_field))
     return results
 
 
+def _adapt_match(
+    mention: str,
+    items: list[InputItem | OutputItem],
+    catalog: list[CatalogEntry],
+    response_field: Literal["mentioned_inputs", "mentioned_outputs"],
+    name_field: str,
+) -> ResolutionMatch:
+    """Preserve structured LLM matches alongside validated canonical candidates."""
+    candidate_ids = _candidate_ids_from_items(items, catalog, response_field, name_field)
+    entries = {entry["id"]: entry["name"] for entry in catalog}
+    valid_names = set(entries.values())
+    return {
+        "mentioned_name": mention,
+        "matched_names": list(
+            dict.fromkeys(getattr(item, name_field) for item in items if getattr(item, name_field) in valid_names)
+        ),
+        "candidate_names": list(dict.fromkeys(entries[candidate_id] for candidate_id in candidate_ids)),
+        "candidate_ids": candidate_ids,
+        "is_unambiguous": bool(len(candidate_ids) == 1 and items and all(item.is_unambiguous for item in items)),
+        "reason": "; ".join(dict.fromkeys(item.explanation for item in items))
+        if items
+        else "Подходящий аналог в каталоге не найден.",
+        "llm_matches": [item.model_dump(mode="json") for item in items],
+    }
+
+
 def _candidate_ids_from_items(
-    items: list[InputItem] | list[OutputItem],
+    items: list[InputItem | OutputItem],
     catalog: list[CatalogEntry],
     response_field: Literal["mentioned_inputs", "mentioned_outputs"],
     name_field: str,
@@ -268,15 +307,13 @@ def _candidate_ids_from_items(
     for item in items:
         proposed_id = getattr(item, id_field, "")
         selected_id = normalized_ids.get(re.sub(r"[^a-zA-Z0-9]", "", proposed_id).casefold())
-        if proposed_id and not selected_id:
-            continue
-        if selected_id and item.is_unambiguous:
+        equivalent_name = getattr(item, name_field, "")
+        if selected_id and item.is_unambiguous and by_id[selected_id]["name"] == equivalent_name:
             candidates.append(selected_id)
             continue
-        if selected_id:
-            candidates.append(selected_id)
-        names = [*item.candidate_names, getattr(item, name_field, "")]
-        candidates.extend(entry["id"] for entry in catalog if entry["name"] in names)
+        names = [equivalent_name] if item.is_unambiguous else item.candidate_names
+        for name in names:
+            candidates.extend(entry["id"] for entry in catalog if entry["name"] == name)
     return list(dict.fromkeys(candidates))
 
 
@@ -377,8 +414,39 @@ def _clarify_node(state: _ResolverState) -> dict[str, object]:
         return {"pending": pending}
 
 
+def _finalize_match(
+    match: ResolutionMatch,
+    entries: dict[str, str],
+    selected_id: str | None,
+) -> NameResolutionItem:
+    """Describe the validated automatic match or the user's approved choice."""
+    candidate_ids = match["candidate_ids"]
+    candidate_id = candidate_ids[0] if match["is_unambiguous"] and len(candidate_ids) == 1 else selected_id
+    canonical_name = entries.get(candidate_id) if candidate_id in candidate_ids else None
+    source: Literal["llm", "user"] | None = None
+    reason = match["reason"]
+    if canonical_name:
+        source = "user" if selected_id is not None else "llm"
+        if source == "user":
+            reason = f"Пользователь выбрал и подтвердил аналог «{canonical_name}» для «{match['mentioned_name']}»."
+    elif candidate_ids:
+        reason = "Пользователь отклонил предложенные варианты."
+    return {
+        "mentioned_name": match["mentioned_name"],
+        "resolved_name": canonical_name,
+        "status": "resolved" if canonical_name else "unresolved",
+        "reason": reason,
+        "matched_names": match.get("matched_names", []),
+        "candidate_names": match.get(
+            "candidate_names", list(dict.fromkeys(entries[value] for value in candidate_ids if value in entries))
+        ),
+        "explanation": match["reason"],
+        "resolution_source": source,
+    }
+
+
 def _finalize_node(state: _ResolverState) -> dict[str, object]:
-    """Validate IDs and return canonical names with no catalog identifiers."""
+    """Return canonical names, candidates and the origin of each final choice."""
     selected = {(item["kind"], item["match_index"]): item.get("selected_id") for item in state.get("pending", [])}
     result: NameResolutionResult = {"inputs": [], "outputs": []}
     for kind, matches, catalog in (
@@ -387,30 +455,8 @@ def _finalize_node(state: _ResolverState) -> dict[str, object]:
     ):
         entries = {entry["id"]: entry["name"] for entry in catalog}
         for match_index, match in enumerate(matches):
-            candidate_ids = match["candidate_ids"]
             selected_id = selected.get((kind, match_index))
-            was_selected_by_user = selected_id is not None
-            candidate_id = candidate_ids[0] if match["is_unambiguous"] and len(candidate_ids) == 1 else selected_id
-            canonical_name = entries.get(candidate_id) if candidate_id in entries else None
-            reason = (
-                f"Пользователь выбрал вариант «{canonical_name}». Используем его для дальнейших расчётов."
-                if canonical_name and was_selected_by_user
-                else match["reason"]
-                if canonical_name
-                else (
-                    f"Для «{match['mentioned_name']}» подходящий аналог в каталоге не найден."
-                    if not candidate_ids
-                    else "Пользователь отклонил предложенные варианты."
-                )
-            )
-            result[kind].append(
-                {
-                    "mentioned_name": match["mentioned_name"],
-                    "resolved_name": canonical_name,
-                    "status": "resolved" if canonical_name else "unresolved",
-                    "reason": reason,
-                }
-            )
+            result[kind].append(_finalize_match(match, entries, selected_id))
     return {"result": result, "messages": [AIMessage(content=json.dumps(result, ensure_ascii=False))]}
 
 
