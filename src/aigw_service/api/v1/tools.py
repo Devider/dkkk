@@ -95,11 +95,17 @@ class ExcelAnalysisToolArgs(BaseModel):
     )
     input_names: list[str] = Field(
         ...,
-        description="Список описательных запросов для идентификации ячеек на листе 'inputs', как было указано при резолвинге имен",
+        description=(
+            "Список точных канонических имён Inputs из resolved_name результата workbook-name-resolver "
+            "со статусом resolved. Передавай имена без изменений; годы указывай отдельно."
+        ),
     )
     output_names: list[str] = Field(
         ...,
-        description="Список описательных запросов для идентификации ячеек на листе 'outputs', как было указано при резолвинге имен",
+        description=(
+            "Список точных канонических имён Outputs из resolved_name результата workbook-name-resolver "
+            "со статусом resolved. Передавай имена без изменений; годы указывай отдельно."
+        ),
     )
     output_years: list[int] = Field(
         ..., description="Список лет для каждого выходного параметра, указанный пользователем"
@@ -120,7 +126,10 @@ class ModelInputAnalysisToolArgs(BaseModel):
     )
     output_name: str = Field(
         ...,
-        description="Описательный запрос для идентификации целевой ячейки на листе 'outputs' (без года), то, как было указано при резолвинге имен",
+        description=(
+            "Точное каноническое имя Outputs из resolved_name результата workbook-name-resolver "
+            "со статусом resolved. Передавай имя без изменений; год указывай в output_year."
+        ),
     )
     output_year: int = Field(..., description="Год целевого показателя, который указал пользователь(например: 2028)")
     target_value: float = Field(
@@ -132,7 +141,10 @@ class ModelInputAnalysisToolArgs(BaseModel):
     max_scenarios: int = Field(default=1000, description="Максимальное количество сценариев для анализа")
     input_names: list[str] = Field(
         ...,
-        description="Список описательных запросов для идентификации ячеек на листе 'inputs' (без года), то, как было указано при резолвинге имен",
+        description=(
+            "Список точных канонических имён Inputs из resolved_name результата workbook-name-resolver "
+            "со статусом resolved. Передавай имена без изменений; годы указывай отдельно."
+        ),
     )
 
 
@@ -160,7 +172,12 @@ class DescribeOutputsSheetToolResult(BaseModel):
 
 class GetOutputInfoToolArgs(BaseModel):
     # file_name: str = Field(description="Название Excel файла для модификации")
-    output_name: str = Field(description="Описательный запрос для идентификации ячейки на листе 'outputs'")
+    output_name: str = Field(
+        description=(
+            "Точное каноническое имя Outputs из resolved_name результата workbook-name-resolver "
+            "со статусом resolved. Передавай имя без изменений; годы указывай в year_range."
+        )
+    )
     year_range: list[int] = Field(description="Список лет, для которых ведется поиск значений входных переменных")
 
 
@@ -183,8 +200,8 @@ class GetInputInfoToolArgs(BaseModel):
     input_name: str = Field(
         min_length=1,
         description=(
-            "Каноническое название входного параметра на листе Inputs. Используй имя, возвращённое "
-            "workbook-name-resolver, а не описательный псевдоним."
+            "Точное каноническое имя Inputs из resolved_name результата workbook-name-resolver "
+            "со статусом resolved. Передавай имя без изменений; годы указывай в year_range."
         ),
     )
     year_range: list[int] = Field(
@@ -239,13 +256,17 @@ def analyze_model_inputs_for_target(
 ) -> ModelInputAnalysisToolResult:
     """
     Подбирает параметры модели, которые приводят к требуемому значению целевого параметра.
+    Перед вызовом разреши все input_names и output_name через subagent workbook-name-resolver.
+    Используй только точные resolved_name со статусом resolved из соответствующих Inputs и Outputs.
+    Уже полученные сопоставления можно использовать повторно для той же загруженной модели.
+    Имена со статусом unresolved передавать нельзя.
 
     Args:
         file_name (str): Имя Excel файла для анализа
-        output_name (str): Описательный запрос для идентификации целевой ячейки (без года)
+        output_name (str): Каноническое имя Outputs из resolved_name со статусом resolved (год отдельно)
         output_year (int): Год целевого показателя
         target_value (float): Целевое значение для выходного параметра (без единиц и суффиксов)
-        input_names (list[str]): Список входных параметров для анализа (без года)
+        input_names (list[str]): Канонические имена Inputs из resolved_name со статусом resolved (годы отдельно)
         tolerance (float): Допустимое отклонение от целевого значения в процентах (по умолчанию 0.1%)
         max_scenarios (int): Не используется (адаптивный поиск); параметр сохранён для совместимости
 
@@ -812,12 +833,17 @@ def analyze_excel_model(
     ГЛАВНЫЙ инструмент для сценарного анализа «что-если».
     Изменяет входные параметры (Inputs), пересчитывает модель (LibreOffice Calc),
     возвращает значения выходных показателей (Outputs) для каждого сценария.
-    Пример: "Проанализируй модель при цене метанола от 450 до 500 с шагом 5 и инфляции USD CPI от 0.1 до 0.2 с шагом 0.1, покажи debt/ebitda 2025, net debt/ebitda (ltm) 2025 и icr corr (ltm) 2025"
+    Перед вызовом разреши все input_names и output_names через subagent workbook-name-resolver.
+    Используй только точные resolved_name со статусом resolved из соответствующих Inputs и Outputs.
+    Уже полученные сопоставления можно использовать повторно для той же загруженной модели.
+    Имена со статусом unresolved передавать нельзя.
+    Например, для сценария с изменением цены метанола и расчётом debt/ebitda сначала получи
+    канонические имена обоих показателей от workbook-name-resolver, затем передай их в инструмент.
 
     Args:
         file_name (str): Название Excel файла для анализа
-        input_names (list): Список описательных запросов для идентификации ячеек на листе 'inputs'
-        output_names (list): Список описательных запросов для идентификации ячеек на листе 'outputs'
+        input_names (list): Канонические имена Inputs из resolved_name со статусом resolved
+        output_names (list): Канонические имена Outputs из resolved_name со статусом resolved
         output_years (list): Список лет для каждого выходного параметра
         ranges (list): Диапазоны [начало, конец] для каждой ячейки в input_names
         steps (list): Шаги для генерации значений (по умолчанию [0.5])
@@ -2326,14 +2352,17 @@ def get_input_info(
 ) -> GetInputInfoToolResult:
     """Read an input parameter's stored workbook value for a year or inclusive year range.
     Use this tool to retrieve values already present in the uploaded model's ``Inputs`` sheet.
-    Pass the exact canonical parameter name from the workbook. For one year, pass
+    Before calling, resolve input_name through the workbook-name-resolver subagent.
+    Pass its exact Inputs resolved_name with status resolved, preserving the name unchanged.
+    Reuse an existing resolution for the same uploaded model; never pass an unresolved name.
+    For one year, pass
     ``year_range=[2025]``. For a continuous range, pass both inclusive boundaries, for example
     ``year_range=[2025, 2028]``. The result contains one value entry per requested year and lists
     years whose column or cell value is missing. It reads cached cell values from the uploaded
     workbook, so it does not modify the file or recalculate formulas.
 
     Args:
-        input_name: Exact canonical name from the workbook's returned by resolution agent.
+        input_name: Exact Inputs resolved_name returned by workbook-name-resolver with status resolved.
         year_range: A single year ``[year]`` or inclusive start and end ``[start_year, end_year]``.
         config: LangGraph runtime configuration; the uploaded file is selected using its trusted user ID.
 
@@ -2506,7 +2535,16 @@ def get_output_info(
     """
     ТОЛЬКО для чтения значений на листе Outputs (без изменения данных).
     НЕ используй для поиска входных параметров — они находятся на листе Inputs.
-    Пример: "Покажи значения debt/ebitda в 2025-2027 годах"
+    Перед вызовом разреши output_name через subagent workbook-name-resolver.
+    Передавай точное каноническое имя Outputs из resolved_name со статусом resolved без изменений.
+    Уже полученное сопоставление можно использовать повторно для той же загруженной модели.
+    Имя со статусом unresolved передавать нельзя. Годы указывай отдельно в year_range.
+    Например, для запроса debt/ebitda сначала получи его каноническое имя от workbook-name-resolver.
+
+    Args:
+        output_name: Каноническое имя Outputs из resolved_name со статусом resolved.
+        year_range: Список запрошенных лет.
+        config: Конфигурация вызова с идентификатором пользователя.
     """
     thread_id, user_id = _get_invocation_identity(config)
     logger.info(f"=== Запуск get_output_info для user_id={user_id}, thread_id={thread_id} ===")

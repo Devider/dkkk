@@ -14,6 +14,8 @@ import pytest
 from httpx import ASGITransport
 from langchain_core.messages import AIMessage
 from langgraph.types import Command
+from ollama import ResponseError
+from pydantic import ValidationError
 
 from aigw_service.api import app_main
 from aigw_service.api.v2 import router as v2_router
@@ -225,3 +227,34 @@ def test_v2_upload_route_is_hidden_from_openapi() -> None:
 
     assert "/api/v2/invoke-agent" in paths
     assert "/api/v2/upload" not in paths
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ResponseError("model not found", status_code=404),
+        httpx.ConnectError("Ollama unreachable"),
+        httpx.ReadTimeout("Ollama timeout"),
+        ValidationError.from_exception_data(
+            "InputResolutionAnalysis",
+            [{"type": "missing", "loc": ("mentioned_inputs",), "input": {}}],
+        ),
+    ],
+)
+async def test_ollama_failures_return_424_without_fallback(monkeypatch: pytest.MonkeyPatch, error: Exception) -> None:
+    """Keep provider/parse failures on the existing failure contract."""
+    from aigw_service.api.v2 import agent as v2_agent
+
+    def forbid_fallback(**kwargs: object) -> None:
+        """Any attempt to construct another provider fails the test."""
+        raise AssertionError("Unexpected GigaChat fallback")
+
+    monkeypatch.setattr(v2_agent, "GigaChat", forbid_fallback)
+    agent = StubDeepAgent(error=error)
+    monkeypatch.setattr(v2_router, "get_deep_agent", lambda: agent)
+    async with httpx.AsyncClient(transport=ASGITransport(app=app_main), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v2/invoke-agent", json={"message": "Analyze EBITDA"}, headers=_valid_headers()
+        )
+    assert response.status_code == 424
+    assert response.json()["detail"] == str(error)

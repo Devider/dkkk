@@ -1,4 +1,4 @@
-"""Tests for the GigaChat-specific Deep Agents tool exclusions."""
+"""Tests for the provider-independent Deep Agents tool exclusions."""
 
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -8,6 +8,7 @@ from deepagents._models import get_model_provider
 from deepagents.middleware._tool_exclusion import _ToolExclusionMiddleware
 from deepagents.profiles.harness.harness_profiles import _harness_profile_for_model
 from langchain_core.messages import ToolMessage
+from langchain_ollama import ChatOllama
 
 from aigw_service.api.v1.tools import TOOLS
 from aigw_service.api.v2.profiles import (
@@ -33,14 +34,15 @@ class FakeModelRequest:
         return FakeModelRequest(tools=tools)
 
 
-def test_resolved_gigachat_profile_excludes_defaults_and_keeps_excel_tools() -> None:
+@pytest.mark.parametrize("provider", ["giga", "ollama"])
+def test_resolved_profile_excludes_defaults_and_keeps_excel_tools(provider: str) -> None:
     register_v2_harness_profile()
-    model = FakeGigaChatModel()
+    model = FakeGigaChatModel() if provider == "giga" else ChatOllama(model="qwen3.5:9b-mlx")
     profile = _harness_profile_for_model(model, None)
 
-    assert get_model_provider(model) == "giga"
+    assert get_model_provider(model) == provider
     assert profile.excluded_tools == V2_EXCLUDED_BUILTIN_TOOLS
-    assert profile.general_purpose_subagent.enabled is False
+    assert profile.general_purpose_subagent.enabled is True
     assert "task" not in profile.excluded_tools
 
     application_tool_names = {
@@ -50,9 +52,12 @@ def test_resolved_gigachat_profile_excludes_defaults_and_keeps_excel_tools() -> 
     assert application_tool_names.isdisjoint(profile.excluded_tools)
 
 
-def test_exclusion_middleware_hides_defaults_but_keeps_application_tools() -> None:
+@pytest.mark.parametrize("provider", ["giga", "ollama"])
+def test_exclusion_middleware_hides_defaults_but_keeps_application_tools(provider: str) -> None:
     register_v2_harness_profile()
-    profile = _harness_profile_for_model(FakeGigaChatModel(), None)
+    profile = _harness_profile_for_model(
+        FakeGigaChatModel() if provider == "giga" else ChatOllama(model="qwen3.5:9b-mlx"), None
+    )
     middleware = _ToolExclusionMiddleware(excluded=profile.excluded_tools)
     offered_tools = [
         {"name": "ls"},
@@ -70,9 +75,12 @@ def test_exclusion_middleware_hides_defaults_but_keeps_application_tools() -> No
     }
 
 
-def test_task_tool_remains_available_for_registered_resolver() -> None:
+@pytest.mark.parametrize("provider", ["giga", "ollama"])
+def test_task_tool_remains_available_for_registered_resolver(provider: str) -> None:
     register_v2_harness_profile()
-    profile = _harness_profile_for_model(FakeGigaChatModel(), None)
+    profile = _harness_profile_for_model(
+        FakeGigaChatModel() if provider == "giga" else ChatOllama(model="qwen3.5:9b-mlx"), None
+    )
     middleware = _ToolExclusionMiddleware(excluded=profile.excluded_tools)
     offered_tools = [{"name": "task"}, {"name": "analyze_excel_model"}]
     request = FakeModelRequest(tools=offered_tools)
@@ -98,7 +106,7 @@ def test_v2_agent_registers_specialized_resolver_and_excel_tools(monkeypatch: py
         captured.update(kwargs)
         return kwargs
 
-    monkeypatch.setattr(v2_agent, "GigaChat", FakeGigaChat)
+    monkeypatch.setattr(v2_agent, "create_v2_model", FakeGigaChat)
     monkeypatch.setattr(v2_agent, "create_deep_agent", capture_agent)
 
     v2_agent.create_v2_agent()
@@ -108,9 +116,12 @@ def test_v2_agent_registers_specialized_resolver_and_excel_tools(monkeypatch: py
     assert captured["subagents"][0]["runnable"] is not None
 
 
-def test_excluded_tool_call_is_rejected() -> None:
+@pytest.mark.parametrize("provider", ["giga", "ollama"])
+def test_excluded_tool_call_is_rejected(provider: str) -> None:
     register_v2_harness_profile()
-    profile = _harness_profile_for_model(FakeGigaChatModel(), None)
+    profile = _harness_profile_for_model(
+        FakeGigaChatModel() if provider == "giga" else ChatOllama(model="qwen3.5:9b-mlx"), None
+    )
     middleware = _ToolExclusionMiddleware(excluded=profile.excluded_tools)
     tool_call_request = SimpleNamespace(tool_call={"name": "ls", "id": "call-1"})
 

@@ -12,6 +12,7 @@ from .langfuse import LangfuseSettings
 from .logger import LogSettings
 from .pangolin import PangolinSettings
 from .platform_v_search import PlatformVSearchSettings
+from .v2 import V2Settings
 
 
 class Secrets:
@@ -20,6 +21,7 @@ class Secrets:
     log: LogSettings = LogSettings()
     gigachat: GigaChatSettings = GigaChatSettings()
     ollama: OllamaSettings = OllamaSettings()
+    v2: V2Settings = V2Settings()
     platform_v_search: PlatformVSearchSettings = PlatformVSearchSettings()
     pangolin: PangolinSettings = PangolinSettings()
     idp: IDPSettings = IDPSettings()

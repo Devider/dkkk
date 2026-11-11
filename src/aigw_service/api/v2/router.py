@@ -31,7 +31,7 @@ class DeepAgentRequest(BaseModel):
 
 @lru_cache(maxsize=1)
 def get_deep_agent():
-    """Create the v2 GigaChat client and Deep Agent once per process."""
+    """Create the configured V2 Deep Agent once per process."""
     return create_v2_agent()
 
 

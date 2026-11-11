@@ -539,6 +539,8 @@ def build_name_resolver(llm: BaseChatModel) -> CompiledSubAgent:
     graph = workflow.compile(checkpointer=None)
     return CompiledSubAgent(
         name="workbook-name-resolver",
-        description="Разрешает упомянутые пользователем Inputs и Outputs по каталогу загруженной модели до расчётов.",
+        description="Делает резолвинг упомянутых пользователем входных параметрови и выходных показателей для "
+        " по каталогу загруженной модели до расчётов. Вызывай его всегда, когда пользователь упоминает входные "
+        "параметры или выходные показатели.",
         runnable=graph,
     )

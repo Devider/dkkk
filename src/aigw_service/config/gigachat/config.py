@@ -126,3 +126,4 @@ class OllamaSettings(BaseAppSettings):
     model_name: str = Field(validation_alias="OLLAMA_MODEL", default="llama3")
     temperature: float = Field(validation_alias="OLLAMA_TEMPERATURE", default=0.000001)
     timeout: int = Field(validation_alias="OLLAMA_TIMEOUT", default=60)
+    reasoning: bool = Field(validation_alias="OLLAMA_REASONING", default=False)
