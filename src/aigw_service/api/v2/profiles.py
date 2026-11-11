@@ -28,7 +28,7 @@ def register_v2_harness_profile() -> None:
             HarnessProfile(
                 excluded_tools=V2_EXCLUDED_BUILTIN_TOOLS,
                 general_purpose_subagent=GeneralPurposeSubagentProfile(
-                    enabled=True,
+                    enabled=False,
                     description="Делает резолвинг упомянутых пользователем входных параметрови и выходных показателей для "
                     " по каталогу загруженной модели до расчётов. Вызывай его всегда, когда пользователь упоминает входные "
                     "параметры или выходные показатели.",
