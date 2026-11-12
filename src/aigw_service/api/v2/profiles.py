@@ -26,12 +26,21 @@ def register_v2_harness_profile() -> None:
         register_harness_profile(
             provider,
             HarnessProfile(
+                tool_description_overrides={
+                    "task": (
+                        "Делегирует задачу выбранному подагенту и возвращает его результат. "
+                        "В subagent_type укажи имя подагента из списка ниже. "
+                        "В description передай входные данные согласно его специализации. "
+                        "Для workbook-name-resolver передавай только названия двумя списками: "
+                        "Inputs: [...] и Outputs: [...], сохраняя формулировки пользователя. "
+                        "Пустую категорию обозначай []. Не передавай годы, диапазоны, значения, "
+                        "шаги расчётов, полный запрос или инструкции по сопоставлению. "
+                        "Все новые названия текущей задачи передавай одним вызовом; "
+                        "дождись результата до зависящих от него Excel-вызовов.\n\n"
+                        "Доступные подагенты:\n{available_agents}"
+                    ),
+                },
                 excluded_tools=V2_EXCLUDED_BUILTIN_TOOLS,
-                general_purpose_subagent=GeneralPurposeSubagentProfile(
-                    enabled=False,
-                    description="Делает резолвинг упомянутых пользователем входных параметрови и выходных показателей для "
-                    " по каталогу загруженной модели до расчётов. Вызывай его всегда, когда пользователь упоминает входные "
-                    "параметры или выходные показатели.",
-                ),
+                general_purpose_subagent=GeneralPurposeSubagentProfile(enabled=False),
             ),
         )
